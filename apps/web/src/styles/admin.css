@@ -1,0 +1,184 @@
+/* 
+  ===== PAGE CONTAINER BLOCK =====
+  This styles the main admin page container.
+  It adds padding around all admin content.
+*/
+.lwAdmin{
+  padding: 22px;
+}
+
+/* 
+  ===== HEADER BLOCK =====
+  These styles control the spacing and appearance of
+  the Admin page header section.
+*/
+.lwAdminHeader{
+  margin-bottom: 14px;
+}
+
+.lwAdminTitle{
+  margin: 0 0 6px;
+  font-size: 44px;
+  font-weight: 1000;
+}
+
+.lwAdminSub{
+  margin: 0;
+  opacity: 0.7;
+  font-weight: 700;
+}
+
+
+/* 
+  ===== GRID LAYOUT BLOCK =====
+  This defines a responsive grid that holds the admin glass cards.
+  By default, it shows 3 columns.
+*/
+.lwGlassGrid{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+/* 
+  ===== RESPONSIVE BLOCK =====
+  On smaller screens, the grid collapses into a single column.
+*/
+@media (max-width: 1100px){
+  .lwGlassGrid{ grid-template-columns: 1fr; }
+}
+
+
+/* 
+  ===== GLASS CARD BLOCK =====
+  This styles each glass-style admin card:
+  - semi-transparent background
+  - rounded corners
+  - shadow
+  - blur effect
+*/
+.lwGlassCard{
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 22px;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+
+
+/* 
+  ===== CARD HEADER BLOCK =====
+  This styles the top section of each glass card.
+  It aligns the icon and text horizontally.
+*/
+.lwGlassTop{
+  display:flex;
+  gap: 12px;
+  align-items:center;
+  padding: 14px;
+  background: rgba(255,255,255,0.35);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+
+/* 
+  ===== ICON BLOCK =====
+  This styles the square icon container inside each card.
+  It centers the icon and gives it a soft glass background.
+*/
+.lwBubbleIcon{
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(0,0,0,0.08);
+  font-size: 20px;
+}
+
+
+/* 
+  ===== CARD TITLE BLOCK =====
+  These styles control the main title and hint text inside each card header.
+*/
+.lwGlassTitle{
+  font-weight: 950;
+}
+
+.lwGlassHint{
+  font-size: 12px;
+  opacity: 0.65;
+  font-weight: 700;
+}
+
+
+/* 
+  ===== CARD BODY BLOCK =====
+  This styles the main body area of each glass card.
+  It stacks items vertically with spacing between them.
+*/
+.lwGlassBody{
+  padding: 14px;
+  display:flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+
+/* 
+  ===== BUBBLE ROW BLOCK =====
+  This styles a row that holds multiple status bubbles.
+  It allows wrapping when there are many bubbles.
+*/
+.lwBubbleRow{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+
+/* 
+  ===== BUBBLE BLOCK =====
+  This styles each individual bubble tag:
+  - rounded pill shape
+  - centered content
+  - semi-transparent background
+*/
+.lwBubble{
+  display:inline-flex;
+  gap: 6px;
+  align-items:center;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.70);
+  border: 1px solid rgba(0,0,0,0.08);
+  font-weight: 800;
+  opacity: 0.95;
+}
+
+
+/* 
+  ===== WIDE BUBBLE BLOCK =====
+  This variation makes a bubble stretch across the full width,
+  used for rows that need left/right alignment.
+*/
+.lwBubble.wide{
+  width: 100%;
+  border-radius: 18px;
+  justify-content: space-between;
+}
+
+
+/* 
+  ===== STATUS COLOR BLOCK =====
+  These styles change the border color based on status:
+  - ok: green
+  - warn: orange
+  - danger: red
+*/
+.lwBubble.ok{ border-color: rgba(30, 160, 80, 0.35); }
+.lwBubble.warn{ border-color: rgba(240, 160, 0, 0.45); }
+.lwBubble.danger{ border-color: rgba(220, 60, 60, 0.45); }
