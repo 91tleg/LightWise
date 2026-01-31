@@ -62,6 +62,10 @@ Have this aleady
 | Spec | Value |
 |------|-------|
 | Amazon PN | B071X19VL1 |
+| Input Voltage | 110–220 VAC |
+| Control Logic | 3.3–5 V logic compatible |
+| Max Load | 200 W (resistive), 50 W (LED) |
+| Isolation | Optocoupler for logic/mains separation |
 
 **Notes:**
 - Module uses TRIAC-based phase angle control for AC dimming.
@@ -72,20 +76,38 @@ Have this aleady
 - Must be mounted in insulated enclosure to meet electrical safety standards.
 - Suitable for resistive and dimmable LED loads only (not inductive loads).
 
-## 8. Light Bulb w/ Base (Dimmable AC Load)
+## 8. Light Bulb w/ Socket (Dimmable AC Load)
+
 | Spec | Value |
 |------|-------|
-| Socket Type | E26/E27 |
+| Bulb Type | LED |
+| Socket Type | E26 |
 | Voltage Rating | 110–240 VAC |
-| Power Rating | 5–12 W (LED) |
+| Power Rating | 9 W (60 W equivalent) |
 | Dimming Support | TRIAC Phase-Cut Compatible |
+
 **Notes:**
 - Must be explicitly labeled as “dimmable”.
 - Standard LED bulbs without dimming support will flicker or fail.
 - Lower wattage LED bulbs reduce thermal stress on the TRIAC module.
 - Warm white (2700K–3000K) provides more natural brightness scaling.
 
+## 9. Wiring and Power Cord
+
+| Spec | Value |
+|------|-------|
+| Cord Type | PS913163 3-Wire Appliance/Tool Cord |
+| Wire Gauge | 16 AWG |
+| Length | 9 ft |
+| Current Rating | 13 A / 125 V AC |
+| Power Rating | 1625 W |
+
+**Notes:**
+- Provides live, neutral, and earth conductors from wall outlet to dimmer and socket.
+- Strain relief recommended for safety.
+- Earth wire should be connected to socket chassis if metallic.
+
 ---
 
-**Document Version**: 1.0   
-**Last Updated**: January 26, 2026  
+**Document Version**: 1.1   
+**Last Updated**: January 27, 2026  
