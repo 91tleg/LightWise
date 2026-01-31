@@ -1,0 +1,3 @@
+[submodule "firmware/test/googletest"]
+	path = firmware/test/googletest
+	url = https://github.com/google/googletest.git
