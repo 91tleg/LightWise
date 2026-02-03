@@ -3,40 +3,18 @@ import Layout from "../components/Layout";
 import "../styles/lightwise.css";
 
 export default function Admin() {
-
- 
   return (
-
-    // This block wraps the entire Admin page inside the common Layout.
-    // It automatically adds the Sidebar and the TopBar around this page.
     <Layout>
-
-      {/* 
-        This is the main container for the Admin page content.
-        It holds the header and all admin control cards.
-      */}
       <div className="lwPage">
-
-        {/* 
-          This block displays the page header at the top:
-          - the main title "Admin"
-          - and a short description under it.
-        */}
         <div className="lwPageHeader">
           <h1 className="lwPageTitle">Admin</h1>
           <p className="lwPageSubtitle">System controls & configuration.</p>
         </div>
 
-        {/* 
-          This block is a grid that holds all the admin feature cards.
-          Each card represents a different admin control area.
-        */}
         <div className="lwBubbleGrid">
-
-          {/* 
-            This block is the first admin card: Rules Engine.
-            It represents controls for automatic dimming and safety rules.
-          */}
+          {/* =========================
+              Rules Engine
+             ========================= */}
           <div className="lwBubbleCard">
             <div className="lwBubbleTop">
               <div className="lwBubbleIcon">🧠</div>
@@ -46,29 +24,47 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* 
-              This block shows small tags (pills) that describe active rule modes.
-            */}
             <div className="lwBubblePills">
               <span className="lwBubblePill">Auto</span>
               <span className="lwBubblePill">Night</span>
               <span className="lwBubblePill">Motion</span>
             </div>
 
-            {/* 
-              This block shows action buttons related to the Rules Engine.
-              These buttons would later open rule editing or logs.
-            */}
+            {/* Example block */}
+            <div
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.08)",
+                background: "rgba(255,255,255,0.55)",
+                lineHeight: 1.35,
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Example</div>
+              <div>
+                <b>Lightpole ID:</b> LW-001
+              </div>
+              <div>
+                <b>Rule:</b> If motion detected → brightness 100% for 30s
+              </div>
+              <div>
+                <b>Idle:</b> No motion → dim to 30%
+              </div>
+              <div>
+                <b>Night Window:</b> 9:00 PM – 5:30 AM
+              </div>
+            </div>
+
             <div className="lwBubbleBtnRow">
               <button className="lwBubbleBtn">Edit Rules</button>
               <button className="lwBubbleBtn ghost">View Logs</button>
             </div>
           </div>
 
-          {/* 
-            This block is the second admin card: Access control.
-            It represents user roles, permissions, and API key management.
-          */}
+          {/* =========================
+              Access
+             ========================= */}
           <div className="lwBubbleCard">
             <div className="lwBubbleTop">
               <div className="lwBubbleIcon">🔐</div>
@@ -78,28 +74,47 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* 
-              This block shows the different access roles in the system.
-            */}
             <div className="lwBubblePills">
               <span className="lwBubblePill">Admin</span>
               <span className="lwBubblePill">Operator</span>
               <span className="lwBubblePill">Viewer</span>
             </div>
 
-            {/* 
-              This block shows action buttons for managing users and keys.
-            */}
+            {/* Example block */}
+            <div
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.08)",
+                background: "rgba(255,255,255,0.55)",
+                lineHeight: 1.35,
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Example</div>
+              <div>
+                <b>User:</b> operator@lightwise.city
+              </div>
+              <div>
+                <b>Role:</b> Operator (can view + acknowledge alerts)
+              </div>
+              <div>
+                <b>Key:</b> LW-KEY-7F3A… (last rotated: 2026-02-01)
+              </div>
+              <div>
+                <b>Scope:</b> Map + Alerts (no rule edits)
+              </div>
+            </div>
+
             <div className="lwBubbleBtnRow">
               <button className="lwBubbleBtn">Manage Users</button>
               <button className="lwBubbleBtn ghost">Rotate Key</button>
             </div>
           </div>
 
-          {/* 
-            This block is the third admin card: Maintenance.
-            It represents system maintenance, tickets, and diagnostics.
-          */}
+          {/* =========================
+              Maintenance
+             ========================= */}
           <div className="lwBubbleCard">
             <div className="lwBubbleTop">
               <div className="lwBubbleIcon">🛠️</div>
@@ -109,24 +124,43 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* 
-              This block shows the current maintenance ticket states.
-            */}
             <div className="lwBubblePills">
               <span className="lwBubblePill">Open</span>
               <span className="lwBubblePill">Urgent</span>
               <span className="lwBubblePill">Resolved</span>
             </div>
 
-            {/* 
-              This block shows action buttons for creating tickets and running checks.
-            */}
+            {/* Example block */}
+            <div
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.08)",
+                background: "rgba(255,255,255,0.55)",
+                lineHeight: 1.35,
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Example</div>
+              <div>
+                <b>Ticket:</b> MT-1029
+              </div>
+              <div>
+                <b>Lightpole ID:</b> LW-014
+              </div>
+              <div>
+                <b>Issue:</b> Pole offline (last seen 2h ago)
+              </div>
+              <div>
+                <b>Status:</b> Urgent • Assigned to: Field Team A
+              </div>
+            </div>
+
             <div className="lwBubbleBtnRow">
               <button className="lwBubbleBtn">Create Ticket</button>
               <button className="lwBubbleBtn ghost">Run Check</button>
             </div>
           </div>
-
         </div>
       </div>
     </Layout>
