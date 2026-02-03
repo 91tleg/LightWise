@@ -1,4 +1,4 @@
-# Git Workflow Guide for LightWise
+# Contribution Guidelines
 
 This document outlines the commit message conventions, pull request process, and branch strategy.
 
@@ -7,7 +7,6 @@ This document outlines the commit message conventions, pull request process, and
 ## Table of Contents
 
 1. [Commit Message Template](#commit-message-template)
-2. [Commit Message Guidelines](#commit-message-guidelines)
 3. [Pull Request Process](#pull-request-process)
 4. [Branch Strategy](#branch-strategy)
 5. [Common Workflows](#common-workflows)
@@ -19,87 +18,23 @@ This document outlines the commit message conventions, pull request process, and
 ### Template Format
 
 ```
-<type>(<scope>): <subject>
+Short description of change
 
-<body>
-
-<footer>
+Optional longer explanation of what was changed and why.
+- List any important points
+- Reference related issues if any
 ```
-
-### Full Example
-
-```
-feat(firmware): add motion sensor calibration routine
-
-Implement automatic calibration for PIR motion sensor during startup.
-- Samples ambient light for 30 seconds to establish baseline
-- Adjusts sensitivity threshold based on environmental conditions
-- Logs calibration results to EEPROM for persistence
-
-Fixes #42
-Closes #45
-Related-to: #67
-```
-
----
-
-## Commit Message Guidelines
-
-### Type
-
-Must be one of the following:
-
-| Type | Description | Example |
-|------|-------------|---------|
-| **feat** | A new feature | `feat(api): add telemetry query filters` |
-| **fix** | A bug fix | `fix(firmware): correct I2C sensor timeout` |
-| **docs** | Documentation only | `docs(readme): update setup instructions` |
-| **style** | Code style changes (formatting, missing semicolons, etc.) | `style(backend): format lambda function` |
-| **refactor** | Code refactoring without feature changes | `refactor(frontend): extract sensor card component` |
-| **perf** | Performance improvements | `perf(dynamodb): add query indexes` |
-| **test** | Adding or updating tests | `test(api): add validation test cases` |
-| **chore** | Build, dependencies, CI/CD changes | `chore(deps): upgrade aws-sdk to 3.x` |
-| **ci** | CI/CD configuration changes | `ci(github-actions): add linting job` |
-| **build** | Build system or build artifact changes | `build(webpack): optimize bundle size` |
-
-### Scope
-
-The scope provides additional contextual information:
-- The scope is **optional**
-
-**Examples**:
-- `firmware` — ESP32 firmware code
-- `api` — Cloud API endpoints
-- `dynamodb` — Database schema/queries
-- `frontend` — React dashboard
-- `deployment` — AWS infrastructure
-- `backend` — Lambda functions
-
-**Guideline**: Use lowercase, no spaces.
 
 ### Subject
 
-- **Max 50 characters**
-- Use imperative mood: "add" not "added" or "adds"
-- No period (.) at the end
-- Clear and descriptive
-- Specific enough to understand change at a glance
-
-**Good Examples**:
-- `add motion sensor calibration routine`
-- `fix race condition in telemetry ingest`
-- `update DynamoDB table schema`
-
-**Bad Examples**:
-- `update stuff` (too vague)
-- `fixed bug.` (past tense + period)
-- `This commit adds a new feature to the API that allows querying historical data` (too long)
+- Keep the subject line short (50 characters).
+- Use imperative mood: “Add feature” instead of “Added feature”.
+- No period at the end of the subject line.
 
 ### Body
 
-The body should include the motivation for the change and contrast this with previous behavior:
+The body is optional. It should include the motivation for the change and contrast this with previous behavior:
 
-- The body is **optional**
 - Use the imperative, present tense: "change" not "changed" nor "changes"
 - **Why** was this change needed? (motivation)
 - **What** changes were made? (implementation details)
@@ -110,28 +45,7 @@ The body should include the motivation for the change and contrast this with pre
 - Wrap at 72 characters
 - Separate from subject with a blank line
 - Use bullet points for multiple changes
-- Reference related issues with `Fixes #123` or `Related-to #456`
 - Explain the "why", not the "what" (code shows the what)
-
-**Example**:
-```
-feat(firmware): implement adaptive brightness control
-
-Add dynamic brightness adjustment based on motion detection and ambient
-light levels. When motion is detected, increase brightness to 80%. When
-no motion for 3 minutes, reduce to 40%.
-
-Changes:
-- Added motion_timeout timer in firmware config
-- Calculate brightness as: base_level * (ambient_lux / 100)
-- Store last_motion_time in RTC memory for persistence across sleep
-- Added calibration routine during startup
-
-This reduces power consumption by ~30% during off-peak hours while
-maintaining safety during active periods.
-
-Fixes #67
-```
 
 ### Footer
 
@@ -148,6 +62,28 @@ Fixes #42
 Related-to #45, #89
 Breaking change: Changed POST /telemetry response format
 ```
+
+### Good Example
+
+```
+Add motion sensor calibration routine
+
+Samples ambient light for 30 seconds to establish baseline
+and adjusts sensor thresholds automatically.
+Fixes #42
+```
+
+### Bad Example
+
+```
+update stuff
+fixed bug.
+This commit adds a new feature to the API that allows querying historical data
+```
+
+---
+
+
 
 ### Commit Message Checklist
 
@@ -231,9 +167,9 @@ git push origin feature/short-description
 On GitHub, create a PR with:
 
 #### PR Title
-Follow the same format as commit messages:
+Use the same title as your commit message subject line.
 ```
-feat(firmware): add motion sensor calibration routine
+Add motion sensor calibration routine
 ```
 
 #### PR Description Template
@@ -541,12 +477,10 @@ git push origin branch-name --force-with-lease
 
 ## References
 
-- [Conventional Commits](https://www.conventionalcommits.org/)
 - [Git Book: Branching Workflows](https://git-scm.com/book/en/v2/Git-Branching-Branching-Workflows)
 - [GitHub Flow Guide](https://guides.github.com/introduction/flow/)
-- [Semantic Versioning](https://semver.org/)
 
 ---
 
-**Document Version**: 0.1  
-**Last Updated**: January 24, 2026  
+**Document Version**: 1.1  
+**Last Updated**: February 2, 2026  
