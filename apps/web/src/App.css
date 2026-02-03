@@ -1,0 +1,11 @@
+/* This file defines the global base styles for the entire application,
+   setting full-height layout, default font, and a consistent box-sizing model. */
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
