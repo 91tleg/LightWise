@@ -4,13 +4,13 @@ on:
   push:
     branches: [ main, dev ]
     paths:
-      - "firmware/**
-  pull request:
+      - "firmware/**"
+  pull_request:
     paths:
-      - "firmware/**
+      - "firmware/**"
 
-  jobs:
-    build:
+jobs:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +25,7 @@ on:
         python-version: '3.11'
     
     - name: Install PlatformIO
-      run: pip install PlatformIO
+      run: pip install platformio
 
     - name: Install dependencies
       run: sudo apt update && sudo apt install -y cmake gcc make
