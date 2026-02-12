@@ -1,3 +1,7 @@
-#!usr/bin/env bash
+#!/usr/bin/env bash
 
-pio build --e esp32-s3-devkitm-1
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+pio run -e esp32-s3-devkitc-1
