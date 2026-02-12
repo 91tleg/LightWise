@@ -1,167 +1,139 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
+import PoleManager from "../components/PoleManager";
+import ActivityFeed from "../components/ActivityFeed";
+import BubbleCard from "../components/BubbleCard";
+import AdminWsControls from "../components/AdminWsControls";
+import { useLightWiseWS } from "../services/useLightWiseWS";
 import "../styles/lightwise.css";
+import "../styles/admin.css";
+
+const WS_URL = "wss://kgwfa0ip6h.execute-api.us-east-1.amazonaws.com/prod";
 
 export default function Admin() {
+  const { status: wsStatus, lastMessage, send } = useLightWiseWS(WS_URL);
+
+  const [motionState, setMotionState] = useState("idle");
+  // idle | simulating | success | error
+
+  /* =============================
+     SIMULATE MOTION EVENT
+  ============================== */
+  const simulateMotion = () => {
+    if (wsStatus !== "connected") {
+      setMotionState("error");
+      setTimeout(() => setMotionState("idle"), 1000);
+      return;
+    }
+
+    setMotionState("simulating");
+
+    send({
+      action: "broadcast",
+      payload: {
+        type: "motion",
+        poleId: "pole_demo",
+        value: 1,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  };
+
+  /* =============================
+     CONFIRM SUCCESS WHEN MESSAGE RETURNS
+  ============================== */
+  useEffect(() => {
+    if (!lastMessage) return;
+
+    try {
+      const msg =
+        typeof lastMessage === "string"
+          ? JSON.parse(lastMessage)
+          : lastMessage;
+
+      if (msg?.type === "motion") {
+        setMotionState("success");
+        setTimeout(() => setMotionState("idle"), 1000);
+      }
+    } catch (err) {
+      console.error("Invalid WS message:", err);
+      setMotionState("error");
+      setTimeout(() => setMotionState("idle"), 1000);
+    }
+  }, [lastMessage]);
+
   return (
-    <Layout>
-      <div className="lwPage">
-        <div className="lwPageHeader">
-          <h1 className="lwPageTitle">Admin</h1>
-          <p className="lwPageSubtitle">System controls & configuration.</p>
-        </div>
+    <Layout title="Admin" subtitle="System controls & configuration.">
+      <AdminWsControls
+        wsStatus={wsStatus}
+        onSimulateMotion={simulateMotion}
+        motionState={motionState}
+      />
 
-        <div className="lwBubbleGrid">
-          {/* =========================
-              Rules Engine
-             ========================= */}
-          <div className="lwBubbleCard">
-            <div className="lwBubbleTop">
-              <div className="lwBubbleIcon">🧠</div>
-              <div>
-                <div className="lwBubbleTitle">Rules Engine</div>
-                <div className="lwBubbleSub">Dimming + safety thresholds</div>
-              </div>
-            </div>
+      <PoleManager />
 
-            <div className="lwBubblePills">
-              <span className="lwBubblePill">Auto</span>
-              <span className="lwBubblePill">Night</span>
-              <span className="lwBubblePill">Motion</span>
-            </div>
+      <ActivityFeed
+        wsStatus={wsStatus}
+        lastMessage={lastMessage}
+      />
 
-            {/* Example block */}
-            <div
-              style={{
-                marginTop: 10,
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.08)",
-                background: "rgba(255,255,255,0.55)",
-                lineHeight: 1.35,
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Example</div>
-              <div>
-                <b>Lightpole ID:</b> LW-001
-              </div>
-              <div>
-                <b>Rule:</b> If motion detected → brightness 100% for 30s
-              </div>
-              <div>
-                <b>Idle:</b> No motion → dim to 30%
-              </div>
-              <div>
-                <b>Night Window:</b> 9:00 PM – 5:30 AM
-              </div>
-            </div>
-
-            <div className="lwBubbleBtnRow">
-              <button className="lwBubbleBtn">Edit Rules</button>
-              <button className="lwBubbleBtn ghost">View Logs</button>
-            </div>
+      <div className="lwBubbleGrid">
+        <BubbleCard
+          icon="🧠"
+          title="Rules Engine"
+          sub="Dimming + safety thresholds"
+          pills={["Auto", "Night", "Motion"]}
+          primaryLabel="Edit Rules"
+          secondaryLabel="View Logs"
+          onPrimary={() => alert("Edit Rules (demo)")}
+          onSecondary={() => alert("View Logs (demo)")}
+        >
+          <div className="lwBubbleExample">
+            <div className="lwBubbleExampleTitle">Example</div>
+            <div><b>Lightpole ID:</b> LW-001</div>
+            <div><b>Rule:</b> If motion detected → brightness 100% for 30s</div>
+            <div><b>Idle:</b> No motion → dim to 30%</div>
+            <div><b>Night Window:</b> 9:00 PM – 5:30 AM</div>
           </div>
+        </BubbleCard>
 
-          {/* =========================
-              Access
-             ========================= */}
-          <div className="lwBubbleCard">
-            <div className="lwBubbleTop">
-              <div className="lwBubbleIcon">🔐</div>
-              <div>
-                <div className="lwBubbleTitle">Access</div>
-                <div className="lwBubbleSub">API keys & roles</div>
-              </div>
-            </div>
-
-            <div className="lwBubblePills">
-              <span className="lwBubblePill">Admin</span>
-              <span className="lwBubblePill">Operator</span>
-              <span className="lwBubblePill">Viewer</span>
-            </div>
-
-            {/* Example block */}
-            <div
-              style={{
-                marginTop: 10,
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.08)",
-                background: "rgba(255,255,255,0.55)",
-                lineHeight: 1.35,
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Example</div>
-              <div>
-                <b>User:</b> operator@lightwise.city
-              </div>
-              <div>
-                <b>Role:</b> Operator (can view + acknowledge alerts)
-              </div>
-              <div>
-                <b>Key:</b> LW-KEY-7F3A… (last rotated: 2026-02-01)
-              </div>
-              <div>
-                <b>Scope:</b> Map + Alerts (no rule edits)
-              </div>
-            </div>
-
-            <div className="lwBubbleBtnRow">
-              <button className="lwBubbleBtn">Manage Users</button>
-              <button className="lwBubbleBtn ghost">Rotate Key</button>
-            </div>
+        <BubbleCard
+          icon="🔐"
+          title="Access"
+          sub="API keys & roles"
+          pills={["Admin", "Operator", "Viewer"]}
+          primaryLabel="Manage Users"
+          secondaryLabel="Rotate Key"
+          onPrimary={() => alert("Manage Users (demo)")}
+          onSecondary={() => alert("Rotate Key (demo)")}
+        >
+          <div className="lwBubbleExample">
+            <div className="lwBubbleExampleTitle">Example</div>
+            <div><b>User:</b> operator@lightwise.city</div>
+            <div><b>Role:</b> Operator</div>
+            <div><b>Key:</b> LW-KEY-7F3A…</div>
+            <div><b>Scope:</b> Map + Alerts</div>
           </div>
+        </BubbleCard>
 
-          {/* =========================
-              Maintenance
-             ========================= */}
-          <div className="lwBubbleCard">
-            <div className="lwBubbleTop">
-              <div className="lwBubbleIcon">🛠️</div>
-              <div>
-                <div className="lwBubbleTitle">Maintenance</div>
-                <div className="lwBubbleSub">Tickets & diagnostics</div>
-              </div>
-            </div>
-
-            <div className="lwBubblePills">
-              <span className="lwBubblePill">Open</span>
-              <span className="lwBubblePill">Urgent</span>
-              <span className="lwBubblePill">Resolved</span>
-            </div>
-
-            {/* Example block */}
-            <div
-              style={{
-                marginTop: 10,
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.08)",
-                background: "rgba(255,255,255,0.55)",
-                lineHeight: 1.35,
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Example</div>
-              <div>
-                <b>Ticket:</b> MT-1029
-              </div>
-              <div>
-                <b>Lightpole ID:</b> LW-014
-              </div>
-              <div>
-                <b>Issue:</b> Pole offline (last seen 2h ago)
-              </div>
-              <div>
-                <b>Status:</b> Urgent • Assigned to: Field Team A
-              </div>
-            </div>
-
-            <div className="lwBubbleBtnRow">
-              <button className="lwBubbleBtn">Create Ticket</button>
-              <button className="lwBubbleBtn ghost">Run Check</button>
-            </div>
+        <BubbleCard
+          icon="🛠️"
+          title="Maintenance"
+          sub="Tickets & diagnostics"
+          pills={["Open", "Urgent", "Resolved"]}
+          primaryLabel="Create Ticket"
+          secondaryLabel="Run Check"
+          onPrimary={() => alert("Create Ticket (demo)")}
+          onSecondary={() => alert("Run Check (demo)")}
+        >
+          <div className="lwBubbleExample">
+            <div className="lwBubbleExampleTitle">Example</div>
+            <div><b>Ticket:</b> MT-1029</div>
+            <div><b>Lightpole ID:</b> LW-014</div>
+            <div><b>Issue:</b> Pole offline</div>
+            <div><b>Status:</b> Urgent</div>
           </div>
-        </div>
+        </BubbleCard>
       </div>
     </Layout>
   );
