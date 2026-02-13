@@ -23,6 +23,7 @@ endfunction()
 file(GLOB_RECURSE TEST_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/test_*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/modules/test_*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/common/utils/test_*.cpp" 
 )
 
 foreach(TEST_FILE ${TEST_FILES})
@@ -37,6 +38,7 @@ foreach(TEST_FILE ${TEST_FILES})
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}/${MODULE_NAME}.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/${MODULE_NAME}.c"
     )
 
     foreach(SRC ${POSSIBLE_SRC})
@@ -68,6 +70,7 @@ foreach(TEST_FILE ${TEST_FILES})
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_NAME}"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/common" 
     )
 
     add_native_test(${TEST_FILENAME} "${CANDIDATES};${TEST_FILE}" "${INCLUDE_DIRS}")
