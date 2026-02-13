@@ -1,1025 +1,402 @@
-/* 
-  ===== ROOT VARIABLES BLOCK =====
-  These are global “settings” used across the whole LightWise UI.
-  They define sizes (sidebar width, menu width, topbar height)
-  and shared colors/shadows for consistent styling everywhere.
-*/
+/* ================= ROOT ================= */
 :root{
-  --railW: 86px;
-  --menuW: 300px;
-  --topH: 72px;
+  --railW:86px;
+  --menuW:300px;
+  --topH:72px;
 
-  --bg: #eef3f7;
-  --card: rgba(255,255,255,0.72);
-  --line: rgba(0,0,0,0.08);
-  --shadow: 0 10px 22px rgba(0,0,0,0.08);
+  --bg:#eef3f7;
+  --card:rgba(255,255,255,.72);
+  --line:rgba(0,0,0,.08);
+  --shadow:0 10px 22px rgba(0,0,0,.08);
 }
 
-/* 
-  ===== BODY BLOCK =====
-  Applies to the whole page background and basic page behavior.
-  - Sets the overall background color.
-  - Sets default text color.
-  - Prevents horizontal scrolling if something is slightly too wide.
-*/
+/* ================= BASE ================= */
 body{
-  background: var(--bg);
-  color: #12212a;
-  overflow-x: hidden;
+  background:var(--bg);
+  color:#12212a;
+  overflow-x:hidden;
 }
 
-/* 
-  ===== APP WRAPPER BLOCK =====
-  This applies to the main app container (.lwApp) used in Layout.js.
-  It makes sure the app fills at least the full height of the screen.
-*/
-.lwApp{
-  min-height: 100vh;
+.lwApp{min-height:100vh;}
+.lwMain{margin-left:var(--railW);padding-top:var(--topH);min-height:100vh;}
+.lwPage{padding:18px;}
+.lwPageHeader{margin-bottom:14px;}
+.lwPageTitle{margin:0 0 6px;font-size:42px;font-weight:1000;}
+.lwPageSubtitle{margin:0;opacity:.75;font-weight:700;}
+.lwSmallText{font-size:12px;opacity:.75;}
+.lwList{margin:0;padding-left:18px;}
+
+/* ================= GLASS CARD BASE ================= */
+.lwGlass{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:18px;
+  box-shadow:var(--shadow);
 }
 
-/* 
-  ===== TOPBAR BLOCK =====
-  This styles the TopBar (TopBar.js).
-  It is fixed at the top of the screen and stays visible while scrolling.
-  It starts after the left rail so it doesn't cover the sidebar.
-*/
+/* ================= TOPBAR ================= */
 .lwTopbar{
-  position: fixed;
-  left: var(--railW);
-  right: 0;
-  top: 0;
-  height: var(--topH);
-  padding: 10px 14px;
+  position:fixed;
+  left:var(--railW);
+  right:0;
+  top:0;
+  height:var(--topH);
+  padding:10px 14px;
   display:flex;
   align-items:center;
   justify-content:space-between;
-  background: linear-gradient(90deg, #0d73a8, #1bb0a3, #2bd46f);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.12);
-  z-index: 10;
+  background:linear-gradient(90deg,#0d73a8,#1bb0a3,#2bd46f);
+  box-shadow:0 10px 24px rgba(0,0,0,.12);
+  z-index:10;
 }
 
-/* 
-  ===== TOPBAR BRAND ROW BLOCK =====
-  This is the left side of the topbar that holds the logo + motto images.
-*/
-.lwTopbarBrand{
-  display:flex;
-  gap: 10px;
-  align-items:center;
-}
+.lwTopbarBrand,
+.lwTopbarActions{display:flex;align-items:center;gap:10px;}
 
-/* 
-  ===== TOPBAR BADGE BLOCK =====
-  This is the “white rounded box” behind each image (logo and motto).
-  It creates the badge look around the images.
-*/
 .lwTopbarBadge{
-  width: 54px;
-  height: 54px;
-  border-radius: 14px;
-  background: #fff;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-  box-shadow: 0 10px 18px rgba(0,0,0,0.12);
+  width:54px;height:54px;border-radius:14px;
+  background:#fff;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;box-shadow:0 10px 18px rgba(0,0,0,.12);
 }
 
-/* 
-  ===== TOPBAR IMAGE BLOCK =====
-  This controls how the logo/motto images fit inside the badge.
-*/
-.lwTopbarImg{
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-}
+.lwTopbarImg{width:48px;height:48px;object-fit:contain;}
 
-/* 
-  ===== TOPBAR ACTIONS BLOCK =====
-  This is the right side of the topbar that holds the buttons (bell/profile).
-*/
-.lwTopbarActions{
-  display:flex;
-  gap: 10px;
-}
-
-/* 
-  ===== TOPBAR ICON BUTTON BLOCK =====
-  These are the clickable buttons on the right (notifications + profile).
-*/
 .lwTopbarIconBtn{
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.25);
-  cursor:pointer;
-  font-size: 18px;
+  width:40px;height:40px;border:0;border-radius:14px;
+  background:rgba(255,255,255,.25);
+  cursor:pointer;font-size:18px;
 }
 
-/* 
-  ===== MAIN LAYOUT BLOCK =====
-  This styles the main content area (.lwMain) that sits to the right of the rail.
-  - Adds left margin so content doesn't go under the rail.
-  - Adds top padding so content doesn't go under the topbar.
-*/
-.lwMain{
-  margin-left: var(--railW);
-  padding-top: var(--topH);
-  min-height: 100vh;
+/* ================= SIDEBAR ================= */
+.lwSidebarWrap{
+  position:fixed;
+  left:0;top:0;
+  width:calc(var(--railW) + var(--menuW));
+  height:100vh;
+  z-index:999;
+  pointer-events:none;
 }
 
-/* 
-  ===== PAGE CONTENT PADDING BLOCK =====
-  Used in most pages to add spacing around the page content.
-*/
-.lwPage{
-  padding: 18px;
-}
-
-/* 
-  ===== PAGE HEADER BLOCK =====
-  Used on pages that have a title/subtitle section at the top.
-*/
-.lwPageHeader{
-  margin-bottom: 14px;
-}
-
-/* 
-  ===== PAGE TITLE BLOCK =====
-  Styles the main big page title (Overview / Map / Admin).
-*/
-.lwPageTitle{
-  margin: 0 0 6px;
-  font-size: 42px;
-  font-weight: 1000;
-}
-
-/* 
-  ===== PAGE SUBTITLE BLOCK =====
-  Styles the smaller description text under the page title.
-*/
-.lwPageSubtitle{
-  margin: 0;
-  opacity: 0.75;
-  font-weight: 700;
-}
-
-/* 
-  ===== RAIL (SIDEBAR ICON STRIP) BLOCK =====
-  This is the thin fixed left sidebar (icons only) shown in Sidebar.js.
-  It stays visible all the time.
-*/
 .lwRail{
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: var(--railW);
-  height: 100vh;
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(6px);
-  border-right: 1px solid rgba(0,0,0,0.06);
-  z-index: 30;
+  position:absolute;
+  left:0;top:0;
+  width:var(--railW);height:100vh;
+  background:rgba(255,255,255,.85);
+  backdrop-filter:blur(6px);
+  border-right:1px solid var(--line);
+  z-index:2;
+  pointer-events:auto;
 }
 
-/* 
-  ===== RAIL BUTTON STACK BLOCK =====
-  This holds the vertical list of icon buttons inside the rail.
-*/
 .lwRailStack{
-  margin-top: 14px;
-  display:flex;
-  flex-direction: column;
-  gap: 14px;
-  align-items:center;
+  margin-top:14px;
+  display:flex;flex-direction:column;
+  gap:14px;align-items:center;
 }
 
-/* 
-  ===== RAIL NAV BUTTON BLOCK =====
-  Styles each square icon button that links to a page.
-*/
-.lwRailBtn{
-  width: 58px;
-  height: 58px;
-  border-radius: 16px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  text-decoration: none;
-  background: rgba(255,255,255,0.75);
-  box-shadow: 0 10px 18px rgba(0,0,0,0.08);
-}
-
-/* 
-  ===== RAIL ACTIVE PAGE BLOCK =====
-  Adds an outline so you can see which page you are currently on.
-*/
-.lwRailBtn.isActive{
-  outline: 2px solid rgba(13,115,168,0.35);
-}
-
-/* 
-  ===== RAIL ICON BLOCK =====
-  Styles the icon text inside each rail button.
-*/
-.lwRailIcon{
-  font-size: 18px;
-  color: #1f2c33;
-}
-
-/* 
-  ===== RAIL BACK BUTTON BLOCK =====
-  This is the bottom button in the rail (↩).
-  It sends the user back to the Login page.
-*/
+.lwRailBtn,
 .lwRailBackBtn{
-  position: absolute;
-  left: 14px;
-  bottom: 16px;
-  width: 58px;
-  height: 58px;
-  border-radius: 16px;
-  border: 0;
-  background: rgba(255,255,255,0.75);
-  box-shadow: 0 10px 18px rgba(0,0,0,0.08);
-  cursor: pointer;
-  font-size: 20px;
+  width:58px;height:58px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.75);
+  box-shadow:0 10px 18px rgba(0,0,0,.08);
+  border:0;text-decoration:none;cursor:pointer;
 }
 
-/* 
-  ===== SLIDE-OUT MENU BLOCK =====
-  This is the bigger menu that slides out next to the rail (Sidebar.js).
-  It starts hidden (moved to the left) and slides in when “open”.
-*/
+.lwRailBtn.isActive{outline:2px solid rgba(13,115,168,.35);}
+.lwRailIcon{font-size:18px;color:#1f2c33;}
+
+.lwRailBackBtn{
+  position:absolute;
+  left:14px;bottom:16px;
+  font-size:20px;
+}
+
+/* ================= MENU ================= */
 .lwMenu{
-  position: fixed;
-  left: var(--railW);
-  top: 0;
-  width: var(--menuW);
-  height: 100vh;
-  background: #f2f2f2;
-  border-right: 1px solid rgba(0,0,0,0.08);
-  box-shadow: 18px 0 30px rgba(0,0,0,0.10);
-  transform: translateX(-110%);
-  transition: transform 220ms ease;
-  z-index: 25;
-  padding: 18px 16px;
+  position:absolute;
+  left:var(--railW);top:0;
+  width:var(--menuW);height:100vh;
+  background:#f2f2f2;
+  border-right:1px solid var(--line);
+  box-shadow:18px 0 30px rgba(0,0,0,.10);
+  padding:18px 16px;
+  transform:translateX(-110%);
+  transition:transform .22s ease;
+  z-index:1;
+  pointer-events:auto;
 }
 
-/* 
-  ===== MENU OPEN STATE BLOCK =====
-  When Sidebar sets "isOpen", the menu slides into view.
-*/
-.lwMenu.isOpen{ transform: translateX(0); }
+.lwMenu.isOpen{transform:translateX(0);}
 
-/* 
-  ===== MENU TITLE BLOCK =====
-  Styles the "Menu" label at the top of the slide-out menu.
-*/
-.lwMenuTitle{
-  font-weight: 900;
-  margin: 8px 6px 14px;
-}
+.lwMenuTitle{font-weight:900;margin:8px 6px 14px;}
 
-/* 
-  ===== MENU LIST BLOCK =====
-  This stacks menu items vertically inside the slide-out menu.
-*/
-.lwMenuList{
-  display:flex;
-  flex-direction: column;
-  gap: 10px;
-}
+.lwMenuList{display:flex;flex-direction:column;gap:10px;}
 
-/* 
-  ===== MENU ITEM BLOCK =====
-  Styles each clickable menu row (icon + label).
-*/
 .lwMenuItem{
-  display:flex;
-  align-items:center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  text-decoration:none;
-  background: #fff;
-  color: #1a2a33;
-  border: 1px solid rgba(0,0,0,0.06);
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;border-radius:14px;
+  text-decoration:none;background:#fff;color:#1a2a33;
+  border:1px solid var(--line);
 }
 
-/* 
-  ===== MENU ACTIVE ITEM BLOCK =====
-  Highlights the menu item for the current page.
-*/
 .lwMenuItem.isActive{
-  background: #e7f2ff;
-  border-color: rgba(13,115,168,0.25);
+  background:#e7f2ff;
+  border-color:rgba(13,115,168,.25);
 }
 
-/* 
-  ===== MENU ICON BLOCK =====
-  Fixes icon width and centers it so labels line up nicely.
-*/
-.lwMenuIcon{ width: 24px; text-align:center; }
+.lwMenuIcon{width:24px;text-align:center;}
+.lwMenuLabel{font-weight:750;}
 
-/* 
-  ===== MENU LABEL BLOCK =====
-  Makes the menu text bold.
-*/
-.lwMenuLabel{ font-weight: 750; }
-
-/* 
-  ===== KPI GRID BLOCK =====
-  Used on Overview.js: the top row of StatCards.
-  Shows 4 cards in a row (on large screens).
-*/
+/* ================= KPI ================= */
 .lwKpiGrid{
   display:grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
-  gap: 14px;
-  margin-bottom: 14px;
+  grid-template-columns:repeat(4,minmax(220px,1fr));
+  gap:14px;margin-bottom:14px;
 }
 
-/* 
-  ===== KPI CARD BLOCK =====
-  Styles each StatCard (StatCard.js):
-  - glass card background
-  - border, rounded corners, shadow
-  - icon + text aligned horizontally
-*/
-.lwKpiCard{
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 14px;
-  display:flex;
-  align-items:center;
-  gap: 12px;
-  box-shadow: var(--shadow);
-}
+.lwKpiCard{display:flex;align-items:center;gap:12px;padding:14px;}
+.lwKpiCard,.lwPanel,.lwCard,.lwLegendCard,.lwBubbleCard{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);}
 
-/* 
-  ===== KPI ICON BLOCK =====
-  Styles the small icon box inside each KPI card.
-*/
 .lwKpiIcon{
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: rgba(255,255,255,0.75);
-  font-size: 18px;
+  width:44px;height:44px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.75);
+  font-size:18px;
 }
 
-/* 
-  ===== KPI TEXT BLOCKS =====
-  Styles the label/value/note text inside each StatCard.
-*/
-.lwKpiLabel{ font-size: 12px; opacity: 0.7; font-weight: 800; }
-.lwKpiValue{ font-size: 20px; font-weight: 1000; }
-.lwKpiNote{ font-size: 12px; opacity: 0.6; }
+.lwKpiLabel{font-size:12px;opacity:.7;font-weight:800;}
+.lwKpiValue{font-size:20px;font-weight:1000;}
+.lwKpiNote{font-size:12px;opacity:.6;}
+.lwKpiDot{width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,.12);}
 
-/* 
-  ===== KPI DOT BLOCK =====
-  Small circle on the right of each KPI card (decorative / status marker).
-*/
-.lwKpiDot{
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.12);
-}
-
-/* 
-  ===== PANEL GRID BLOCK =====
-  Used on Overview.js: the middle row of panels (alerts, trend, operations).
-*/
+/* ================= PANELS ================= */
 .lwPanelGrid{
   display:grid;
-  grid-template-columns: 1.1fr 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 14px;
+  grid-template-columns:1.1fr 1fr 1fr;
+  gap:14px;margin-bottom:14px;
 }
 
-/* 
-  ===== PANEL CARD BLOCK =====
-  Styles each panel container (glass look).
-*/
-.lwPanel{
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
-  overflow:hidden;
-}
-
-/* 
-  ===== PANEL TITLE BLOCK =====
-  Styles the title strip at the top of each panel.
-*/
 .lwPanelTitle{
-  font-weight: 1000;
-  text-align:center;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
-  opacity: 0.85;
+  font-weight:1000;text-align:center;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+  opacity:.85;
 }
 
-/* 
-  ===== PANEL BODY BLOCK =====
-  Adds padding inside the panel where content goes.
-*/
-.lwPanelBody{
-  padding: 14px;
-}
+.lwPanelBody{padding:14px;}
 
-/* 
-  ===== PLACEHOLDER BLOCK =====
-  Used when you don't have real content yet (like Energy Trend).
-  It shows a dashed box that looks like "coming soon".
-*/
-.lwPlaceholder{
-  height: 110px;
-  border-radius: 12px;
-  border: 1px dashed rgba(0, 87, 167, 0.25);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  opacity: 0.5;
-  font-weight: 900;
-}
-
-/* 
-  ===== TALL PLACEHOLDER BLOCK =====
-  Same as placeholder but taller (for bigger charts later).
-*/
+/* ================= PLACEHOLDER ================= */
+.lwPlaceholder,
 .lwPlaceholderTall{
-  height: 260px;
-  border-radius: 12px;
-  border: 1px dashed rgba(0, 87, 167, 0.25);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  opacity: 0.5;
-  font-weight: 900;
+  border-radius:12px;
+  border:1px dashed rgba(0,87,167,.25);
+  display:flex;align-items:center;justify-content:center;
+  opacity:.5;font-weight:900;
 }
 
-/* 
-  ===== BOTTOM GRID BLOCK =====
-  Used on Overview.js: the bottom row (Selected Lightpole, Map, Legend).
-*/
+.lwPlaceholder{height:110px;}
+.lwPlaceholderTall{height:260px;}
+
+/* ================= BOTTOM GRID ================= */
 .lwBottomGrid{
   display:grid;
-  grid-template-columns: 340px 1fr 340px;
-  gap: 14px;
-  align-items: stretch;
+  grid-template-columns:340px 1fr 340px;
+  gap:14px;
 }
 
-/* 
-  ===== CARD BLOCK =====
-  Used for small cards like "Selected Lightpole" and "Map" on Overview.js.
-*/
-.lwCard{
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
-  padding: 14px;
-}
+.lwCard{padding:14px;}
+.lwCardTitle{font-weight:1000;margin-bottom:10px;opacity:.85;}
 
-/* 
-  ===== CARD TITLE BLOCK =====
-  Styles the title line inside each card.
-*/
-.lwCardTitle{ font-weight: 1000; margin-bottom: 10px; opacity: 0.85; }
-
-/* 
-  ===== SELECTED POLE ROW BLOCK =====
-  Layout for Selected Lightpole: avatar on the left, text on the right.
-*/
-.lwPoleRow{ display:flex; gap: 12px; align-items:flex-start; }
-
-/* 
-  ===== POLE AVATAR BLOCK =====
-  The round placeholder circle shown next to Selected Lightpole details.
-*/
+.lwPoleRow{display:flex;gap:12px;}
 .lwPoleAvatar{
-  width: 56px; height: 56px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.12);
+  width:56px;height:56px;border-radius:50%;
+  background:rgba(0,0,0,.12);
 }
 
-/* 
-  ===== POLE META TEXT BLOCK =====
-  Controls the text style for ID/Lux/Motion details.
-*/
-.lwPoleMeta{ font-weight: 750; opacity: 0.85; }
-.lwPoleMeta b{ margin-right: 6px; }
+.lwPoleMeta{font-weight:750;opacity:.85;}
+.lwPoleMeta b{margin-right:6px;}
 
-/* 
-  ===== MAP CONTAINER BLOCK =====
-  Used by MapEmbed.js to hold the iframe and round the corners.
-*/
-.lwMapBox{
-  width: 100%;
-  border-radius: 16px;
-  overflow:hidden;
-}
+/* ================= MAP ================= */
+.lwMapBox{width:100%;border-radius:16px;overflow:hidden;}
+.lwMapFrame{width:100%;height:100%;border:0;}
 
-/* 
-  ===== MAP IFRAME BLOCK =====
-  Makes the embedded map fill its container.
-*/
-.lwMapFrame{
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
+/* ================= LEGEND ================= */
+.lwLegendCard{padding:14px;}
+.lwLegendTitle{font-weight:1000;margin-bottom:10px;}
 
-/* 
-  ===== LEGEND CARD BLOCK =====
-  Used by Legend.js: the legend box on Overview.js bottom row.
-*/
-.lwLegendCard{
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
-  padding: 14px;
-}
-
-/* 
-  ===== LEGEND TITLE BLOCK =====
-  Styles the "Legend" heading in the legend card.
-*/
-.lwLegendTitle{
-  font-weight: 1000;
-  margin-bottom: 10px;
-}
-
-/* 
-  ===== LEGEND ROW BLOCK =====
-  Styles each row inside the legend (dot + label).
-*/
 .lwLegendRow{
-  display:flex;
-  align-items:center;
-  gap: 10px;
-  margin: 10px 0;
-  font-weight: 850;
-  opacity: 0.85;
+  display:flex;align-items:center;gap:10px;
+  margin:10px 0;font-weight:850;opacity:.85;
 }
 
-/* 
-  ===== LEGEND DOT BLOCK =====
-  Styles the small colored circles used in the legend.
-*/
-.lwDot{
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
+.lwDot{width:12px;height:12px;border-radius:50%;}
+.lwDot.green{background:#19b65b;}
+.lwDot.red{background:#e04343;}
+.lwDot.blue{background:#1e77ff;}
 
-/* 
-  ===== LEGEND DOT COLORS BLOCK =====
-  These color classes are applied to the dot in Legend.js.
-*/
-.lwDot.green{ background: #19b65b; }
-.lwDot.red{ background: #e04343; }
-.lwDot.blue{ background: #1e77ff; }
+/* ================= PILLS ================= */
+.lwPillRow{display:flex;gap:10px;flex-wrap:wrap;}
 
-/* 
-  ===== STATUS PILLS ROW BLOCK =====
-  Used on Overview.js in the Operations panel.
-*/
-.lwPillRow{ display:flex; gap: 10px; flex-wrap: wrap; }
-
-/* 
-  ===== STATUS PILL BLOCK =====
-  The pill shape used for statuses like Normal/Investigating/Fault.
-*/
 .lwPill{
-  display:inline-flex;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 1000;
-  font-size: 12px;
-  color: #fff;
+  padding:6px 10px;
+  border-radius:999px;
+  font-weight:1000;font-size:12px;
+  color:#fff;
 }
 
-/* 
-  ===== STATUS PILL COLORS BLOCK =====
-  Colors used for different status types.
-*/
-.lwPill.green{ background: #19b65b; }
-.lwPill.orange{ background: #f0a100; }
-.lwPill.red{ background: #e04343; }
+.lwPill.green{background:#19b65b;}
+.lwPill.orange{background:#f0a100;}
+.lwPill.red{background:#e04343;}
 
-/* 
-  ===== SMALL TEXT BLOCK =====
-  Used for small secondary text (like “Latest pole: …”).
-*/
-.lwSmallText{ font-size: 12px; opacity: 0.75; }
-
-/* 
-  ===== LIST BLOCK =====
-  Basic list spacing (used in Recent Alerts list).
-*/
-.lwList{ margin: 0; padding-left: 18px; }
-
-/* 
-  ===== LOGIN PAGE WRAPPER BLOCK =====
-  Styles the full login page area (Login.js).
-  Centers the login card in the middle of the screen.
-*/
-.lwLogin{
-  min-height: 100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: #fff;
-}
-
-/* 
-  ===== LOGIN CARD BLOCK =====
-  The big rounded card shown on the login page.
-  It holds the logo/motto and the form.
-*/
-.lwLoginCard{
-  width: min(980px, 92vw);
-  height: min(560px, 82vh);
-  border-radius: 40px;
-  background: #d8d8d8;
-  box-shadow: 0 18px 40px rgba(0,0,0,0.25);
-  display:flex;
-  flex-direction: column;
-  align-items:center;
-  justify-content:center;
-  gap: 26px;
-  padding: 32px 24px;
-}
-
-/* 
-  ===== LOGIN BRAND ROW BLOCK =====
-  Holds the logo and motto images on the login card.
-*/
-.lwLoginBrand{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap: 18px;
-}
-
-/* 
-  ===== LOGIN LOGO BLOCK =====
-  Size rules for the LightWise logo image.
-*/
-.lwLoginLogo{
-  width: 120px;
-  height: 120px;
-  object-fit: contain;
-}
-
-/* 
-  ===== LOGIN MOTTO BLOCK =====
-  Size rules for the motto image.
-*/
-.lwLoginMotto{
-  width: 360px;
-  height: 90px;
-  object-fit: contain;
-}
-
-/* 
-  ===== LOGIN FORM BLOCK =====
-  Styles the form layout: stacked inputs and buttons centered.
-*/
-.lwLoginForm{
-  width: min(640px, 80vw);
-  display:flex;
-  flex-direction: column;
-  gap: 16px;
-  align-items:center;
-}
-
-/* 
-  ===== INPUT FIELD BLOCK =====
-  Styles the login inputs (Email + Password).
-*/
-.lwInput{
-  width: 100%;
-  padding: 16px 22px;
-  border-radius: 40px;
-  border: 1px solid rgba(0,0,0,0.25);
-  outline: none;
-  font-size: 18px;
-  background: #fff;
-}
-
-/* 
-  ===== PRIMARY BUTTON BLOCK =====
-  Styles the main login button.
-*/
-.lwPrimaryBtn{
-  width: 220px;
-  padding: 14px 18px;
-  border-radius: 40px;
-  border: 0;
-  background: #0b63a6;
-  color: #ff7a00;
-  font-weight: 900;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-/* 
-  ===== SECONDARY BUTTON BLOCK =====
-  Styles the secondary action button (Sign up).
-*/
-.lwSecondaryBtn{
-  width: 220px;
-  padding: 12px 18px;
-  border-radius: 40px;
-  border: 1px solid #0b63a6;
-  background: transparent;
-  color: #ff7a00;
-  font-weight: 900;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-/* 
-  ===== LINK BUTTON BLOCK =====
-  Styles the "Forgot password?" link button.
-*/
-.lwLinkBtn{
-  border: 0;
-  background: transparent;
-  color: #0b63a6;
-  text-decoration: underline;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-/* 
-  ===== ERROR BANNER BLOCK =====
-  Used in Overview.js when the API fails.
-  It shows a red-ish warning box at the top.
-*/
-.lwErrorBanner{
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(224,67,67,0.14);
-  border: 1px solid rgba(224,67,67,0.25);
-  font-weight: 800;
-}
-
-/* 
-  ===== RESPONSIVE BLOCK (TABLET) =====
-  On smaller screens:
-  - KPI cards become 2 columns
-  - panels become 1 column
-  - bottom grid becomes stacked
-*/
-@media (max-width: 1100px){
-  .lwKpiGrid{ grid-template-columns: repeat(2, 1fr); }
-  .lwPanelGrid{ grid-template-columns: 1fr; }
-  .lwBottomGrid{ grid-template-columns: 1fr; }
-}
-
-/* 
-  ===== RESPONSIVE BLOCK (MOBILE) =====
-  On very small screens, KPI becomes a single column.
-*/
-@media (max-width: 650px){
-  .lwKpiGrid{ grid-template-columns: 1fr; }
-}
-
-/* 
-  ===== SIDEBAR WRAPPER "HIT AREA" BLOCK =====
-  This is an invisible area that covers both the rail + slide-out menu.
-  It helps the hover open/close behavior.
-  pointer-events: none means the wrapper itself isn't clickable,
-  but children are made clickable later.
-*/
-.lwSidebarWrap{
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: calc(var(--railW) + var(--menuW));
-  height: 100vh;
-  z-index: 999;
-  pointer-events: none; /* important */
-}
-
-/* 
-  ===== RAIL (INSIDE WRAPPER) BLOCK =====
-  This is the rail again, but positioned inside the wrapper version.
-  pointer-events: auto makes the rail clickable even though wrapper isn't.
-*/
-.lwRail{
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: var(--railW);
-  height: 100vh;
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(6px);
-  border-right: 1px solid rgba(0,0,0,0.06);
-  z-index: 2;
-
-  pointer-events: auto; /* clickable */
-}
-
-/* 
-  ===== MENU (INSIDE WRAPPER) BLOCK =====
-  This is the slide-out menu again, but positioned inside the wrapper version.
-  pointer-events: auto makes it clickable.
-*/
-.lwMenu{
-  position: absolute;
-  left: var(--railW);
-  top: 0;
-  width: var(--menuW);
-  height: 100vh;
-  background: #f2f2f2;
-  border-right: 1px solid rgba(0,0,0,0.08);
-  box-shadow: 18px 0 30px rgba(0,0,0,0.10);
-  padding: 18px 16px;
-
-  transform: translateX(-110%);
-  transition: transform 220ms ease;
-  z-index: 1;
-
-  pointer-events: auto; /* clickable */
-}
-
-/* 
-  ===== MENU OPEN STATE (WRAPPER VERSION) =====
-  Slides the menu into view when open.
-*/
-.lwMenu.isOpen{ transform: translateX(0); }
-
-/* 
-  ===== ADMIN BUBBLE GRID BLOCK =====
-  Used in Admin.js: the grid that holds the three bubble cards.
-*/
+/* ================= ADMIN ================= */
 .lwBubbleGrid{
   display:grid;
-  grid-template-columns: repeat(3, minmax(240px, 1fr));
-  gap: 14px;
+  grid-template-columns:repeat(3,minmax(240px,1fr));
+  gap:14px;
 }
 
-/* 
-  ===== ADMIN GRID RESPONSIVE BLOCK =====
-  On smaller screens, Admin bubbles become a single column.
-*/
-@media (max-width: 1100px){
-  .lwBubbleGrid{ grid-template-columns: 1fr; }
-}
-
-/* 
-  ===== ADMIN BUBBLE CARD BLOCK =====
-  The main glass card style for each admin feature.
-*/
 .lwBubbleCard{
-  background: rgba(255,255,255,0.72);
-  border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 22px;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.08);
-  padding: 16px;
-  position: relative;
-  overflow:hidden;
+  padding:16px;position:relative;overflow:hidden;
 }
 
-/* 
-  ===== ADMIN BUBBLE BACKGROUND DECORATION BLOCK =====
-  These create soft circular “glow blobs” behind the card content.
-  They are purely decorative for the glass effect.
-*/
 .lwBubbleCard::before,
 .lwBubbleCard::after{
   content:"";
   position:absolute;
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  background: rgba(13,115,168,0.10);
-  filter: blur(0.2px);
+  width:180px;height:180px;
+  border-radius:999px;
+  background:rgba(13,115,168,.10);
 }
 
-.lwBubbleCard::before{
-  top: -70px;
-  left: -60px;
-}
-
+.lwBubbleCard::before{top:-70px;left:-60px;}
 .lwBubbleCard::after{
-  bottom: -80px;
-  right: -70px;
-  background: rgba(43,212,111,0.10);
+  bottom:-80px;right:-70px;
+  background:rgba(43,212,111,.10);
 }
 
-/* 
-  ===== ADMIN BUBBLE TOP ROW BLOCK =====
-  Aligns the icon and the title/subtitle at the top of each bubble card.
-  z-index keeps it above the decorative blobs.
-*/
-.lwBubbleTop{
-  display:flex;
-  align-items:center;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-/* 
-  ===== ADMIN BUBBLE ICON BLOCK =====
-  Styles the icon square inside each admin bubble card.
-*/
+.lwBubbleTop{display:flex;align-items:center;gap:12px;z-index:1;position:relative;}
 .lwBubbleIcon{
-  width: 54px;
-  height: 54px;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.85);
-  border: 1px solid rgba(0,0,0,0.06);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size: 22px;
-  box-shadow: 0 10px 18px rgba(0,0,0,0.08);
+  width:54px;height:54px;border-radius:16px;
+  background:rgba(255,255,255,.85);
+  border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;
+  box-shadow:0 10px 18px rgba(0,0,0,.08);
 }
 
-/* 
-  ===== ADMIN BUBBLE TITLE/SUBTITLE BLOCK =====
-  Styles the main title and the small explanation text under it.
-*/
-.lwBubbleTitle{ font-weight: 1000; font-size: 18px; }
-.lwBubbleSub{ opacity: 0.75; font-weight: 750; font-size: 13px; margin-top: 2px; }
+.lwBubbleTitle{font-weight:1000;font-size:18px;}
+.lwBubbleSub{opacity:.75;font-weight:750;font-size:13px;margin-top:2px;}
 
-/* 
-  ===== ADMIN BUBBLE PILLS BLOCK =====
-  Styles the row of tags like Auto/Night/Motion etc.
-*/
 .lwBubblePills{
-  display:flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-  position: relative;
-  z-index: 1;
+  display:flex;gap:8px;flex-wrap:wrap;
+  margin-top:12px;z-index:1;position:relative;
 }
 
-/* 
-  ===== ADMIN BUBBLE PILL BLOCK =====
-  Styles each small pill tag inside the admin bubble card.
-*/
 .lwBubblePill{
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.85);
-  border: 1px solid rgba(0,0,0,0.08);
-  font-weight: 900;
-  font-size: 12px;
-  opacity: 0.9;
+  padding:6px 10px;border-radius:999px;
+  background:rgba(255,255,255,.85);
+  border:1px solid var(--line);
+  font-weight:900;font-size:12px;opacity:.9;
 }
 
-/* 
-  ===== ADMIN BUTTON ROW BLOCK =====
-  Holds the two buttons at the bottom of each admin bubble card.
-*/
 .lwBubbleBtnRow{
-  display:flex;
-  gap: 10px;
-  margin-top: 14px;
-  position: relative;
-  z-index: 1;
+  display:flex;gap:10px;margin-top:14px;
+  position:relative;z-index:1;
 }
 
-/* 
-  ===== ADMIN PRIMARY BUTTON BLOCK =====
-  Styles the main button (blue background, orange text).
-*/
 .lwBubbleBtn{
-  border: 0;
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-weight: 1000;
-  cursor:pointer;
-  background: #0b63a6;
-  color: #ff7a00;
-  box-shadow: 0 10px 18px rgba(0,0,0,0.12);
+  border:0;border-radius:999px;
+  padding:10px 14px;
+  font-weight:1000;cursor:pointer;
+  background:#0b63a6;color:#ff7a00;
+  box-shadow:0 10px 18px rgba(0,0,0,.12);
 }
 
-/* 
-  ===== ADMIN GHOST BUTTON BLOCK =====
-  Styles the secondary button (lighter background, blue text).
-*/
 .lwBubbleBtn.ghost{
-  background: rgba(255,255,255,0.75);
-  color: #0b63a6;
-  border: 1px solid rgba(0,0,0,0.10);
-  box-shadow: none;
+  background:rgba(255,255,255,.75);
+  color:#0b63a6;
+  border:1px solid var(--line);
+  box-shadow:none;
+}
+
+/* ================= LOGIN ================= */
+.lwLogin{
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  background:#fff;
+}
+
+.lwLoginCard{
+  width:min(980px,92vw);
+  height:min(560px,82vh);
+  border-radius:40px;
+  background:#d8d8d8;
+  box-shadow:0 18px 40px rgba(0,0,0,.25);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:26px;padding:32px 24px;
+}
+
+.lwLoginBrand{display:flex;gap:18px;}
+.lwLoginLogo{width:120px;height:120px;object-fit:contain;}
+.lwLoginMotto{width:360px;height:90px;object-fit:contain;}
+
+.lwLoginForm{
+  width:min(640px,80vw);
+  display:flex;flex-direction:column;
+  gap:16px;align-items:center;
+}
+
+.lwInput{
+  width:100%;padding:16px 22px;
+  border-radius:40px;
+  border:1px solid rgba(0,0,0,.25);
+  font-size:18px;background:#fff;
+}
+
+.lwPrimaryBtn,
+.lwSecondaryBtn{
+  width:220px;border-radius:40px;
+  font-weight:900;font-size:18px;
+  cursor:pointer;
+}
+
+.lwPrimaryBtn{
+  padding:14px 18px;
+  border:0;
+  background:#0b63a6;
+  color:#ff7a00;
+}
+
+.lwSecondaryBtn{
+  padding:12px 18px;
+  background:transparent;
+  border:1px solid #0b63a6;
+  color:#ff7a00;
+}
+
+.lwLinkBtn{
+  border:0;background:transparent;
+  color:#0b63a6;
+  text-decoration:underline;
+  font-size:16px;cursor:pointer;
+}
+
+.lwErrorBanner{
+  margin-bottom:12px;padding:10px 12px;
+  border-radius:12px;
+  background:rgba(224,67,67,.14);
+  border:1px solid rgba(224,67,67,.25);
+  font-weight:800;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width:1100px){
+  .lwKpiGrid{grid-template-columns:repeat(2,1fr);}
+  .lwPanelGrid,.lwBottomGrid,.lwBubbleGrid{grid-template-columns:1fr;}
+}
+
+@media (max-width:650px){
+  .lwKpiGrid{grid-template-columns:1fr;}
 }
