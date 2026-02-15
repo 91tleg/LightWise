@@ -1,10 +1,11 @@
-/**
- * @file str_ext.h
- * @brief Extended string utility functions for parsing and command building.
+/******************************************************************************
+ * @file    str_ext.h
+ * @brief   Extended string utility functions for parsing and command building.
  *
- * All functions are designed to be safe with NULL checks and length checks.
- */
-
+ * Copyright (c) 2026 LightWise. All rights reserved.
+ * See LICENSE file in the project root for license information.
+ ******************************************************************************/
+ 
 #ifndef SRC_COMMON_UTILS_STR_EXT_H
 #define SRC_COMMON_UTILS_STR_EXT_H
 
@@ -123,6 +124,44 @@ bool str_ext_uint8_array_to_hex_string( const uint8_t * in,
                                         size_t len,
                                         char * out,
                                         size_t outSize );
+
+/**
+ * @brief Convert a bounded-length decimal string to a signed long.
+ *
+ * This function safely parses a decimal integer from a character buffer
+ * that is not necessarily null-terminated. The input substring is copied
+ * into a temporary buffer, null-terminated, and then converted using
+ * strtol().
+ *
+ * @param[in]  str     Pointer to the character buffer containing digits.
+ * @param[in]  len     Length of the substring to parse (1–31 bytes).
+ * @param[out] outVal  Pointer to store the parsed value on success.
+ *
+ * @return true  If conversion succeeded and @p outVal was updated.
+ * @return false If parameters are invalid or conversion failed.
+ */                                        
+bool str_ext_strtol( const char * str, 
+                     size_t len,
+                     long * outVal );
+
+/**
+ * @brief Convert a bounded-length decimal string to an unsigned long.
+ *
+ * This function safely parses a decimal unsigned integer from a character
+ * buffer that is not necessarily null-terminated. The input substring is
+ * copied into a temporary buffer, null-terminated, and then converted using
+ * strtoul().
+ *
+ * @param[in]  str     Pointer to the character buffer containing digits.
+ * @param[in]  len     Length of the substring to parse (1–31 bytes).
+ * @param[out] outVal  Pointer to store the parsed value on success.
+ *
+ * @return true  If conversion succeeded and @p outVal was updated.
+ * @return false If parameters are invalid or conversion failed.
+ */                     
+bool str_ext_strtoul( const char * str,
+                      size_t len,
+                      unsigned long * outVal );
 
 #ifdef __cplusplus
 }
