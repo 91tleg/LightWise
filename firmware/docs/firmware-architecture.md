@@ -1,6 +1,6 @@
 # Firmware Architecture
 
-![Firmware Architecture](../assets/firmware-architecture-v1.0.png)
+![Firmware Architecture](assets/firmware-architecture-v1.0.png)
 
 ## Modules:
 
