@@ -17,7 +17,7 @@ static const Board board =
     .c4001PrimaryUartNum   = UART_NUM_1,
     .c4001PrimaryTxPin    = GPIO_NUM_17,
     .c4001PrimaryRxPin    = GPIO_NUM_18,
-    .c4001PrimaryBaud     = 115200U,
+    .c4001PrimaryBaud     = 9600U,
     .c4001PrimaryRxBufSize = 1024U,
     .c4001PrimaryTxBufSize = 1024U,
 
@@ -25,7 +25,7 @@ static const Board board =
     .c4001SecondaryUartNum   = UART_NUM_2,
     .c4001SecondaryTxPin    = GPIO_NUM_15,
     .c4001SecondaryRxPin    = GPIO_NUM_16,
-    .c4001SecondaryBaud     = 115200U,
+    .c4001SecondaryBaud     = 9600U,
     .c4001SecondaryRxBufSize = 1024U,
     .c4001SecondaryTxBufSize = 1024U,
 

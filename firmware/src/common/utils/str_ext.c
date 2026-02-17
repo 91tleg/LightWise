@@ -2,6 +2,9 @@
 
 #include <string.h>
 #include <limits.h>
+#include <stdlib.h> /* strtol, strtoul */
+#include <string.h> /* memcpy, memset, strstr, strlen */
+#include <errno.h>  /* errno for strtol validation */
 
 bool str_ext_get_field( const uint8_t * const buf,
                         size_t len,
@@ -226,5 +229,57 @@ bool str_ext_uint8_array_to_hex_string( const uint8_t * const in,
         result = true;
     }
 
+    return result;
+}
+
+bool str_ext_strtol( const char * const str, 
+                     size_t len,
+                     long * const outVal )
+{
+    bool result = false;
+    
+    if( ( str != NULL ) && ( outVal != NULL ) && ( len > 0U ) && ( len < 32U ) )
+    {
+        char tmp[ 32 ];
+        ( void ) memcpy( tmp, str, len );
+        tmp[ len ] = '\0';
+        
+        errno = 0;
+        char *endptr = NULL;
+        const long val = strtol( tmp, &endptr, 10 );
+        
+        if( ( errno == 0 ) && ( endptr != tmp ) && ( *endptr == '\0' ) )
+        {
+            *outVal = val;
+            result = true;
+        }
+    }
+    
+    return result;
+}
+
+bool str_ext_strtoul( const char * const str,
+                      size_t len,
+                      unsigned long * const outVal )
+{
+    bool result = false;
+    
+    if( ( str != NULL ) && ( outVal != NULL ) && ( len > 0U ) && ( len < 32U ) )
+    {
+        char tmp[ 32 ];
+        ( void ) memcpy( tmp, str, len );
+        tmp[ len ] = '\0';
+        
+        errno = 0;
+        char *endptr = NULL;
+        const unsigned long val = strtoul( tmp, &endptr, 10 );
+        
+        if( ( errno == 0 ) && ( endptr != tmp ) && ( *endptr == '\0' ) )
+        {
+            *outVal = val;
+            result = true;
+        }
+    }
+    
     return result;
 }
