@@ -1,21 +1,21 @@
-# LoRaWAN Payload Specification V1.0
+# LoRaWAN Payload Specification V1
 
-**Uplink Payload length:** 6 bytes  
-**Encoding:** Binary, big-endian  
+**Uplink Payload length:** 7 bytes  
+**Endianness:** Big-endian for multi-byte fields
+**Versioned:** Yes (byte 0)
 
 ---
 
 ## 1. Uplink Payload Structure
 
-| Byte | Field        | Type     | Units | Description                              |
-|------|-------------|---------|-------|------------------------------------------|
-| 0–1  | `lux_x10`   | `uint16_t` | lux × 10 | Ambient light intensity (scaled ×10) |
-| 2    | `tempC`     | `uint8_t`  | °C      | Temperature in Celsius                |
-| 3    | `humidity`  | `uint8_t`  | %       | Relative humidity (0–100)             |
-| 4    | `flags`     | `uint8_t`  | –       | Status and motion flags               |
-| 5    | `lightLevel`| `uint8_t`  | %       | User-configured light level (0–100)  |
-
-**Total:** 6 bytes
+| Byte | Field           | Type       | Units    | Description                                 |
+|------|-----------------|------------|----------|---------------------------------------------|
+| 0    | `payloadVersion`| `uint8_t`  | -        | Versioned payload ( currently `0x01`)       |
+| 1–2  | `lux_x10`       | `uint16_t` | lux × 10 | Ambient light intensity (scaled ×10)        |
+| 3    | `tempC`         | `uint8_t`  | °C       | Temperature in Celsius                      |
+| 4    | `humidity`      | `uint8_t`  | %        | Relative humidity (0–100)                   |
+| 5    | `flags`         | `uint8_t`  | –        | Status and motion flags                     |
+| 6    | `lightLevel`    | `uint8_t`  | %        | User-configured light level (0–100)         |
 
 ---
 
@@ -29,25 +29,16 @@
 | 3   | `FLAG_DHT_OK`               | Temperature/Humidity sensor OK           |
 | 4   | `FLAG_C4001_PRIMARY_OK`     | Primary C4001 sensor OK                  |
 | 5   | `FLAG_C4001_SECONDARY_OK`   | Secondary C4001 sensor OK                |
-| 6   | Reserved                    | For future use                           |
+| 6   | `FLAG_OVERALL_DEGRADED`     | System degraded                          |
 | 7   | `FLAG_OVERALL_OK`           | Derived overall health (all critical sensors OK) |
 
-> **Note:** Bit 6 is reserved. Always include individual sensor flags for precise diagnostics.
+**Note:**
+`FLAG_OVERALL_OK` is derived onboard and duplicated for backend simplicity.
+It MUST NOT be used as the sole health indicator.
 
 ---
 
-## 3. Encoding Notes
-
-- **Big-endian** for multi-byte values (`lux_x10`).  
-- Fixed-point scaling avoids sending floats:  
-
-
-- Flags packed into a single byte.  
-- `lightLevel` is a uint8_t from 0–100.
-
----
-
-## 4. Example Payload
+## 3. Example Payload
 
 ### Sensor Reading
 
@@ -76,8 +67,11 @@ ALS secondary = 0
 DHT = 1  
 C4001 primary = 1  
 C4001 secondary = 1  
+OVERALL_DEGRADED = 0
 OVERALL_OK = 1 (derived)  
+
 Binary: 10111011  
+
 Hex: **0xBB**  
 
 
@@ -85,43 +79,50 @@ Hex: **0xBB**
 
 | Byte | Value | Description       |
 |------|-------|-------------------|
-| 0    | 0x04  | lux_x10 MSB       |
-| 1    | 0xD2  | lux_x10 LSB       |
-| 2    | 0x19  | tempC = 25        |
-| 3    | 0x3C  | humidity = 60     |
-| 4    | 0xBB  | flags             |
-| 5    | 0x50  | lightLevel = 80   |
+| 0    | 0x01  | payload version   |
+| 1    | 0x04  | lux_x10 MSB       |
+| 2    | 0xD2  | lux_x10 LSB       |
+| 3    | 0x19  | tempC = 25        |
+| 4    | 0x3C  | humidity = 60     |
+| 5    | 0xBB  | flags             |
+| 6    | 0x50  | lightLevel = 80   |
 
 **Payload in hex:**    
-04 D2 19 3C BB 50
+01 04 D2 19 3C BB 50
 
 
 ---
 
-## 5. Decoding Rules (Backend Example)
+## 4. Decoding Rules (Backend Example)
 
 ```python
 def decode_uplink(bytes_payload: bytes) -> dict:
     """
-    Decode a 6-byte LoRaWAN payload into sensor readings and flags.
+    Decode a 7-byte versioned LoRaWAN payload.
 
-    Payload layout:
-    Byte 0-1: lux_x10 (uint16, big-endian)
-    Byte 2: tempC (uint8)
-    Byte 3: humidity (uint8)
-    Byte 4: flags (uint8)
-    Byte 5: lightLevel (uint8)
+    Payload layout (v1):
+    Byte 0  : version
+    Byte 1-2: lux_x10 (uint16, big-endian)
+    Byte 3  : tempC (uint8)
+    Byte 4  : humidity (uint8)
+    Byte 5  : flags (uint8)
+    Byte 6  : lightLevel (uint8)
     """
-    if len(bytes_payload) != 6:
-        raise ValueError("Payload must be exactly 6 bytes")
+    if len(bytes_payload) != 7:
+        raise ValueError("Payload must be exactly 7 bytes")
 
-    lux_x10 = (bytes_payload[0] << 8) | bytes_payload[1]
-    flags = bytes_payload[4]
+    version = bytes_payload[0]
+    if version != 0x01:
+        raise ValueError(f"Unsupported payload version: {version}")
+
+    lux_x10 = (bytes_payload[1] << 8) | bytes_payload[2]
+    flags = bytes_payload[5]
 
     return {
+        "version": version,
         "lux": lux_x10 / 10.0,
-        "tempC": bytes_payload[2],
-        "humidity": bytes_payload[3],
+        "tempC": bytes_payload[3],
+        "humidity": bytes_payload[4],
         "motion": bool(flags & 0x01),
         "alspt19PrimaryOk": bool(flags & 0x02),
         "alspt19SecondaryOk": bool(flags & 0x04),
@@ -129,7 +130,7 @@ def decode_uplink(bytes_payload: bytes) -> dict:
         "c4001PrimaryOk": bool(flags & 0x10),
         "c4001SecondaryOk": bool(flags & 0x20),
         "overallOk": bool(flags & 0x80),
-        "lightLevel": bytes_payload[5]
+        "lightLevel": bytes_payload[6],
     }
 ```
 
@@ -150,7 +151,7 @@ Output for the example payload `04 D2 19 3C BB 50`:
 }
 ```
 
-## 6. ESP32-S3 Implementation Notes
+## 5. ESP32-S3 Implementation Notes
 
 Endian Handling: ESP32 is little-endian; convert lux_x10 to big-endian for LoRaWAN uplink.
 
@@ -160,9 +161,9 @@ Flags: Compute OVERALL_OK from critical sensors.
 
 Versioning: Use reserved bits for future expansion.
 
-Payload Efficiency: 6 bytes is compact for Class A/C LoRaWAN devices.
+Payload Efficiency: 7 bytes is compact for Class A/C LoRaWAN devices.
 
 ---
 
-**Document Version**: 1.0   
-**Last Updated**: February 8, 2026  
+**Document Version**: 1.1   
+**Last Updated**: February 17, 2026  
