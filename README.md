@@ -1,4 +1,4 @@
-![Lightwise Logo](assets/lightwise-logo.png)
+![Lightwise Logo](docs/assets/lightwise-logo.png)
 
 [![Firmware CI](https://github.com/91tleg/lightwise/actions/workflows/firmware-ci.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/firmware-ci.yml)
 [![Web CI](https://github.com/91tleg/lightwise/actions/workflows/web-ci.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/web-ci.yml)
@@ -6,20 +6,31 @@
 [![API CI](https://github.com/91tleg/lightwise/actions/workflows/api-ci.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/api-ci.yml)
 [![API Deploy](https://github.com/91tleg/lightwise/actions/workflows/api-deploy.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/api-deploy.yml)
 
-LightWise is a smart streetlight telemetry and control platform that collects real-time data from distributed IoT-enabled streetlights and delivers actionable insights through a centralized web dashboard.
+LightWise is a comprehensive, fault-tolerant telemetry platform designed to manage distributed, sensor-rich lighting infrastructure at scale. By bridging the gap between autonomous embedded firmware and cloud-based analytics, LightWise enables municipalities to transform standard streetlights into intelligent, self-healing edge nodes.
 
-Designed as a scalable B2B SaaS solution for municipalities and infrastructure operators, LightWise enables intelligent lighting management with features such as:
+---
 
-- Real-time monitoring and analytics  
-- Remote brightness and power control  
-- Traffic-aware lighting optimization  
-- Motion-based automatic dimming and activation  
-- Energy efficiency optimization  
-- Predictive maintenance and fault detection  
+## Key Features
 
-The platform integrates embedded firmware, cloud-based processing, and a web dashboard to provide centralized control, real-time monitoring, and automation for smart city lighting systems.
+### Intelligent Edge Nodes
 
-By leveraging data-driven automation, LightWise helps cities reduce energy consumption, improve public safety, and optimize operational costs.
+- Autonomous Operation: Each streetlight functions as a real-time embedded node capable of local decision-making.
+
+- Fault Tolerance: Built-in logic for detecting partial or total sensor failures. The system automatically enters degraded operation modes to maintain core functionality during hardware faults.
+
+### Robust Connectivity
+
+- LoRaWAN Integration: Optimized for long-range, low-power communication in dense urban environments.
+
+- Hybrid Telemetry: Supports both event-driven triggers (for immediate alerts) and periodic heartbeats (for health monitoring).
+
+- Data Integrity: Device-side health assessments validate telemetry quality before transmission.
+
+### Cloud & Analytics Dashboard
+
+- Real-time Visualization: A unified web dashboard for fleet-wide monitoring and diagnostics.
+
+- Aggregated Analytics: Backend processing converts raw sensor data into actionable insights regarding energy usage and maintenance cycles.
 
 ---
 
@@ -30,24 +41,15 @@ This README provides a high-level overview only.
 Detailed technical and planning documentation is maintained in the `/docs` directory:
 
 - [System Architecture](docs/system-architecture.md): Overall platform design and data flow  
+- [Database Schema](docs/database-schema.md): Data models, access patterns, and retention strategy   
 - [API Contracts](docs/api-contract-v1.0.md): Telemetry ingestion and service interfaces  
 - [Firmware Architecture](firmware/docs/firmware-architecture.md): ESP32 and component flow  
 - [Hardware Specifications](firmware/docs/hw-spec.md): Hardware component specification  
 - [Sprint Plans & Backlog](docs/sprint/): Project planning and progress tracking  
 - [Contributing](CONTRIBUTING.md): Development standards  
+- [License](LICENSE): Project licensing terms 
 
 Please refer to the appropriate document for details.
-
----
-
-## Features  
-
-- Real-time telemetry ingestion from streetlight nodes  
-- Cloud-based data processing and storage  
-- Live monitoring dashboard  
-- Historical analytics and reporting  
-- Secure authentication and multi-tenant support  
-- Adaptive lighting control based on human and vehicle activity  
 
 ---
 
@@ -63,7 +65,6 @@ LightWise/
 │   ├── firmware/     # Embedded firmware (ESP32, device drivers, RTOS)
 │   └── web/          # Web dashboard (React frontend)
 │
-├── assets/           # Diagrams, images, logo
 ├── docs/             # System-level documentation
 ├── scripts/          # Build, deployment, and automation scripts
 │
@@ -146,5 +147,5 @@ Install the **PlatformIO IDE extension** for VSCode:
 
 ---
 
-**Version:** 1.1  
-**Last Updated:** February 2, 2026
+**Version:** 1.2  
+**Last Updated:** February 17, 2026
