@@ -1,34 +1,68 @@
 # System Architecture
 
-## Overview
-
-LightWise is a scalable IoT platform for smart streetlight management. The system collects real-time telemetry from distributed ESP32 nodes via LoRaWAN, processes data in AWS, and provides real-time visualization through a React dashboard.
-
 **Architecture Diagram**:
-![System Architecture](../assets/architecture-v0.1.png)
+![System Architecture](assets/architecture-v2.0.png)
+
+---
+
+## Architectural Principles
+
+- Event-driven, loosely coupled services
+- Clear separation between operational state and time-series data
+- Serverless-first design for elasticity and cost efficiency
+- Least-privilege security at every boundary
+- Edge devices treated as intermittently connected and untrusted
+
+---
 
 ## System Components
 
 ### 1. Edge Layer (IoT Devices)
 
 #### ESP32 Streetlight Nodes
-**Purpose**: Collect sensor data from streetlight poles  
-**Responsibilities**:
-- Acquire sensor readings (light, motion, temperature, humidity)
-- Perform local data aggregation and filtering
-- Compress and encrypt telemetry packets
-- Transmit data via LoRaWAN (Class A, confirmed uplink)
-- Handle low-power sleep cycles and wake events
+**Purpose**  
+Collect environmental and operational data from individual streetlight poles.
+
+**Responsibilities**
+- Acquire sensor data (ambient light, motion, temperature, humidity)
+- Perform basic local filtering and aggregation
+- Encrypt telemetry using LoRaWAN security primitives
+- Transmit confirmed uplinks using LoRaWAN Class A
+- Handle low-power sleep, wake, and retry behavior
+
+**Key Characteristics**
+- Grid-powered
+- Intermittent connectivity
+- Designed to fail independently without system-wide impact
 
 #### LoRaWAN Gateway
-**Purpose**: Bridge between streetlight nodes and cloud  
-**Responsibilities**:
-- Receive encrypted LoRaWAN packets from multiple nodes
-- Decrypt and forward to AWS IoT Core via MQTT
-- Handle message queuing and retry logic
+**Purpose**  
+Bridge LoRaWAN traffic from edge devices into the cloud.
+
+**Responsibilities**
+- Receive encrypted uplinks from multiple nodes
+- Forward payloads to the cloud over IP
+- Handle message buffering and retry during connectivity loss
 - Monitor gateway health and connectivity
 
-### 2. Cloud Processing Layer (AWS)
+---
+
+### 2. Cloud Processing Layer
+
+**Purpose**  
+Secure device ingress and message routing layer.
+
+#### API Gateway
+
+**Purpose**  
+Public HTTP interface for user-facing and integration APIs.
+
+**Responsibilities**
+- Terminate HTTPS requests
+- Enforce authentication and authorization
+- Route requests to Lambda functions
+- Apply rate limiting and throttling
+- Provide request logging
 
 #### AWS IoT Core
 **Purpose**: Managed MQTT message broker and device gateway  
@@ -38,20 +72,16 @@ LightWise is a scalable IoT platform for smart streetlight management. The syste
 - Provide event bridge to Lambda/other services
 - Manage IoT device registry and shadow state
 
-**Configuration**:
-- **Endpoint**: `<account-id>-ats.iot.<region>.amazonaws.com:8883`
-- **Protocol**: MQTT 3.1.1 over TLS 1.2+
-- **Topics**: `lightwise/telemetry/{poleId}`
-- **Rules**: Forward all telemetry to Lambda Ingest function
-
 #### Lambda: Telemetry Ingest
-**Purpose**: Validate and store incoming telemetry data  
-**Responsibilities**:
-- Receive MQTT messages from IoT Core
-- Validate payload schema and field ranges
-- Enrich data (add processing timestamp, request ID)
-- Store records in DynamoDB with optimized write patterns
-- Log errors and metrics to CloudWatch
+**Purpose**  
+Process incoming telemetry events.
+
+**Responsibilities**
+- Receive messages from AWS IoT Core rules
+- Perform basic payload validation and enrichment
+- Persist time-series data
+- Update latest-known device state
+- Emit logs and metrics
 
 #### Lambda: Telemetry Retrieval
 **Purpose**: Serve historical data to frontend dashboard  
@@ -59,15 +89,13 @@ LightWise is a scalable IoT platform for smart streetlight management. The syste
 - Query DynamoDB for records matching filters (poleId, timestamp range)
 - Apply pagination and result limits
 - Format response according to API contract
-- Cache frequently accessed queries (Redis/ElastiCache optional)
 
-
-#### DynamoDB (Time-Series Data)
+#### AWS TimeStream (Time-Series Data)
 **Purpose**: Store telemetry records with high throughput  
 **Responsibilities**:
-- Store all incoming sensor readings
-- Provide fast queries by poleId and timestamp
-- Automatically expire old records via TTL
+- Store all telemetry and event data
+- Enable efficient time-range and device-based queries
+- Enforce data retention and TTL policies
 
 #### API Gateway
 **Purpose**: REST API frontend for dashboard and integrations  
@@ -77,11 +105,6 @@ LightWise is a scalable IoT platform for smart streetlight management. The syste
 - Route requests to Lambda functions
 - Enforce rate limiting and throttling
 - Log requests and responses
-
-**Endpoints**:
-- `POST /telemetry` — Ingest telemetry (auth: API Key)
-- `GET /telemetry` — Retrieve historical data (auth: JWT)
-- `GET /health` — System health check (no auth)
 
 #### AWS Cognito
 **Purpose**: Manage user authentication and authorization  
@@ -96,24 +119,25 @@ LightWise is a scalable IoT platform for smart streetlight management. The syste
 - **Attributes**: email, phone, organization_id, role
 - **Token Expiry**: 1 hour (access), 30 days (refresh)
 
-#### PostgreSQL (Business Data)
+#### DynamoDB (Business Data)
 **Purpose**: Store organization and user data
 **Responsibilities**:
 - User accounts and organizations
 - Streetlight pole registry and metadata
 - Alerts and rules configuration
-- Usage metrics and billing data
+
+---
 
 ### 3. UI Layer (Frontend)
 
 #### React Dashboard
-**Purpose**: Real-time visualization and control interface  
-**Responsibilities**:
-- Display live telemetry from streetlight poles
-- Show historical trends and analytics
-- Manage user accounts and organizations
+**Purpose**: Real-time visualization and control interface for operators and administrators.
+**Responsibilities**
+- Display live and historical telemetry
+- Visualize pole locations and status
+- Manage users, organizations, and permissions
 - Configure alerts and automation rules
-- Handle user authentication via Cognito
+- Issue control commands to devices
 
 **Features**:
 - Real-time data updates (REST polling, WebSocket future)
@@ -193,9 +217,10 @@ Downlink Control (User Overrides / Configuration)
 ### Horizontal Scalability
 
 **IoT Devices**:
-- Supports thousands of ESP32 nodes
-- LoRaWAN network capacity limited by gateway (1000+ msgs/day per node)
-- Scaling: Add more gateways in different coverage zones
+- Thousands of devices supported per deployment
+- Stateless compute via Lambda enables elastic scaling
+- Failure of individual devices or gateways does not impact system availability
+- Data retention and TTL prevent unbounded storage growth
 
 **Cloud Processing**:
 - Lambda: Auto-scales to handle concurrent requests
@@ -207,20 +232,7 @@ Downlink Control (User Overrides / Configuration)
 - No server-side session management
 - Client-side caching reduces API calls
 
-### Performance Optimization
-
-**Write Path** (Telemetry Ingest):
-- Lambda batches writes when possible
-- DynamoDB provisioned for high write throughput
-- TTL reduces storage costs automatically
-
-**Read Path** (Dashboard Queries):
-- DynamoDB GSI for efficient timestamp queries
-- Pagination to limit result set size
-- CloudFront caches static assets
-- API caching on frequently accessed data (future)
-
 ---
 
-**Document Version**: 0.1  
-**Last Updated**: January 25, 2026  
+**Document Version**: 2.0  
+**Last Updated**: February 17, 2026  
