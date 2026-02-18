@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * ActivityFeed
@@ -7,24 +7,29 @@ import React, { useEffect, useMemo, useState } from "react";
  *  - wsStatus: string ("idle"|"connecting"|"connected"|"disconnected"|"error")
  *  - lastMessage: object|null  (latest message parsed from WS)
  *  - maxItems?: number (default 20)
- *
- * Message shape expected (but flexible):
- *  {
- *    type: "motion",
- *    poleId: "pole_demo",
- *    value: 1,
- *    timestamp: "2026-02-07T..."
- *  }
  */
 export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
   const [events, setEvents] = useState([]);
 
-  // Add new incoming messages to the feed
+  // Keeps track of the most recent signature so we don't double-add identical events
+  const lastSigRef = useRef(null);
+
   useEffect(() => {
     if (!lastMessage) return;
 
+    const evt = normalizeEvent(lastMessage);
+    const sig = evt.sig;
+
+    // If this exact event signature just arrived, ignore it (prevents duplicates)
+    if (sig && sig === lastSigRef.current) return;
+
+    lastSigRef.current = sig;
+
     setEvents((prev) => {
-      const next = [normalizeEvent(lastMessage), ...prev];
+      // Also protect against duplicates already in list (extra safety)
+      if (sig && prev.some((p) => p.sig === sig)) return prev;
+
+      const next = [evt, ...prev];
       return next.slice(0, maxItems);
     });
   }, [lastMessage, maxItems]);
@@ -41,7 +46,6 @@ export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
 
     const label = wsStatus || "idle";
 
-    // simple status color-ish (still neutral)
     let borderColor = "#d1d5db";
     if (label === "connected") borderColor = "#16a34a";
     if (label === "connecting") borderColor = "#f59e0b";
@@ -55,7 +59,10 @@ export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
     );
   }, [wsStatus]);
 
-  const clear = () => setEvents([]);
+  const clear = () => {
+    setEvents([]);
+    lastSigRef.current = null;
+  };
 
   return (
     <div
@@ -149,16 +156,19 @@ const tdStyle = {
 };
 
 function normalizeEvent(msg) {
-  // msg might already be a good object, or might be { raw: "..." }
   const raw = msg;
 
-  const type = safeStr(raw?.type, "event");
-  const poleId = safeStr(raw?.poleId, safeStr(raw?.pole, "unknown_pole"));
-  const value = raw?.value ?? raw?.reading ?? raw?.level ?? "";
-  const timestamp = raw?.timestamp || raw?.time || new Date().toISOString();
+  const type = safeStr(raw?.type ?? raw?.payload?.type, "event");
+  const poleId = safeStr(raw?.poleId ?? raw?.payload?.poleId ?? raw?.pole, "unknown_pole");
+  const value = raw?.value ?? raw?.payload?.value ?? raw?.reading ?? raw?.level ?? "";
+  const timestamp = raw?.timestamp ?? raw?.payload?.timestamp ?? raw?.time ?? new Date().toISOString();
+
+  // ✅ Stable signature: if the same event arrives twice, this matches
+  const sig = `${type}|${poleId}|${String(value)}|${String(timestamp)}`;
 
   return {
-    id: raw?.id || `evt_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    id: raw?.id || sig, // stable key now
+    sig,
     type,
     poleId,
     value,
