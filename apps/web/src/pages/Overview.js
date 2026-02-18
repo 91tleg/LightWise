@@ -18,7 +18,8 @@ export default function Overview() {
       .catch((e) => setError(e?.message || String(e)));
   }, []);
 
-  const poleId = telemetry?.poleId ?? "LW-001";
+  // ✅ don’t lie with LW-001 if no real telemetry came in
+  const poleId = telemetry?.poleId ?? "—";
 
   const kpis = [
     { icon: "✅", label: "System Status", value: "N/A", note: "Demo mode" },
@@ -78,9 +79,15 @@ export default function Overview() {
           <div className="lwPoleRow">
             <div className="lwPoleAvatar" />
             <div className="lwPoleMeta">
-              <div><b>ID:</b> {poleId}</div>
-              <div><b>Lux:</b> {telemetry?.ambientLux ?? "N/A"}</div>
-              <div><b>Motion:</b> {telemetry?.motion ?? "N/A"}</div>
+              <div>
+                <b>ID:</b> {poleId}
+              </div>
+              <div>
+                <b>Lux:</b> {telemetry?.ambientLux ?? "N/A"}
+              </div>
+              <div>
+                <b>Motion:</b> {telemetry?.motion ?? "N/A"}
+              </div>
             </div>
           </div>
         </Card>

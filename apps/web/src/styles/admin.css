@@ -1,5 +1,10 @@
-/* Admin-specific helpers (keeps UI the same, removes inline styles) */
+/* =========================================================
+   ADMIN-SPECIFIC UI HELPERS
+   These styles are ONLY for Admin page components.
+   They remove inline styles and centralize UI styling.
+========================================================= */
 
+/* WebSocket controls container */
 .lwWsControls {
   margin-bottom: 16px;
   display: flex;
@@ -8,16 +13,19 @@
   flex-wrap: wrap;
 }
 
+/* Generic WS button sizing */
 .lwWsBtn {
-  padding: 10px 14px; /* matches the old inline button size */
+  padding: 10px 14px;
   border-radius: 10px;
 }
 
+/* WebSocket status text */
 .lwWsStatus {
   font-size: 13px;
   opacity: 0.8;
 }
 
+/* Example bubble-style helper card */
 .lwBubbleExample {
   margin-top: 10px;
   padding: 10px 12px;
@@ -32,6 +40,99 @@
   margin-bottom: 6px;
 }
 
+
+/* =========================================================
+   BUTTON STATES (Motion Simulation Button)
+========================================================= */
+
+/* Fallback solid color states */
 .lwBtnSending { background: #1e62a7 !important; } /* blue */
-.lwBtnOk { background: #1f9d55 !important; }      /* green */
-.lwBtnErr { background: #d64545 !important; }     /* red */
+.lwBtnOk      { background: #1f9d55 !important; } /* green */
+.lwBtnErr     { background: #d64545 !important; } /* red */
+
+
+/* Primary Admin "Simulate Motion" button */
+.lwAdminSimBtn {
+  min-width: 200px !important;
+  padding: 14px 18px !important;
+  border-radius: 16px !important;
+  border: none !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.4px !important;
+  cursor: pointer !important;
+
+  color: #fff !important;
+
+  /* Default gradient background */
+  background: linear-gradient(135deg, #1e3c72, #2a5298) !important;
+
+  box-shadow: 0 10px 25px rgba(42, 82, 152, 0.35) !important;
+  transition: transform 0.08s ease,
+              box-shadow 0.15s ease,
+              opacity 0.15s ease !important;
+}
+
+/* Hover animation */
+.lwAdminSimBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(42, 82, 152, 0.45) !important;
+}
+
+/* Active (pressed) state */
+.lwAdminSimBtn:active {
+  transform: translateY(0px);
+  box-shadow: 0 8px 18px rgba(42, 82, 152, 0.35) !important;
+}
+
+/* Disabled state */
+.lwAdminSimBtn:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+
+
+/* Gradient versions of Sending / Success / Error */
+.lwBtnSending {
+  background: linear-gradient(135deg, #2563eb, #06b6d4) !important;
+}
+
+.lwBtnOk {
+  background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+}
+
+.lwBtnErr {
+  background: linear-gradient(135deg, #dc2626, #f97316) !important;
+}
+
+
+/* Card content formatting inside BubbleCard */
+.lwCardContent {
+  margin-top: 12px;
+  font-size: 13px;
+  opacity: 0.85;
+  line-height: 1.5;
+}
+
+/* Ensures the background covers at least the full visible screen height */
+.lwAdminPage {
+  min-height: 100vh;
+
+  /* Background image behavior */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+
+/*
+.lwAdminPageOverlay
+----------------------------------------------------------
+This is a WHITE overlay placed on top of the background.
+It keeps the dashboard readable.
+*/
+
+.lwAdminPageOverlay {
+  min-height: 100vh;
+
+  background: rgba(255, 255, 255, 0.85);
+}
