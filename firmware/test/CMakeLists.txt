@@ -29,11 +29,12 @@ file(GLOB_RECURSE TEST_FILES
 foreach(TEST_FILE ${TEST_FILES})
     get_filename_component(TEST_FILENAME ${TEST_FILE} NAME_WE)
     string(REPLACE "test_" "" MODULE_NAME ${TEST_FILENAME})
+    string(REGEX REPLACE "_manager$" "" MODULE_DIR ${MODULE_NAME})
 
     set(CANDIDATES "")
     set(POSSIBLE_SRC
-        "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_NAME}/${MODULE_NAME}.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_NAME}/${MODULE_NAME}.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_DIR}/${MODULE_NAME}.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_DIR}/${MODULE_NAME}.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}/${MODULE_NAME}.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}.cpp"
@@ -67,7 +68,7 @@ foreach(TEST_FILE ${TEST_FILES})
     set(INCLUDE_DIRS
         "${CMAKE_CURRENT_SOURCE_DIR}/mocks"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_NAME}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_DIR}"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/common" 
