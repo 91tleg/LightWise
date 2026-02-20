@@ -1,0 +1,15 @@
+#ifndef SRC_COMMON_TYPES_SENSOR_HEALTH_HPP
+#define SRC_COMMON_TYPES_SENSOR_HEALTH_HPP
+
+#include <cstdint>
+
+enum class SensorHealth : uint8_t
+{
+    SYSTEM_OK = 0,
+    PRIMARY_FAIL,
+    SECONDARY_FAIL,
+    TOTAL_FAILURE,
+    DEGRADED,
+};
+
+#endif /* SRC_COMMON_TYPES_SENSOR_HEALTH_HPP */
