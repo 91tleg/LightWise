@@ -24,14 +24,17 @@ class TelemetryPayload:
     motion_secondary_ok: bool = True
     overall_ok: bool = True
     system_degraded: bool = False
-    
-    
+
     def to_dict(self):
         return {
             # Identity
             "tenant_id": self.tenant_id,
             "device_id": self.device_id,
-            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "timestamp": (
+                self.timestamp.isoformat()
+                if self.timestamp
+                else None
+            ),
 
             # Measurements (Live data)
             "data": {
@@ -51,6 +54,5 @@ class TelemetryPayload:
                 "th_ok": self.th_ok,
                 "motion_primary_ok": self.motion_primary_ok,
                 "motion_secondary_ok": self.motion_secondary_ok,
+            }
         }
-    }
-    

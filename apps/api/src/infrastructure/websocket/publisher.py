@@ -1,7 +1,11 @@
 import json
+
 import boto3
 from botocore.exceptions import ClientError
-from infrastructure.persistence.dynamo.websocket_connection_repo import delete_connection
+
+from infrastructure.persistence.dynamo.websocket_connection_repo import (
+    delete_connection
+)
 from libs.config import settings
 from libs.logging import logger
 
@@ -25,10 +29,11 @@ class SensorEventPublisher:
                 Data=json.dumps(data)
             )
         except ClientError as e:
-            # 410 Gone means the user disconnected; we should probably 
-            # delete that stale connection from our DynamoDB table here.
+            # 410 Gone means the user disconnected
             if e.response["Error"]["Code"] == "GoneException":
-                logger.info(f"Connection {connection_id} is gone. Cleaning up.")
-                delete_connection(connection_id) 
+                logger.info(
+                    f"Connection {connection_id} is gone. Cleaning up."
+                )
+                delete_connection(connection_id)
             else:
                 logger.error(f"Failed to push to WS: {e}")

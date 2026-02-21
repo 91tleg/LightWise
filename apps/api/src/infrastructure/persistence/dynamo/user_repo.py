@@ -1,6 +1,9 @@
 from __future__ import annotations
 from typing import Dict, Any
+from functools import lru_cache
+
 import boto3
+
 from libs.config import settings
 
 
@@ -29,12 +32,10 @@ class UserRepository:
             raise UserNotFoundError(f"User {user_id} not found")
         return item
 
-
     def put(self, user: Dict[str, Any]) -> None:
         if "user_id" not in user:
             raise ValueError("user_id is required")
         self._table.put_item(Item=user)
-
 
     def update_fields(self, user_id: str, fields: Dict[str, Any]) -> None:
         if not fields:
@@ -51,12 +52,9 @@ class UserRepository:
             ExpressionAttributeValues=expr_values,
         )
 
-
     def delete(self, user_id: str) -> None:
         self._table.delete_item(Key={"user_id": user_id})
 
-
-from functools import lru_cache
 
 @lru_cache(maxsize=1)
 def get_user_repository() -> UserRepository:

@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import List, Dict
+
 from .client import get_query_client
 from libs.config import settings
+
 
 def query_records(
     device_id: str,
@@ -11,14 +13,15 @@ def query_records(
 ) -> List[Dict]:
     client = get_query_client()
 
-    query_string = f"""
-        SELECT *
-        FROM "{settings.TS_DATABASE}"."{settings.TS_TABLE}"
-        WHERE device_id = '{device_id}'
-        AND time BETWEEN '{start_time.isoformat()}' AND '{end_time.isoformat()}'
-        ORDER BY time ASC
-        LIMIT {limit}
-    """
+    query_string = (
+        f'SELECT * '
+        f'FROM "{settings.TS_DATABASE}"."{settings.TS_TABLE}" '
+        f"WHERE device_id = '{device_id}' "
+        f"AND time BETWEEN '{start_time.isoformat()}' "
+        f"AND '{end_time.isoformat()}' "
+        f'ORDER BY time ASC '
+        f'LIMIT {limit}'
+    )
 
     try:
         response = client.query(QueryString=query_string)

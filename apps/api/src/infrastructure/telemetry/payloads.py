@@ -1,5 +1,6 @@
 from typing import TypedDict, Union
 
+
 class SensorPayloadBase(TypedDict):
     version: int
 

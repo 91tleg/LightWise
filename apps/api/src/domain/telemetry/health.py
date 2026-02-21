@@ -6,6 +6,5 @@ class HealthStatus(Enum):
     DEGRADED = "DEGRADED"
     CRITICAL = "CRITICAL"
 
-
     def __str__(self):
         return self.value

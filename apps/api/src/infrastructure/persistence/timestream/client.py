@@ -1,6 +1,9 @@
-import boto3
 from typing import Optional
+
+import boto3
+
 from libs.config import settings
+
 
 class TimestreamClientManager:
     _write_client: Optional[boto3.client] = None
@@ -10,7 +13,7 @@ class TimestreamClientManager:
     def get_write_client(cls):
         if cls._write_client is None:
             cls._write_client = boto3.client(
-                "timestream-write", 
+                "timestream-write",
                 region_name=settings.AWS_REGION
             )
         return cls._write_client
@@ -19,8 +22,7 @@ class TimestreamClientManager:
     def get_query_client(cls):
         if cls._query_client is None:
             cls._query_client = boto3.client(
-                "timestream-query", 
+                "timestream-query",
                 region_name=settings.AWS_REGION
             )
         return cls._query_client
-    

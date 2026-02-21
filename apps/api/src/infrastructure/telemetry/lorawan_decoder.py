@@ -1,25 +1,27 @@
 from datetime import datetime, timezone
+
 from domain.telemetry.models import TelemetryPayload
+
 
 # Payload versions
 _PAYLOAD_V1 = 0x01
 _PAYLOAD_V1_LEN = 7
 
 # Flag bit masks (Payload v1)
-FLAG_MOTION_PRESENT        = 0x01  # Bit 0
-FLAG_AMBIENT_PRIMARY_OK    = 0x02  # Bit 1
-FLAG_AMBIENT_SECONDARY_OK  = 0x04  # Bit 2
-FLAG_TH_OK                = 0x08  # Bit 3
-FLAG_MOTION_PRIMARY_OK      = 0x10  # Bit 4
-FLAG_MOTION_SECONDARY_OK    = 0x20  # Bit 5
-FLAG_SYSTEM_DEGRADED       = 0x40  # Bit 6
-FLAG_SYSTEM_OK             = 0x80  # Bit 7
+FLAG_MOTION_PRESENT = 0x01  # Bit 0
+FLAG_AMBIENT_PRIMARY_OK = 0x02  # Bit 1
+FLAG_AMBIENT_SECONDARY_OK = 0x04  # Bit 2
+FLAG_TH_OK = 0x08  # Bit 3
+FLAG_MOTION_PRIMARY_OK = 0x10  # Bit 4
+FLAG_MOTION_SECONDARY_OK = 0x20  # Bit 5
+FLAG_SYSTEM_DEGRADED = 0x40  # Bit 6
+FLAG_SYSTEM_OK = 0x80  # Bit 7
 
 
 def decode_uplink(
-    tenant_id: str, 
-    device_id: str, 
-    bytes_payload: bytes, 
+    tenant_id: str,
+    device_id: str,
+    bytes_payload: bytes,
     timestamp: datetime = None
 ) -> TelemetryPayload:
     """
@@ -51,7 +53,9 @@ def _decode_v1(
     system_degraded = bool(flags & FLAG_SYSTEM_DEGRADED)
 
     if system_ok and system_degraded:
-        raise ValueError("Invalid payload: SYSTEM_OK and SYSTEM_DEGRADED both set")
+        raise ValueError(
+                "Invalid payload: SYSTEM_OK and SYSTEM_DEGRADED both set"
+              )
 
     lux_x10 = (bytes_payload[1] << 8) | bytes_payload[2]
 
