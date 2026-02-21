@@ -35,6 +35,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+          pip install flake8 mypy pytest
+
+      - name: Lint code
+        run: |
+          flake8 src/ tests/
+
+      #- name: Type check
+      #  run: |
+      #    mypy src/ tests/
+
       - name: Run tests
         run: |
           pytest tests/ --maxfail=1 --disable-warnings -q
