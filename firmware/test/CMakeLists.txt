@@ -7,6 +7,13 @@ enable_testing()
 
 add_subdirectory(googletest)
 
+file(GLOB UTILS_SOURCES 
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/*.cpp"
+)
+
+add_library(common_utils STATIC ${UTILS_SOURCES})
+
 function(add_native_test TEST_NAME SRC_FILES INCLUDE_DIRS)
     add_executable(${TEST_NAME} ${SRC_FILES})
 
@@ -15,7 +22,12 @@ function(add_native_test TEST_NAME SRC_FILES INCLUDE_DIRS)
     target_link_options(${TEST_NAME} PRIVATE -fsanitize=address -fno-omit-frame-pointer)
 
     target_include_directories(${TEST_NAME} PRIVATE ${INCLUDE_DIRS})
-    target_link_libraries(${TEST_NAME} PRIVATE gmock gtest_main)
+
+    target_link_libraries(${TEST_NAME} PRIVATE 
+        gmock 
+        gtest_main 
+        common_utils
+    )
 
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 endfunction()
