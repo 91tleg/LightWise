@@ -4,10 +4,11 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
-typedef struct AlsPt19Device AlsPt19Device;
+
 
 namespace ambient
 {
+    class AmbientSensor;
     /**
      * @brief Parameters passed to the ambient sensor task.
      *
@@ -16,8 +17,8 @@ namespace ambient
      */
     struct TaskParams
     {
-        AlsPt19Device * primary;   /**< Pointer to the primary ALS PT19 device */
-        AlsPt19Device * secondary; /**< Pointer to the secondary ALS PT19 device */
+        AmbientSensor * primary;   /**< Pointer to the primary ALS PT19 device */
+        AmbientSensor * secondary; /**< Pointer to the secondary ALS PT19 device */
         QueueHandle_t queue;       /**< FreeRTOS queue to send AmbientData results */
     };
 
