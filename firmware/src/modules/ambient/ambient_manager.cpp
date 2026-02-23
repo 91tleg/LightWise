@@ -1,6 +1,6 @@
 #include "ambient_manager.hpp"
 
-#include "lib/alspt19.h"
+#include "lib/ambient/ambient_sensor.hpp"
 
 namespace ambient
 {
@@ -9,14 +9,14 @@ namespace ambient
         constexpr float kDegradedThreshold = 10.0f;
     } /* anonymous namespace */
 
-    Manager::Manager( AlsPt19Device * primary, 
-                    AlsPt19Device * secondary,
-                    float alpha )
+    Manager::Manager( AmbientSensor * const primary,
+                      AmbientSensor * const secondary,
+                      float alpha )
         : primary_( primary ), secondary_( secondary )
     {
         /* NOTE: alpha is clamped to (0.0, 1.0] inside ema_init() */
-        ema_init( &primaryFilter_, alpha );
-        ema_init( &secondaryFilter_, alpha );
+        ( void ) ema_init( &primaryFilter_, alpha );
+        ( void ) ema_init( &secondaryFilter_, alpha );
     }
 
     bool Manager::update( Data & data )
@@ -35,20 +35,20 @@ namespace ambient
             float luxPrimary   = 0.0f;
             float luxSecondary = 0.0f;
 
-            const bool primaryOk   = alspt19_read_lux( primary_, &luxPrimary );
-            const bool secondaryOk = alspt19_read_lux( secondary_, &luxSecondary );
+            const bool primaryOk   = primary_->read( luxPrimary );
+            const bool secondaryOk = secondary_->read( luxSecondary );
 
             float updatedPrimaryEma = primaryEma;
             float updatedSecondaryEma = secondaryEma;
 
             if( primaryOk )
             {
-                ema_update( &primaryFilter_, luxPrimary, &updatedPrimaryEma );
+                ( void ) ema_update( &primaryFilter_, luxPrimary, &updatedPrimaryEma );
             }
 
             if( secondaryOk )
             {
-                ema_update( &secondaryFilter_, luxSecondary, &updatedSecondaryEma );
+                ( void ) ema_update( &secondaryFilter_, luxSecondary, &updatedSecondaryEma );
             }
 
             /* Determine health */

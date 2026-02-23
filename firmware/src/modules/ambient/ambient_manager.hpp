@@ -4,14 +4,15 @@
 #include "utils/ema.h"
 #include "types/ambient_data.hpp"
 
-typedef struct AlsPt19Device AlsPt19Device;
+
 
 namespace ambient
 {
+    class AmbientSensor;
     /**
      * @brief Ambient light sensor manager with redundancy and filtering.
      *
-     * Manages two ALS-PT19 ambient light sensors (primary and secondary). 
+     * Manages two ambient light sensors (primary and secondary). 
      * It performs the following:
      * - Reads lux values from both sensors
      * - Applies redundancy logic when one sensor fails
@@ -27,12 +28,12 @@ namespace ambient
         /**
          * @brief Constructs an Manager.
          *
-         * @param[in] primary   Pointer to the primary ALS-PT19 sensor device.
-         * @param[in] secondary Pointer to the secondary ALS-PT19 sensor device.
+         * @param[in] primary   Pointer to the primary ambient sensor device.
+         * @param[in] secondary Pointer to the secondary ambient sensor device.
          * @param[in] alpha     EMA smoothing factor (0.0 < alpha <= 1.0).
          */
-        explicit Manager( AlsPt19Device * primary, 
-                          AlsPt19Device * secondary,
+        explicit Manager( AmbientSensor * primary, 
+                          AmbientSensor * secondary,
                           float alpha );
 
         /**
@@ -49,8 +50,8 @@ namespace ambient
         bool update( Data & data );
 
     private:
-        AlsPt19Device * primary_;   /**< Primary ambient light sensor */
-        AlsPt19Device * secondary_; /**< Secondary ambient light sensor */
+        AmbientSensor * const primary_;   /**< Primary ambient light sensor */
+        AmbientSensor * const secondary_; /**< Secondary ambient light sensor */
         EMAFilter primaryFilter_;   /**< EMA filter for primary lux smoothing */
         EMAFilter secondaryFilter_; /**< EMA filter for secondary lux smoothing */
     };
