@@ -1,10 +1,15 @@
 import React, { useMemo, useState } from "react";
 import "../styles/admin.css";
 
-export default function AdminWsControls({ wsStatus, onSimulateMotion, motionState }) {
+export default function AdminWsControls({
+  wsStatus,
+  onSimulateMotion,
+  onSubscribeDemo,
+  motionState,
+}) {
   const [flash, setFlash] = useState("idle");
 
-  const handleClick = async () => {
+  const handleSimulateClick = async () => {
     setFlash("sending");
     try {
       const ok = await Promise.resolve(onSimulateMotion?.());
@@ -18,24 +23,45 @@ export default function AdminWsControls({ wsStatus, onSimulateMotion, motionStat
 
   const state = motionState && motionState !== "idle" ? motionState : flash;
 
-  const btnClass = useMemo(() => {
+  const simulateBtnClass = useMemo(() => {
     if (state === "simulating" || state === "sending") return "lwBtn lwBtnSending";
     if (state === "success" || state === "ok") return "lwBtn lwBtnOk";
     if (state === "error" || state === "err") return "lwBtn lwBtnErr";
     return "lwBtn";
   }, [state]);
 
-  const disabled =
+  const simulateDisabled =
     wsStatus !== "connected" || flash === "sending" || motionState === "simulating";
+
+  const canSubscribe = wsStatus === "connected";
 
   return (
     <div className="lwAdminTop">
-      <button className={`${btnClass} lwAdminSimBtn`} onClick={handleClick} disabled={disabled}>
+      {/* Simulate button */}
+      <button
+        className={`${simulateBtnClass} lwAdminSimBtn`}
+        onClick={handleSimulateClick}
+        disabled={simulateDisabled}
+      >
         Simulate Motion
         <br />
         Event
       </button>
 
+      {/* Subscribe button */}
+      <button
+        className="lwBtn"
+        style={{ marginLeft: 12 }}
+        onClick={() => onSubscribeDemo?.()}
+        disabled={!canSubscribe}
+        title='Sends: {"action":"subscribe","streetlight_id":"LW-001"}'
+      >
+        Subscribe
+        <br />
+        LW-001
+      </button>
+
+      {/* WS status */}
       <div className="lwWsStatus">
         WebSocket status: <b>{wsStatus}</b>
       </div>

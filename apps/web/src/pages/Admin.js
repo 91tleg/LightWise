@@ -14,27 +14,21 @@ import "../styles/admin.css";
  */
 import adminBg from "../assets/background/adminBackground1.jpeg";
 
-
 const WS_URL = process.env.REACT_APP_LIGHTWISE_WS_URL;
 
 export default function Admin() {
   /* =========================================================
      WebSocket Hook
-     - status: "connected" | "connecting" | "disconnected" (etc)
-     - lastMessage: last message received from backend
-     - send: function to send a message (your wrapper)
   ========================================================== */
   const { status: wsStatus, lastMessage, send } = useLightWiseWS(WS_URL);
 
   /* =========================================================
      Motion UI State (for button flash feedback)
-     idle | simulating | success | error
   ========================================================== */
   const [motionState, setMotionState] = useState("idle");
 
   /* =========================================================
-     Live state (only set when *real* data arrives)
-     This prevents your UI showing fake/default data.
+     Live state (only set when real data arrives)
   ========================================================== */
   const [liveState, setLiveState] = useState({
     lastPoleId: null,
@@ -45,8 +39,6 @@ export default function Admin() {
 
   /* =========================================================
      SIMULATE MOTION EVENT
-     - called when user clicks "Simulate Motion"
-     - sends a message to WS backend
   ========================================================== */
   const simulateMotion = () => {
     if (wsStatus !== "connected") {
@@ -76,27 +68,52 @@ export default function Admin() {
   };
 
   /* =========================================================
+     SUBSCRIBE DEMO (THIS IS WHAT YOU NEED FOR MAX/KIRAT)
+     Sends exactly what the subscribe lambda expects:
+       {"action":"subscribe","streetlight_id":"LW-001"}
+  ========================================================== */
+  const subscribeDemo = () => {
+    if (wsStatus !== "connected") return false;
+
+    return send({
+      action: "subscribe",
+      streetlight_id: "LW-001",
+    });
+  };
+
+  /* =========================================================
      Handle incoming WS messages
-     - parses message safely
-     - updates liveState only if message has real data
-     - sets motionState success/error for UI feedback
   ========================================================== */
   useEffect(() => {
     if (!lastMessage) return;
 
     try {
-      // lastMessage could be string or object depending on your hook
       const msg =
         typeof lastMessage === "string" ? JSON.parse(lastMessage) : lastMessage;
 
-      // Attempt to read fields even if backend sends different shape
       const type = msg?.type || msg?.payload?.type || null;
+
+      // ✅ Make this flexible for Max's payload naming
       const poleId =
-        msg?.poleId || msg?.payload?.poleId || msg?.deviceId || null;
-      const ts = msg?.timestamp || msg?.payload?.timestamp || msg?.time || null;
+        msg?.streetlight_id ||
+        msg?.streetlightId ||
+        msg?.device_id ||
+        msg?.deviceId ||
+        msg?.poleId ||
+        msg?.payload?.streetlight_id ||
+        msg?.payload?.device_id ||
+        msg?.payload?.poleId ||
+        null;
+
+      const ts =
+        msg?.timestamp ||
+        msg?.payload?.timestamp ||
+        msg?.time ||
+        msg?.created_at ||
+        null;
+
       const value = msg?.value ?? msg?.payload?.value ?? null;
 
-      // Only update when we actually got something real
       const hasRealData = Boolean(type || poleId || ts || value !== null);
 
       if (hasRealData) {
@@ -113,7 +130,6 @@ export default function Admin() {
         }));
       }
 
-      // If we received a motion event, show "success" flash on button
       if (type === "motion") {
         setMotionState("success");
         setTimeout(() => setMotionState("idle"), 1000);
@@ -126,8 +142,7 @@ export default function Admin() {
   }, [lastMessage]);
 
   /* =========================================================
-     Derived display values (UI-friendly)
-     - show N/A when value hasn't arrived yet
+     Derived display values
   ========================================================== */
   const display = useMemo(() => {
     return {
@@ -143,31 +158,21 @@ export default function Admin() {
   }, [liveState]);
 
   /* =========================================================
-     ✅ BACKGROUND FEATURE (FULL PAGE)
-     This wrapper makes the adminBg image cover the entire page.
-     
+     Render
   ========================================================== */
   return (
     <div
       className="lwAdminPage"
       style={{
-        // ✅ This is the full-page background image
         backgroundImage: `url(${adminBg})`,
       }}
     >
       <div className="lwAdminPageOverlay">
-        {/* 
-          ✅ Overlay purpose:
-          - Keeps cards readable on top of the image
-          - Does NOT blur buttons/content (no backdrop-filter)
-          - You can tune transparency in admin.css
-          - To remove overlay: delete this wrapper div
-        */}
-
         <Layout title="Admin" subtitle="System controls & configuration.">
           <AdminWsControls
             wsStatus={wsStatus}
             onSimulateMotion={simulateMotion}
+            onSubscribeDemo={subscribeDemo}
             motionState={motionState}
           />
 

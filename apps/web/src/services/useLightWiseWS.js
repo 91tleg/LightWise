@@ -1,11 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * useLightWiseWS(wsUrl, options?)
  *
  * - wsUrl: string like "wss://xxxx.execute-api.us-east-1.amazonaws.com/prod"
+ * - options:
+ *    - autoReconnect: boolean
+ *    - reconnectDelayMs: number
+ *    - maxMessages: number
+ *    - debug: boolean
+ *    - tenantId: string (demo-mode)
+ *    - userId: string (demo-mode)
+ *    - autoSubscribeStreetlightIds: string[] (re-subscribe on open/reconnect)
+ *
  * - Returns:
- *    { status, lastMessage, messages, send, connect, disconnect, error }
+ *    { status, lastMessage, messages, send, connect, disconnect, error, subscribe }
  *
  * Status values:
  *  - "idle" | "connecting" | "connected" | "disconnected" | "error"
@@ -16,6 +25,13 @@ export function useLightWiseWS(wsUrl, options = {}) {
     reconnectDelayMs = 1500,
     maxMessages = 50,
     debug = false,
+
+    // ✅ Demo-mode identity (optional)
+    tenantId = process.env.REACT_APP_TENANT_ID || "demo",
+    userId = process.env.REACT_APP_USER_ID || "demo",
+
+    // ✅ Auto re-subscribe (optional)
+    autoSubscribeStreetlightIds = [],
   } = options;
 
   const wsRef = useRef(null);
@@ -26,6 +42,9 @@ export function useLightWiseWS(wsUrl, options = {}) {
   const [error, setError] = useState(null);
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
+
+  // Tracks subscriptions we’ve made during the session (so reconnect can restore them)
+  const subscribedIdsRef = useRef(new Set());
 
   const log = useCallback(
     (...args) => {
@@ -40,6 +59,29 @@ export function useLightWiseWS(wsUrl, options = {}) {
       reconnectTimerRef.current = null;
     }
   }, []);
+
+  // ✅ Build URL with demo identity query params if not already present
+  const finalWsUrl = useMemo(() => {
+    if (!wsUrl) return "";
+
+    try {
+      // Works with wss:// URLs too
+      const url = new URL(wsUrl);
+
+      // Only add if missing (don’t overwrite if you already put them in .env URL)
+      if (!url.searchParams.get("tenant_id") && tenantId) {
+        url.searchParams.set("tenant_id", tenantId);
+      }
+      if (!url.searchParams.get("user_id") && userId) {
+        url.searchParams.set("user_id", userId);
+      }
+
+      return url.toString();
+    } catch {
+      // If URL parsing fails (rare), fallback to raw wsUrl
+      return wsUrl;
+    }
+  }, [wsUrl, tenantId, userId]);
 
   const disconnect = useCallback(() => {
     manualCloseRef.current = true;
@@ -59,8 +101,35 @@ export function useLightWiseWS(wsUrl, options = {}) {
     setStatus("disconnected");
   }, [clearReconnectTimer]);
 
+  const send = useCallback((obj) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+
+    try {
+      ws.send(JSON.stringify(obj));
+      return true;
+    } catch (e) {
+      setError(e);
+      return false;
+    }
+  }, []);
+
+  // ✅ Subscribe helper (this is the exact message Max’s subscribe route expects)
+  const subscribe = useCallback(
+    (streetlightId) => {
+      if (!streetlightId) return false;
+      subscribedIdsRef.current.add(streetlightId);
+
+      return send({
+        action: "subscribe",
+        streetlight_id: streetlightId,
+      });
+    },
+    [send]
+  );
+
   const connect = useCallback(() => {
-    if (!wsUrl) {
+    if (!finalWsUrl) {
       setStatus("idle");
       return;
     }
@@ -81,7 +150,7 @@ export function useLightWiseWS(wsUrl, options = {}) {
 
     let ws;
     try {
-      ws = new WebSocket(wsUrl);
+      ws = new WebSocket(finalWsUrl);
     } catch (e) {
       setError(e);
       setStatus("error");
@@ -94,6 +163,16 @@ export function useLightWiseWS(wsUrl, options = {}) {
       log("connected");
       setStatus("connected");
       setError(null);
+
+      // ✅ Auto-subscribe list (from options)
+      for (const id of autoSubscribeStreetlightIds || []) {
+        subscribe(id);
+      }
+
+      // ✅ Re-subscribe anything we previously subscribed to
+      for (const id of subscribedIdsRef.current) {
+        subscribe(id);
+      }
     };
 
     ws.onmessage = (evt) => {
@@ -135,36 +214,24 @@ export function useLightWiseWS(wsUrl, options = {}) {
       if (autoReconnect) {
         clearReconnectTimer();
         reconnectTimerRef.current = setTimeout(() => {
-          // Reconnect with latest settings
           connect();
         }, reconnectDelayMs);
       }
     };
   }, [
-    wsUrl,
+    finalWsUrl,
     autoReconnect,
     reconnectDelayMs,
     maxMessages,
     log,
     clearReconnectTimer,
+    subscribe,
+    autoSubscribeStreetlightIds,
   ]);
 
-  const send = useCallback((obj) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-
-    try {
-      ws.send(JSON.stringify(obj));
-      return true;
-    } catch (e) {
-      setError(e);
-      return false;
-    }
-  }, []);
-
-  // Connect automatically when wsUrl or connect/disconnect changes
+  // Connect automatically when URL changes
   useEffect(() => {
-    if (!wsUrl) {
+    if (!finalWsUrl) {
       disconnect();
       setStatus("idle");
       return;
@@ -175,7 +242,7 @@ export function useLightWiseWS(wsUrl, options = {}) {
     return () => {
       disconnect();
     };
-  }, [wsUrl, connect, disconnect]);
+  }, [finalWsUrl, connect, disconnect]);
 
   return {
     status,
@@ -185,5 +252,6 @@ export function useLightWiseWS(wsUrl, options = {}) {
     send,
     connect,
     disconnect,
+    subscribe, // ✅ new helper
   };
 }
