@@ -28,7 +28,6 @@ bool lwnode_hal_init( LwnodeHw * const sensor )
             .clk_source = I2C_CLK_SRC_DEFAULT,
             .glitch_ignore_cnt = 7U,
             .intr_priority = 0U,
-            .trans_queue_depth = 8U,
             .flags.enable_internal_pullup = true
         };
 
@@ -121,8 +120,8 @@ bool lwnode_hal_write( const LwnodeHw * const sensor,
 {
     bool result = false;
 
-    if( ( sensor != NULL ) && ( data != NULL ) &&
-        ( len <= LWNODE_MAX_TRANSFER_LEN ) )
+    if( ( sensor != NULL ) && ( sensor->devHandle != NULL ) &&
+        ( data != NULL ) && ( len <= LWNODE_MAX_TRANSFER_LEN ) )
     {
         /* Build transfer buffer: [REG][DATA...] */
         uint8_t buffer[ 1U + len ];
