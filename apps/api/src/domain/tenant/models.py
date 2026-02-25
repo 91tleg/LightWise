@@ -8,6 +8,7 @@ class Tenant:
     name: Optional[str] = None
     metadata: Optional[dict] = None
 
+
 @dataclass(frozen=True)
 class TenantUser:
     tenant_id: str

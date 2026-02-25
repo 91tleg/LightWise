@@ -23,7 +23,7 @@ class TimestreamWriter:
         record = {
             "Dimensions": [
                 {"Name": "tenantId", "Value": event.tenant_id},
-                {"Name": "deviceId", "Value": event.device_id},
+                {"Name": "streetlightId", "Value": event.streetlight_id},
             ],
             "Time": str(int(event.timestamp.timestamp() * 1000)),  # ms
             "MeasureName": "streetlight_telemetry",
