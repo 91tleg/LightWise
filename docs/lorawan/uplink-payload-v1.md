@@ -24,11 +24,11 @@
 | Bit | Name                        | Meaning                                  |
 |-----|-----------------------------|------------------------------------------|
 | 0   | `FLAG_MOTION_PRESENT`       | Motion detected (1 = yes)                |
-| 1   | `FLAG_ALSPT19_PRIMARY_OK`   | Primary ALS/PT19 sensor OK               |
-| 2   | `FLAG_ALSPT19_SECONDARY_OK` | Secondary ALS/PT19 sensor OK             |
-| 3   | `FLAG_DHT_OK`               | Temperature/Humidity sensor OK           |
-| 4   | `FLAG_C4001_PRIMARY_OK`     | Primary C4001 sensor OK                  |
-| 5   | `FLAG_C4001_SECONDARY_OK`   | Secondary C4001 sensor OK                |
+| 1   | `FLAG_AMBIENT_PRIMARY_OK`   | Primary ambient sensor OK               |
+| 2   | `FLAG_AMBIENT_SECONDARY_OK` | Secondary ambient sensor OK             |
+| 3   | `FLAG_TH_OK`               | Temperature/Humidity sensor OK           |
+| 4   | `FLAG_MOTION_PRIMARY_OK`     | Primary motion sensor OK                  |
+| 5   | `FLAG_MOTION_SECONDARY_OK`   | Secondary motion sensor OK                |
 | 6   | `FLAG_OVERALL_DEGRADED`     | System degraded                          |
 | 7   | `FLAG_OVERALL_OK`           | Derived overall health (all critical sensors OK) |
 
@@ -48,11 +48,11 @@ It MUST NOT be used as the sole health indicator.
 | tempC                    | 25    |
 | humidity                 | 60    |
 | motion                   | true  |
-| ALS primary              | OK    |
-| ALS secondary            | FAIL  |
-| DHT                      | OK    |
-| C4001 primary            | OK    |
-| C4001 secondary          | OK    |
+| ambient primary          | OK    |
+| ambient secondary        | FAIL  |
+| temp/humidity            | OK    |
+| motion primary           | OK    |
+| motion secondary         | OK    |
 | lightLevel               | 80    |
 
 ### Step 1 – Compute scaled values
@@ -62,11 +62,11 @@ lux_x10 = 123.4 × 10 = 1234 = **0x04D2**
 ### Step 2 – Compute flags byte
 
 motion = 1  
-ALS primary = 1  
-ALS secondary = 0  
-DHT = 1  
-C4001 primary = 1  
-C4001 secondary = 1  
+ambient primary = 1  
+ambient secondary = 0  
+temp/humidity = 1  
+motion primary = 1  
+motion secondary = 1  
 OVERALL_DEGRADED = 0
 OVERALL_OK = 1 (derived)  
 
@@ -124,11 +124,11 @@ def decode_uplink(bytes_payload: bytes) -> dict:
         "tempC": bytes_payload[3],
         "humidity": bytes_payload[4],
         "motion": bool(flags & 0x01),
-        "alspt19PrimaryOk": bool(flags & 0x02),
-        "alspt19SecondaryOk": bool(flags & 0x04),
-        "dhtOk": bool(flags & 0x08),
-        "c4001PrimaryOk": bool(flags & 0x10),
-        "c4001SecondaryOk": bool(flags & 0x20),
+        "ambientPrimaryOk": bool(flags & 0x02),
+        "ambientSecondaryOk": bool(flags & 0x04),
+        "thOk": bool(flags & 0x08),
+        "motionPrimaryOk": bool(flags & 0x10),
+        "motionSecondaryOk": bool(flags & 0x20),
         "overallOk": bool(flags & 0x80),
         "lightLevel": bytes_payload[6],
     }
@@ -141,11 +141,11 @@ Output for the example payload `04 D2 19 3C BB 50`:
   'tempC': 25,
   'humidity': 60,
   'motion': True,
-  'alspt19PrimaryOk': True,
-  'alspt19SecondaryOk': False,
-  'dhtOk': True,
-  'c4001PrimaryOk': True,
-  'c4001SecondaryOk': True,
+  'ambient19PrimaryOk': True,
+  'ambientSecondaryOk': False,
+  "thOk': True,
+  'motionPrimaryOk': True,
+  'motionSecondaryOk': True,
   'overallOk': True,
   'lightLevel': 80
 }
@@ -159,11 +159,9 @@ Fixed-point Arithmetic: Avoid sending floats.
 
 Flags: Compute OVERALL_OK from critical sensors.
 
-Versioning: Use reserved bits for future expansion.
-
 Payload Efficiency: 7 bytes is compact for Class A/C LoRaWAN devices.
 
 ---
 
-**Document Version**: 1.1   
+**Document Version**: 1.2   
 **Last Updated**: February 17, 2026  
