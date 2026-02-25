@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict
-
-from .client import get_query_client
+from .client import TimestreamClientManager
 from libs.config import settings
+from libs.logging import logger
 
 
 def query_records(
@@ -11,29 +11,43 @@ def query_records(
     end_time: datetime,
     limit: int = 100,
 ) -> List[Dict]:
-    client = get_query_client()
+    client = TimestreamClientManager.get_query_client()
+
+    # Ensure UTC ISO8601 with Z
+    start_time_str = start_time \
+        .astimezone(timezone.utc) \
+        .strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    end_time_str = end_time \
+        .astimezone(timezone.utc) \
+        .strftime("%Y-%m-%dT%H:%M:%SZ")
 
     query_string = (
         f'SELECT * '
         f'FROM "{settings.TS_DATABASE}"."{settings.TS_TABLE}" '
         f"WHERE device_id = '{device_id}' "
-        f"AND time BETWEEN '{start_time.isoformat()}' "
-        f"AND '{end_time.isoformat()}' "
-        f'ORDER BY time ASC '
-        f'LIMIT {limit}'
+        f"AND time BETWEEN '{start_time_str}' AND '{end_time_str}' "
+        f"ORDER BY time ASC "
+        f"LIMIT {limit}"
     )
 
     try:
         response = client.query(QueryString=query_string)
         rows = response.get("Rows", [])
+        columns = response.get("ColumnInfo", [])
+
         result = []
         for row in rows:
             record = {}
             for i, datum in enumerate(row["Data"]):
-                record_key = response["ColumnInfo"][i]["Name"]
+                col_name = columns[i]["Name"]
                 if "ScalarValue" in datum:
-                    record[record_key] = datum["ScalarValue"]
+                    record[col_name] = datum["ScalarValue"]
+                else:
+                    record[col_name] = None
             result.append(record)
         return result
-    except Exception:
+
+    except Exception as e:
+        logger.exception(f"Timestream query failed: {e}")
         return []

@@ -62,6 +62,8 @@ class TimestreamWriter:
                 DatabaseName=self.database,
                 TableName=self.table,
                 Records=[record],
+                CommonAttributes={},
+                TimeUnit="MILLISECONDS"
             )
         except (BotoCoreError, ClientError) as e:
             raise PersistenceError(f"Timestream write failed: {e}") from e
