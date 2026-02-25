@@ -28,6 +28,7 @@ class Config:
         # Auth
         self.COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
         self.COGNITO_APP_CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID")
+        self.AUTH_ENABLED = os.getenv("AUTH_ENABLED")
 
         # App State
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
