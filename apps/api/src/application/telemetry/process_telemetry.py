@@ -1,3 +1,4 @@
+from functools import lru_cache
 from domain.telemetry.health import HealthStatus
 from domain.telemetry.models import TelemetryPayload
 
@@ -16,7 +17,6 @@ from infrastructure.persistence.dynamo.websocket_connection_repo import (
 from infrastructure.persistence.timestream.writer import TimestreamWriter
 from infrastructure.websocket.publisher import SensorEventPublisher
 from infrastructure.telemetry.lorawan_decoder import decode_uplink
-from libs.logging import logger
 
 
 class ProcessTelemetry:
@@ -72,15 +72,7 @@ class ProcessTelemetry:
             event.tenant_id
         )
 
-        for conn in connections:
-            try:
-                self.websocket.push(conn.connection_id, msg)
-            except Exception as e:
-                logger.warning(
-                    "Failed to push to %s: %s",
-                    conn.connection_id,
-                    e,
-                )
+        self.websocket.broadcast(connections, msg)
 
     @staticmethod
     def _evaluate_health(event: TelemetryPayload) -> HealthStatus:
@@ -96,6 +88,7 @@ class ProcessTelemetry:
         return HealthStatus.OK
 
 
+@lru_cache(maxsize=1)
 def get_telemetry_processor() -> ProcessTelemetry:
     """
     Application service factory.
