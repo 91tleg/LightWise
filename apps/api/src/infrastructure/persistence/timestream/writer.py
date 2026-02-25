@@ -1,6 +1,6 @@
 from botocore.exceptions import BotoCoreError, ClientError
 
-from .client import get_write_client
+from .client import TimestreamClientManager
 from domain.telemetry.models import TelemetryPayload
 from domain.error import PersistenceError
 from libs.config import settings
@@ -16,7 +16,7 @@ class TimestreamWriter:
     ):
         self.database = database
         self.table = table
-        self.client = get_write_client()
+        self.client = TimestreamClientManager.get_write_client()
 
     def write(self, event: TelemetryPayload) -> None:
         """Write a single telemetry event."""
@@ -62,6 +62,8 @@ class TimestreamWriter:
                 DatabaseName=self.database,
                 TableName=self.table,
                 Records=[record],
+                CommonAttributes={},
+                TimeUnit="MILLISECONDS"
             )
         except (BotoCoreError, ClientError) as e:
             raise PersistenceError(f"Timestream write failed: {e}") from e

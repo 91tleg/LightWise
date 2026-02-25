@@ -16,7 +16,7 @@ class DeviceStateRepo:
     def __init__(self, table_name: str) -> None:
         self.table = _DYNAMODB.Table(table_name)
 
-    def update_state(
+    def update(
         self,
         telemetry: TelemetryPayload,
         health: HealthStatus
