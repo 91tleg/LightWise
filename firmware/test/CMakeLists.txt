@@ -47,6 +47,7 @@ foreach(TEST_FILE ${TEST_FILES})
     set(POSSIBLE_SRC
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_DIR}/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_DIR}/${MODULE_NAME}.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/lorawan/payloads/uplink_payload_v1.cpp" 
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}/${MODULE_NAME}.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}.cpp"
