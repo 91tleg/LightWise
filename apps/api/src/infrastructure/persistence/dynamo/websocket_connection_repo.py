@@ -1,5 +1,6 @@
 from typing import List
 from functools import lru_cache
+from datetime import datetime
 
 import boto3
 
@@ -13,23 +14,29 @@ _DYNAMODB = boto3.resource("dynamodb", region_name=settings.AWS_REGION)
 class WebSocketConnectionRepo:
     """
     Repository for managing active WebSocket connections in DynamoDB.
-    Uses a GSI to allow querying by StreetlightId.
+
+    Table:
+      PK  : connection_id
+
+    GSI (StreetlightIndex):
+      PK  : streetlight_id
+      SK  : tenant_id
     """
+
     def __init__(self, table_name: str):
         self._table = _DYNAMODB.Table(table_name)
 
-    def get_connections_by_streetlight(
+    def get_connections_for_streetlight(
         self,
-        streetlight_id: str,
-        tenant_id: str
+        *,
+        tenant_id: str,
+        streetlight_id: str
     ) -> List[WebSocketConnection]:
-        """
-        Queries the GSI (StreetlightIndex) to find all users currently
-        subscribed to updates for a specific light.
-        """
         response = self._table.query(
             IndexName="StreetlightIndex",
-            KeyConditionExpression="streetlight_id = :sl AND tenant_id = :t",
+            KeyConditionExpression=(
+                "streetlight_id = :sl AND tenant_id = :t"
+            ),
             ExpressionAttributeValues={
                 ":sl": streetlight_id,
                 ":t": tenant_id,
@@ -41,7 +48,9 @@ class WebSocketConnectionRepo:
                 tenant_id=item["tenant_id"],
                 user_id=item["user_id"],
                 connection_id=item["connection_id"],
-                connected_at=item["connected_at"]
+                connected_at=datetime.fromisoformat(
+                    item["connected_at"]
+                ),
             )
             for item in response.get("Items", [])
         ]
@@ -49,19 +58,37 @@ class WebSocketConnectionRepo:
     def save(
         self,
         connection: WebSocketConnection,
-        streetlight_id: str
+        ttl_seconds: int = 7200
     ) -> None:
-        """
-        Saves or updates a connection session with a 2-hour TTL.
-        """
+        """persist a connection itself."""
+        self._table.put_item(
+            Item={
+                "connection_id": connection.connection_id,
+                "tenant_id": connection.tenant_id,
+                "user_id": connection.user_id,
+                "connected_at": connection.connected_at.isoformat(),
+                "ttl": int(connection.connected_at.timestamp() + ttl_seconds),
+            }
+        )
+
+    def save_subscription(
+        self,
+        *,
+        connection: WebSocketConnection,
+        streetlight_id: str,
+        ttl_seconds: int = 7200,
+    ) -> None:
+        """persist a subscription."""
         self._table.put_item(
             Item={
                 "connection_id": connection.connection_id,
                 "tenant_id": connection.tenant_id,
                 "user_id": connection.user_id,
                 "streetlight_id": streetlight_id,
-                "connected_at": connection.connected_at,
-                "ttl": int(connection.connected_at.timestamp() + 7200)
+                "connected_at": connection.connected_at.isoformat(),
+                "ttl": int(
+                    connection.connected_at.timestamp() + ttl_seconds
+                ),
             }
         )
 
@@ -69,11 +96,13 @@ class WebSocketConnectionRepo:
         """
         Cleans up a session when a user disconnects.
         """
-        self._table.delete_item(Key={"connection_id": connection_id})
+        self._table.delete_item(
+            Key={"connection_id": connection_id}
+        )
 
 
 @lru_cache(maxsize=1)
 def get_websocket_connection_repository() -> WebSocketConnectionRepo:
     return WebSocketConnectionRepo(
-               table_name=settings.DDB_TABLE_WS_CONNECTIONS
-           )
+        table_name=settings.DDB_TABLE_WS_CONNECTIONS
+    )
