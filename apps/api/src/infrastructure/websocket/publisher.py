@@ -51,15 +51,25 @@ class SensorEventPublisher:
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code")
             if error_code == "GoneException":
-                logger.info(f"Connection {connection_id} is gone. Cleaning up.")
+                logger.info(
+                    f"Connection {connection_id} is gone. Cleaning up."
+                )
                 try:
                     self.repo.delete(connection_id)
-                except Exception as repo_err:
-                    logger.error(f"Failed to delete connection {connection_id}: {repo_err}")
+                except Exception as err:
+                    logger.error(
+                        f"Failed to delete connection {connection_id}: {err}"
+                    )
             else:
-                logger.error(f"Failed to push to WS {connection_id}: {e}")
+                logger.error(
+                    f"Failed to push to WS {connection_id}: {e}"
+                )
 
-    def broadcast(self, connections: list[WebSocketConnection], data: dict) -> None:
+    def broadcast(
+        self,
+        connections: list[WebSocketConnection],
+        data: dict
+    ) -> None:
         """
         Sends the same payload to multiple active connections.
         Automatically skips and cleans up disconnected clients.
