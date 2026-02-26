@@ -8,10 +8,14 @@ from domain.tenant.models import Tenant, TenantUser
 from libs.config import settings
 
 
-_DYNAMODB = boto3.resource("dynamodb", region_name=settings.AWS_REGION)
+_DYNAMODB = boto3.resource(
+    "dynamodb",
+    region_name=settings.AWS_REGION,
+    endpoint_url=settings.DYNAMO_ENDPOINT or None,
+)
 
 
-class UserTenantRepository:
+class UserTenantRepo:
     TENANT_SK = "TENANT"
 
     def __init__(self, table_name: str):
@@ -85,7 +89,7 @@ class UserTenantRepository:
 
 
 @lru_cache(maxsize=1)
-def get_user_tenant_repository() -> UserTenantRepository:
-    return UserTenantRepository(
+def get_user_tenant_repository() -> UserTenantRepo:
+    return UserTenantRepo(
         table_name=settings.DDB_TABLE_USERS_AND_TENANTS
     )
