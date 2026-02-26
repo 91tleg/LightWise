@@ -7,7 +7,7 @@ from infrastructure.persistence.dynamo.streetlights_repo import (
     get_streetlights_repository,
 )
 from infrastructure.persistence.dynamo.user_tenant_repo import (
-    UserTenantRepository,
+    UserTenantRepo,
     get_user_tenant_repository,
 )
 from infrastructure.persistence.dynamo.websocket_connection_repo import (
@@ -25,11 +25,11 @@ class ProcessTelemetry:
         timestream_writer: TimestreamWriter,
         streetlights_repo: StreetlightsRepo,
         websocket_publisher: SensorEventPublisher,
-        user_tenant_repo: UserTenantRepository,
+        user_tenant_repo: UserTenantRepo,
         ws_repo: WebSocketConnectionRepo,
     ):
         self.timestream = timestream_writer
-        self.streetlight_state_repo = streetlights_repo
+        self.streetlight_repo = streetlights_repo
         self.websocket = websocket_publisher
         self.user_tenant_repo = user_tenant_repo
         self.ws_repo = ws_repo
@@ -40,7 +40,7 @@ class ProcessTelemetry:
         Translates infrastructure input into a domain event and
         delegates processing.
         """
-        tenant_id = self.streetlight_state_repo.get_tenant_id(dev_eui)
+        tenant_id = self.streetlight_repo.get_tenant_id(dev_eui)
         event = decode_uplink(
             tenant_id=tenant_id,
             streetlight_id=dev_eui,
@@ -53,14 +53,14 @@ class ProcessTelemetry:
         self.timestream.write(event)
 
         health = self._evaluate_health(event)
-        self.streetlight_state_repo.update(event.streetlight_id, event, health)
+        self.streetlight_repo.update(event, health)
 
         msg = event.to_dict()
         msg["health"] = health.value
 
         connections = self.ws_repo.get_connections_for_streetlight(
-            event.streetlight_id,
-            event.tenant_id
+            tenant_id=event.tenant_id,
+            streetlight_id=event.streetlight_id,
         )
         self.websocket.broadcast(connections, msg)
 
@@ -77,7 +77,7 @@ class ProcessTelemetry:
 def get_telemetry_processor() -> ProcessTelemetry:
     return ProcessTelemetry(
         timestream_writer=TimestreamWriter(),
-        streetlight_state_repo=get_streetlights_repository(),
+        streetlights_repo=get_streetlights_repository(),
         websocket_publisher=SensorEventPublisher(),
         user_tenant_repo=get_user_tenant_repository(),
         ws_repo=get_websocket_connection_repository(),
