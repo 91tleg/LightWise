@@ -5,13 +5,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  *
  * Props:
  *  - wsStatus: string ("idle"|"connecting"|"connected"|"disconnected"|"error")
- *  - lastMessage: object|null  (latest message parsed from WS)
+ *  - lastMessage: object|null (latest message parsed from WS)
  *  - maxItems?: number (default 20)
  */
 export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
   const [events, setEvents] = useState([]);
-
-  // Keeps track of the most recent signature so we don't double-add identical events
   const lastSigRef = useRef(null);
 
   useEffect(() => {
@@ -20,15 +18,11 @@ export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
     const evt = normalizeEvent(lastMessage);
     const sig = evt.sig;
 
-    // If this exact event signature just arrived, ignore it (prevents duplicates)
     if (sig && sig === lastSigRef.current) return;
-
     lastSigRef.current = sig;
 
     setEvents((prev) => {
-      // Also protect against duplicates already in list (extra safety)
       if (sig && prev.some((p) => p.sig === sig)) return prev;
-
       const next = [evt, ...prev];
       return next.slice(0, maxItems);
     });
@@ -74,7 +68,14 @@ export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
         background: "white",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
         <div>
           <h3 style={{ margin: 0 }}>Live Activity</h3>
           <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
@@ -102,7 +103,7 @@ export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
       <div style={{ marginTop: 14 }}>
         {events.length === 0 ? (
           <div style={{ opacity: 0.7 }}>
-            No events yet. Click <b>Simulate Motion</b> to broadcast an event.
+            No events yet. Click <b>Subscribe</b> (and/or wait for sensor uplinks).
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -111,7 +112,7 @@ export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
                 <tr style={{ textAlign: "left" }}>
                   <th style={thStyle}>Time</th>
                   <th style={thStyle}>Type</th>
-                  <th style={thStyle}>Pole</th>
+                  <th style={thStyle}>Streetlight</th>
                   <th style={thStyle}>Value</th>
                   <th style={thStyle}>Raw</th>
                 </tr>
@@ -120,7 +121,9 @@ export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
                 {events.map((e, i) => (
                   <tr key={e.id || i}>
                     <td style={tdStyle}>{formatTime(e.timestamp)}</td>
-                    <td style={tdStyle}><b>{e.type}</b></td>
+                    <td style={tdStyle}>
+                      <b>{e.type}</b>
+                    </td>
                     <td style={tdStyle}>{e.poleId}</td>
                     <td style={tdStyle}>{String(e.value)}</td>
                     <td style={tdStyle}>
@@ -135,6 +138,11 @@ export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
                 ))}
               </tbody>
             </table>
+
+            {/* Optional: quick legend */}
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+              Tip: For telemetry, open <b>Raw</b> to see lux/temp/humidity/motion/diagnostics.
+            </div>
           </div>
         )}
       </div>
@@ -158,19 +166,92 @@ const tdStyle = {
 function normalizeEvent(msg) {
   const raw = msg;
 
-  const type = safeStr(raw?.type ?? raw?.payload?.type, "event");
-  const poleId = safeStr(raw?.poleId ?? raw?.payload?.poleId ?? raw?.pole, "unknown_pole");
-  const value = raw?.value ?? raw?.payload?.value ?? raw?.reading ?? raw?.level ?? "";
-  const timestamp = raw?.timestamp ?? raw?.payload?.timestamp ?? raw?.time ?? new Date().toISOString();
+  // Some backends might send a plain string like "subscribed"
+  if (typeof raw === "string") {
+    const type = raw.toLowerCase().includes("subscrib") ? "subscribe_ack" : "message";
+    const timestamp = new Date().toISOString();
+    const poleId = "N/A";
+    const value = raw;
 
-  // ✅ Stable signature: if the same event arrives twice, this matches
-  const sig = `${type}|${poleId}|${String(value)}|${String(timestamp)}`;
+    const sig = `${type}|${poleId}|${String(value)}|${String(timestamp)}`;
+
+    return {
+      id: sig,
+      sig,
+      type,
+      poleId,
+      value,
+      timestamp,
+      raw,
+    };
+  }
+
+  // ----- Max telemetry mapping -----
+  const streetlightId =
+    raw?.streetlight_id ||
+    raw?.streetlightId ||
+    raw?.device_id ||
+    raw?.deviceId ||
+    raw?.poleId ||
+    raw?.payload?.streetlight_id ||
+    raw?.payload?.device_id ||
+    raw?.payload?.poleId ||
+    "unknown_streetlight";
+
+  const timestamp =
+    raw?.timestamp ||
+    raw?.time ||
+    raw?.created_at ||
+    raw?.payload?.timestamp ||
+    new Date().toISOString();
+
+  const hasTelemetryShape =
+    raw &&
+    (raw.streetlight_id || raw.tenant_id || raw.data || raw.diagnostics || raw.health);
+
+  // Infer type:
+  // - If telemetry contains data.motion => motion event
+  // - If telemetry shape but no motion => telemetry
+  // - Else fallback to existing demo structure
+  let type = safeStr(raw?.type ?? raw?.payload?.type, "");
+  if (!type) {
+    if (hasTelemetryShape) {
+      if (typeof raw?.data?.motion === "boolean") type = raw.data.motion ? "motion" : "telemetry";
+      else type = "telemetry";
+    } else if (raw?.message) {
+      type = "message";
+    } else {
+      type = "event";
+    }
+  }
+
+  // Value:
+  // - For motion => 1/0
+  // - Else if health exists => health string
+  // - Else fallback to old fields
+  let value =
+    raw?.value ??
+    raw?.payload?.value ??
+    raw?.reading ??
+    raw?.level ??
+    "";
+
+  if (type === "motion" && typeof raw?.data?.motion === "boolean") {
+    value = raw.data.motion ? 1 : 0;
+  } else if (value === "" && typeof raw?.health === "string") {
+    value = raw.health;
+  } else if (value === "" && typeof raw?.message === "string") {
+    value = raw.message;
+  }
+
+  // Stable signature: reduces duplicates
+  const sig = `${type}|${streetlightId}|${String(value)}|${String(timestamp)}`;
 
   return {
-    id: raw?.id || sig, // stable key now
+    id: raw?.id || sig,
     sig,
     type,
-    poleId,
+    poleId: streetlightId,
     value,
     timestamp,
     raw,

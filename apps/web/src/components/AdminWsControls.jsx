@@ -1,3 +1,4 @@
+// apps/web/src/components/AdminWsControls.jsx
 import React, { useMemo, useState } from "react";
 import "../styles/admin.css";
 
@@ -8,11 +9,26 @@ export default function AdminWsControls({
   motionState,
 }) {
   const [flash, setFlash] = useState("idle");
+  const [streetlightId, setStreetlightId] = useState(
+    process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042"
+  );
 
   const handleSimulateClick = async () => {
     setFlash("sending");
     try {
       const ok = await Promise.resolve(onSimulateMotion?.());
+      setFlash(ok ? "ok" : "err");
+      setTimeout(() => setFlash("idle"), 900);
+    } catch {
+      setFlash("err");
+      setTimeout(() => setFlash("idle"), 900);
+    }
+  };
+
+  const handleSubscribeClick = async () => {
+    setFlash("sending");
+    try {
+      const ok = await Promise.resolve(onSubscribeDemo?.(streetlightId));
       setFlash(ok ? "ok" : "err");
       setTimeout(() => setFlash("idle"), 900);
     } catch {
@@ -30,39 +46,59 @@ export default function AdminWsControls({
     return "lwBtn";
   }, [state]);
 
-  const simulateDisabled =
-    wsStatus !== "connected" || flash === "sending" || motionState === "simulating";
+  const isConnected = wsStatus === "connected";
+  const isBusy = flash === "sending" || motionState === "simulating";
 
-  const canSubscribe = wsStatus === "connected";
+  const simulateDisabled = !isConnected || isBusy;
+  const subscribeDisabled = !isConnected || isBusy;
+
+  const subscribeTitle = `Sends: {"action":"subscribe","streetlight_id":"${streetlightId}"}`;
 
   return (
     <div className="lwAdminTop">
-      {/* Simulate button */}
       <button
         className={`${simulateBtnClass} lwAdminSimBtn`}
         onClick={handleSimulateClick}
         disabled={simulateDisabled}
+        title={
+          !isConnected
+            ? "Connect WS first"
+            : "Simulate Motion is frontend-demo only unless backend supports broadcast"
+        }
       >
         Simulate Motion
         <br />
         Event
       </button>
 
-      {/* Subscribe button */}
-      <button
-        className="lwBtn"
-        style={{ marginLeft: 12 }}
-        onClick={() => onSubscribeDemo?.()}
-        disabled={!canSubscribe}
-        title='Sends: {"action":"subscribe","streetlight_id":"LW-001"}'
-      >
-        Subscribe
-        <br />
-        LW-001
-      </button>
+      <div style={{ marginLeft: 12, display: "flex", flexDirection: "column" }}>
+        <input
+          value={streetlightId}
+          onChange={(e) => setStreetlightId(e.target.value)}
+          placeholder="Streetlight ID"
+          style={{
+            padding: "8px 10px",
+            borderRadius: 8,
+            border: "1px solid #ddd",
+            marginBottom: 8,
+            width: 160,
+          }}
+        />
 
-      {/* WS status */}
-      <div className="lwWsStatus">
+        <button
+          className="lwBtn"
+          style={{ marginLeft: 0 }}
+          onClick={handleSubscribeClick}
+          disabled={subscribeDisabled}
+          title={subscribeTitle}
+        >
+          Subscribe
+          <br />
+          {streetlightId || "LW-00042"}
+        </button>
+      </div>
+
+      <div className="lwWsStatus" style={{ marginLeft: 12 }}>
         WebSocket status: <b>{wsStatus}</b>
       </div>
     </div>
