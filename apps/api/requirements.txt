@@ -12,6 +12,7 @@ pluggy==1.6.0
 pycodestyle==2.14.0
 pyflakes==3.4.0
 Pygments==2.19.2
+PyJWT==2.11.0
 pytest==9.0.2
 python-dateutil==2.9.0.post0
 s3transfer==0.16.0

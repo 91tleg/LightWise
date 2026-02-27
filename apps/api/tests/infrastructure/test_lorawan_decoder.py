@@ -13,14 +13,14 @@ def test_decode_v1_all_fields():
     # [6] LightLevel: 255
     raw = bytes([0x01, 0x13, 0x88, 0x19, 0x32, 0x80, 0xFF])
     tenant_id = "tenant-1"
-    device_id = "dev-1"
+    streetlight_id = "dev-1"
 
     # WHEN: Decoding the uplink
-    result = decode_uplink(tenant_id, device_id, raw)
+    result = decode_uplink(tenant_id, streetlight_id, raw)
 
     # THEN: All identity and metadata fields must match
     assert result.tenant_id == tenant_id
-    assert result.device_id == device_id
+    assert result.streetlight_id == streetlight_id
 
     # THEN: All sensor values must be correctly transformed
     assert result.lux == 500.0

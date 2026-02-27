@@ -1,7 +1,9 @@
 import json
 from functools import lru_cache
+from typing import Optional
 
 import boto3
+from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 
 from domain.websocket.models import WebSocketConnection
@@ -19,9 +21,10 @@ def get_apigateway_client() -> boto3.client:
     Return a cached API Gateway Management client.
     Reused for warm Lambda invocations.
     """
+    endpoint = settings.ws_management_url or None
     return boto3.client(
         "apigatewaymanagementapi",
-        endpoint_url=settings.ws_management_url,
+        endpoint_url=endpoint,
         region_name=settings.AWS_REGION,
     )
 
@@ -35,8 +38,8 @@ class SensorEventPublisher:
 
     def __init__(
         self,
-        repo: WebSocketConnectionRepo | None = None,
-        client: boto3.client | None = None,
+        repo: Optional[WebSocketConnectionRepo] = None,
+        client: Optional[BaseClient] = None,
     ):
         self.repo = repo or get_websocket_connection_repository()
         self.client = client or get_apigateway_client()

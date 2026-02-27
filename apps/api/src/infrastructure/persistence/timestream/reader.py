@@ -6,7 +6,7 @@ from libs.logging import logger
 
 
 def query_records(
-    device_id: str,
+    streetlight_id: str,
     start_time: datetime,
     end_time: datetime,
     limit: int = 100,
@@ -25,7 +25,7 @@ def query_records(
     query_string = (
         f'SELECT * '
         f'FROM "{settings.TS_DATABASE}"."{settings.TS_TABLE}" '
-        f"WHERE device_id = '{device_id}' "
+        f"WHERE streetlight_id = '{streetlight_id}' "
         f"AND time BETWEEN '{start_time_str}' AND '{end_time_str}' "
         f"ORDER BY time ASC "
         f"LIMIT {limit}"

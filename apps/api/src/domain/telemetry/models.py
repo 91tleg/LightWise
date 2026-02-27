@@ -5,7 +5,7 @@ from datetime import datetime
 @dataclass(frozen=True)
 class TelemetryPayload:
     tenant_id: str
-    device_id: str
+    streetlight_id: str
 
     # Sensor readings
     lux: float
@@ -29,7 +29,7 @@ class TelemetryPayload:
         return {
             # Identity
             "tenant_id": self.tenant_id,
-            "device_id": self.device_id,
+            "streetlight_id": self.streetlight_id,
             "timestamp": (
                 self.timestamp.isoformat()
                 if self.timestamp

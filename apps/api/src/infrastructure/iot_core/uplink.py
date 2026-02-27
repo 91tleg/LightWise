@@ -11,12 +11,12 @@ class InvalidUplinkEvent(IoTCoreError):
 
 def extract_uplink(event: dict) -> IoTUplink:
     try:
-        dev_eui = event["DevEui"]
-        payload_b64 = event["PayloadData"]
+        dev_eui = event["dev_eui"]
+        payload_b64 = event["data"]
     except KeyError as e:
         raise InvalidUplinkEvent(f"Missing field in IoT event: {e}")
 
     if not isinstance(payload_b64, str) or not dev_eui:
-        raise InvalidUplinkEvent("Invalid DevEui or PayloadData type/empty")
+        raise InvalidUplinkEvent("Invalid dev_eui or data type/empty")
 
     return IoTUplink(dev_eui=dev_eui, payload_b64=payload_b64)

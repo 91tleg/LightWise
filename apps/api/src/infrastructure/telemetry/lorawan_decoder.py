@@ -20,7 +20,7 @@ FLAG_SYSTEM_OK = 0x80  # Bit 7
 
 def decode_uplink(
     tenant_id: str,
-    device_id: str,
+    streetlight_id: str,
     bytes_payload: bytes,
     timestamp: datetime = None
 ) -> TelemetryPayload:
@@ -33,14 +33,14 @@ def decode_uplink(
     version = bytes_payload[0]
 
     if version == _PAYLOAD_V1:
-        return _decode_v1(tenant_id, device_id, bytes_payload, timestamp)
+        return _decode_v1(tenant_id, streetlight_id, bytes_payload, timestamp)
 
     raise ValueError(f"Unsupported payload version: {version}")
 
 
 def _decode_v1(
     tenant_id: str,
-    device_id: str,
+    streetlight_id: str,
     bytes_payload: bytes,
     timestamp: datetime = None
 ) -> TelemetryPayload:
@@ -64,7 +64,7 @@ def _decode_v1(
 
     return TelemetryPayload(
         tenant_id=tenant_id,
-        device_id=device_id,
+        streetlight_id=streetlight_id,
         lux=lux_x10 / 10.0,
         temperature_c=bytes_payload[3],
         humidity=bytes_payload[4],
