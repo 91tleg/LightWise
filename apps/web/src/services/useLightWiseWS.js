@@ -1,14 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+// apps/web/src/services/useLightWiseWS.js
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * useLightWiseWS(wsUrl, options?)
- *
- * - wsUrl: string like "wss://xxxx.execute-api.us-east-1.amazonaws.com/prod"
- * - Returns:
- *    { status, lastMessage, messages, send, connect, disconnect, error }
- *
- * Status values:
- *  - "idle" | "connecting" | "connected" | "disconnected" | "error"
+ * IMPORTANT (Max contract):
+ * Subscribe payload:
+ *   { "action": "subscribe", "streetlight_id": "LW-00042" }
  */
 export function useLightWiseWS(wsUrl, options = {}) {
   const {
@@ -16,6 +12,14 @@ export function useLightWiseWS(wsUrl, options = {}) {
     reconnectDelayMs = 1500,
     maxMessages = 50,
     debug = false,
+
+    tenantId = process.env.REACT_APP_TENANT_ID || "demo",
+    userId = process.env.REACT_APP_USER_ID || "demo",
+
+    autoSubscribeOnOpen = false,
+
+    defaultStreetlightId =
+      process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042",
   } = options;
 
   const wsRef = useRef(null);
@@ -41,6 +45,24 @@ export function useLightWiseWS(wsUrl, options = {}) {
     }
   }, []);
 
+  const finalWsUrl = useMemo(() => {
+    if (!wsUrl) return "";
+    try {
+      const url = new URL(wsUrl);
+
+      if (!url.searchParams.get("tenant_id") && tenantId) {
+        url.searchParams.set("tenant_id", tenantId);
+      }
+      if (!url.searchParams.get("user_id") && userId) {
+        url.searchParams.set("user_id", userId);
+      }
+
+      return url.toString();
+    } catch {
+      return wsUrl;
+    }
+  }, [wsUrl, tenantId, userId]);
+
   const disconnect = useCallback(() => {
     manualCloseRef.current = true;
     clearReconnectTimer();
@@ -59,13 +81,34 @@ export function useLightWiseWS(wsUrl, options = {}) {
     setStatus("disconnected");
   }, [clearReconnectTimer]);
 
+  const send = useCallback((obj) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+
+    try {
+      ws.send(JSON.stringify(obj));
+      return true;
+    } catch (e) {
+      setError(e);
+      return false;
+    }
+  }, []);
+
+  // ✅ UPDATED: subscribe requires streetlight_id
+  const subscribe = useCallback(
+    (streetlightId = defaultStreetlightId) => {
+      if (!streetlightId) return false;
+      return send({ action: "subscribe", streetlight_id: streetlightId });
+    },
+    [send, defaultStreetlightId]
+  );
+
   const connect = useCallback(() => {
-    if (!wsUrl) {
+    if (!finalWsUrl) {
       setStatus("idle");
       return;
     }
 
-    // If a socket is already open/connecting, do nothing
     if (
       wsRef.current &&
       (wsRef.current.readyState === WebSocket.OPEN ||
@@ -81,7 +124,7 @@ export function useLightWiseWS(wsUrl, options = {}) {
 
     let ws;
     try {
-      ws = new WebSocket(wsUrl);
+      ws = new WebSocket(finalWsUrl);
     } catch (e) {
       setError(e);
       setStatus("error");
@@ -94,6 +137,10 @@ export function useLightWiseWS(wsUrl, options = {}) {
       log("connected");
       setStatus("connected");
       setError(null);
+
+      if (autoSubscribeOnOpen) {
+        subscribe(defaultStreetlightId);
+      }
     };
 
     ws.onmessage = (evt) => {
@@ -123,7 +170,6 @@ export function useLightWiseWS(wsUrl, options = {}) {
       log("closed", evt.code, evt.reason);
       wsRef.current = null;
 
-      // If user manually disconnected, don't reconnect
       if (manualCloseRef.current) {
         setStatus("disconnected");
         return;
@@ -131,51 +177,35 @@ export function useLightWiseWS(wsUrl, options = {}) {
 
       setStatus("disconnected");
 
-      // Auto-reconnect
       if (autoReconnect) {
         clearReconnectTimer();
         reconnectTimerRef.current = setTimeout(() => {
-          // Reconnect with latest settings
           connect();
         }, reconnectDelayMs);
       }
     };
   }, [
-    wsUrl,
+    finalWsUrl,
     autoReconnect,
     reconnectDelayMs,
     maxMessages,
     log,
     clearReconnectTimer,
+    subscribe,
+    autoSubscribeOnOpen,
+    defaultStreetlightId,
   ]);
 
-  const send = useCallback((obj) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-
-    try {
-      ws.send(JSON.stringify(obj));
-      return true;
-    } catch (e) {
-      setError(e);
-      return false;
-    }
-  }, []);
-
-  // Connect automatically when wsUrl or connect/disconnect changes
   useEffect(() => {
-    if (!wsUrl) {
+    if (!finalWsUrl) {
       disconnect();
       setStatus("idle");
       return;
     }
 
     connect();
-
-    return () => {
-      disconnect();
-    };
-  }, [wsUrl, connect, disconnect]);
+    return () => disconnect();
+  }, [finalWsUrl, connect, disconnect]);
 
   return {
     status,
@@ -185,5 +215,6 @@ export function useLightWiseWS(wsUrl, options = {}) {
     send,
     connect,
     disconnect,
+    subscribe,
   };
 }

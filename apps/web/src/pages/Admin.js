@@ -9,33 +9,16 @@ import { useLightWiseWS } from "../services/useLightWiseWS";
 import "../styles/lightwise.css";
 import "../styles/admin.css";
 
-/**
- * ✅ BACKGROUND FEATURE
- */
 import adminBg from "../assets/background/adminBackground1.jpeg";
 
-
+// ✅ IMPORTANT: this must match your .env key
 const WS_URL = process.env.REACT_APP_LIGHTWISE_WS_URL;
 
 export default function Admin() {
-  /* =========================================================
-     WebSocket Hook
-     - status: "connected" | "connecting" | "disconnected" (etc)
-     - lastMessage: last message received from backend
-     - send: function to send a message (your wrapper)
-  ========================================================== */
-  const { status: wsStatus, lastMessage, send } = useLightWiseWS(WS_URL);
+  const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL);
 
-  /* =========================================================
-     Motion UI State (for button flash feedback)
-     idle | simulating | success | error
-  ========================================================== */
   const [motionState, setMotionState] = useState("idle");
 
-  /* =========================================================
-     Live state (only set when *real* data arrives)
-     This prevents your UI showing fake/default data.
-  ========================================================== */
   const [liveState, setLiveState] = useState({
     lastPoleId: null,
     lastMotionTs: null,
@@ -43,11 +26,10 @@ export default function Admin() {
     lastEventType: null,
   });
 
-  /* =========================================================
-     SIMULATE MOTION EVENT
-     - called when user clicks "Simulate Motion"
-     - sends a message to WS backend
-  ========================================================== */
+  /**
+   * ✅ SIMULATE MOTION (frontend demo)
+   * Backend broadcast may not exist. This keeps your demo looking alive.
+   */
   const simulateMotion = () => {
     if (wsStatus !== "connected") {
       setMotionState("error");
@@ -57,64 +39,115 @@ export default function Admin() {
 
     setMotionState("simulating");
 
-    const ok = send({
-      action: "broadcast",
-      payload: {
-        type: "motion",
-        poleId: "pole_demo",
-        value: 1,
-        timestamp: new Date().toISOString(),
+    // Demo payload shaped loosely like real telemetry
+    const now = new Date().toISOString();
+    const demo = {
+      tenant_id: "tenant-001",
+      streetlight_id: process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042",
+      timestamp: now,
+      health: "OK",
+      data: {
+        lux: Math.round(Math.random() * 3000) / 10,
+        temp_c: 25,
+        humidity: 60,
+        motion: true,
+        light_level: 80,
       },
-    });
+      diagnostics: {
+        overall_ok: true,
+        system_degraded: false,
+        ambient_primary_ok: true,
+        ambient_secondary_ok: true,
+        th_ok: true,
+        motion_primary_ok: true,
+        motion_secondary_ok: true,
+      },
+      type: "motion",
+      value: 1,
+    };
 
-    if (!ok) {
-      setMotionState("error");
-      setTimeout(() => setMotionState("idle"), 1000);
-    }
+    // Update UI state immediately (without depending on backend)
+    setLiveState((prev) => ({
+      ...prev,
+      lastEventType: "motion",
+      lastPoleId: demo.streetlight_id,
+      lastMotionTs: now,
+      lastMotionValue: 1,
+    }));
 
-    return ok;
+    setMotionState("success");
+    setTimeout(() => setMotionState("idle"), 1000);
+
+    // If you STILL want to attempt backend broadcast, you can uncomment:
+    // send({ action: "broadcast", payload: demo });
+
+    return true;
   };
 
-  /* =========================================================
-     Handle incoming WS messages
-     - parses message safely
-     - updates liveState only if message has real data
-     - sets motionState success/error for UI feedback
-  ========================================================== */
+  /**
+   * ✅ THIS is where you do:
+   * const subscribeDemo = (id) => ... return subscribe(id)
+   */
+  const subscribeDemo = (id) => {
+    if (wsStatus !== "connected") return false;
+    return subscribe(id); // uses the hook's updated contract
+  };
+
   useEffect(() => {
     if (!lastMessage) return;
 
     try {
-      // lastMessage could be string or object depending on your hook
       const msg =
         typeof lastMessage === "string" ? JSON.parse(lastMessage) : lastMessage;
 
-      // Attempt to read fields even if backend sends different shape
-      const type = msg?.type || msg?.payload?.type || null;
-      const poleId =
-        msg?.poleId || msg?.payload?.poleId || msg?.deviceId || null;
-      const ts = msg?.timestamp || msg?.payload?.timestamp || msg?.time || null;
-      const value = msg?.value ?? msg?.payload?.value ?? null;
+      // Max telemetry doesn't include type/value like your old demo,
+      // so we infer motion from data.motion if present.
+      const inferredType =
+        msg?.type ||
+        (msg?.data?.motion === true ? "motion" : null) ||
+        msg?.payload?.type ||
+        null;
 
-      // Only update when we actually got something real
-      const hasRealData = Boolean(type || poleId || ts || value !== null);
+      const poleId =
+        msg?.streetlight_id ||
+        msg?.streetlightId ||
+        msg?.device_id ||
+        msg?.deviceId ||
+        msg?.poleId ||
+        msg?.payload?.streetlight_id ||
+        msg?.payload?.device_id ||
+        msg?.payload?.poleId ||
+        null;
+
+      const ts =
+        msg?.timestamp ||
+        msg?.payload?.timestamp ||
+        msg?.time ||
+        msg?.created_at ||
+        null;
+
+      const value =
+        msg?.value ??
+        msg?.payload?.value ??
+        (typeof msg?.data?.motion === "boolean" ? (msg.data.motion ? 1 : 0) : null);
+
+      const hasRealData = Boolean(inferredType || poleId || ts || value !== null);
 
       if (hasRealData) {
         setLiveState((prev) => ({
           ...prev,
-          lastEventType: type || prev.lastEventType,
+          lastEventType: inferredType || prev.lastEventType,
           lastPoleId: poleId || prev.lastPoleId,
           lastMotionTs:
-            type === "motion" ? ts || prev.lastMotionTs : prev.lastMotionTs,
+            inferredType === "motion" ? ts || prev.lastMotionTs : prev.lastMotionTs,
           lastMotionValue:
-            type === "motion"
+            inferredType === "motion"
               ? value ?? prev.lastMotionValue
               : prev.lastMotionValue,
         }));
       }
 
-      // If we received a motion event, show "success" flash on button
-      if (type === "motion") {
+      if (inferredType === "motion") {
         setMotionState("success");
         setTimeout(() => setMotionState("idle"), 1000);
       }
@@ -125,49 +158,31 @@ export default function Admin() {
     }
   }, [lastMessage]);
 
-  /* =========================================================
-     Derived display values (UI-friendly)
-     - show N/A when value hasn't arrived yet
-  ========================================================== */
   const display = useMemo(() => {
     return {
       poleId: liveState.lastPoleId ?? "N/A",
       lastEventType: liveState.lastEventType ?? "N/A",
       lastMotion:
-        liveState.lastMotionValue === null ||
-        liveState.lastMotionValue === undefined
+        liveState.lastMotionValue === null || liveState.lastMotionValue === undefined
           ? "N/A"
           : String(liveState.lastMotionValue),
       lastMotionTs: liveState.lastMotionTs ?? "N/A",
     };
   }, [liveState]);
 
-  /* =========================================================
-     ✅ BACKGROUND FEATURE (FULL PAGE)
-     This wrapper makes the adminBg image cover the entire page.
-     
-  ========================================================== */
   return (
     <div
       className="lwAdminPage"
       style={{
-        // ✅ This is the full-page background image
         backgroundImage: `url(${adminBg})`,
       }}
     >
       <div className="lwAdminPageOverlay">
-        {/* 
-          ✅ Overlay purpose:
-          - Keeps cards readable on top of the image
-          - Does NOT blur buttons/content (no backdrop-filter)
-          - You can tune transparency in admin.css
-          - To remove overlay: delete this wrapper div
-        */}
-
         <Layout title="Admin" subtitle="System controls & configuration.">
           <AdminWsControls
             wsStatus={wsStatus}
             onSimulateMotion={simulateMotion}
+            onSubscribeDemo={subscribeDemo}
             motionState={motionState}
           />
 
