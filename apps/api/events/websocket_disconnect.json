@@ -1,0 +1,12 @@
+{
+  "requestContext": {
+    "connectionId": "test-connection-id",
+    "eventType": "DISCONNECT",
+    "disconnectStatusCode": 1001,
+    "disconnectReason": "Client initiated disconnect",
+    "requestId": "test-request-id",
+    "routeKey": "$disconnect",
+    "stage": "local",
+    "domainName": "localhost"
+  }
+}

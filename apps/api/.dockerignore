@@ -1,0 +1,7 @@
+.aws-sam/
+.venv/
+.event
+.git
+__pycache__/
+.py[cod]
+.pytest_cache/

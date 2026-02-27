@@ -11,7 +11,13 @@ class Streetlight:
     lat: Optional[float] = None
     lng: Optional[float] = None
     name: Optional[str] = None
-    last_seen: Optional[str] = None  # ISO 8601
+    last_seen: Optional[str] = None
+    motion_detected: Optional[bool] = None
+    ambient_primary_ok: Optional[bool] = None
+    ambient_secondary_ok: Optional[bool] = None
+    th_ok: Optional[bool] = None
+    motion_primary_ok: Optional[bool] = None
+    motion_secondary_ok: Optional[bool] = None
 
     def to_dict(self) -> dict:
         return {
@@ -22,4 +28,10 @@ class Streetlight:
             "lng": self.lng,
             "name": self.name,
             "last_seen": self.last_seen,
+            "motion_detected": self.motion_detected,
+            "ambient_primary_ok": self.ambient_primary_ok,
+            "ambient_secondary_ok": self.ambient_secondary_ok,
+            "th_ok": self.th_ok,
+            "motion_primary_ok": self.motion_primary_ok,
+            "motion_secondary_ok": self.motion_secondary_ok,
         }

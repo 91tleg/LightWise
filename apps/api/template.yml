@@ -1,0 +1,192 @@
+Parameters:
+  Env:
+    Type: String
+    Default: local
+  CognitoUserPoolId:
+    Type: String
+  CognitoClientId:
+    Type: String
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 15
+    MemorySize: 256
+    CodeUri: src/
+    Environment:
+      Variables:
+        ENV: !Ref Env
+        AWS_REGION: us-west-2
+        AUTH_ENABLED: false
+        DYNAMO_ENDPOINT: http://host.docker.internal:8000
+        COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+        COGNITO_CLIENT_ID: !Ref CognitoClientId
+        DDB_TABLE_STREETLIGHTS: !Ref Streetlights
+        DDB_TABLE_STREETLIGHT_METADATA: !Ref StreetlightMetadata
+        DDB_TABLE_USERS_AND_TENANTS: !Ref UsersAndTenants
+        DDB_TABLE_WS_CONNECTIONS: !Ref WebSocketConnections
+        TS_DATABASE: ""
+        TS_TABLE: ""
+
+Resources:
+  # Functions
+  TelemetryIngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.telemetry_ingest.handler.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Streetlights
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersAndTenants
+
+  WebSocketConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.websocket.connect.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnections
+
+  WebSocketDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.websocket.disconnect.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnections
+
+  WebSocketSubscribeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.websocket.subscribe.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnections
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersAndTenants
+
+  ListStreetlightsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.api.streetlights.list.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref Streetlights
+        - DynamoDBReadPolicy:
+            TableName: !Ref StreetlightMetadata
+      Events:
+        ListStreetlights:
+          Type: Api
+          Properties:
+            Path: /streetlights
+            Method: get
+
+  GetStreetlightFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.api.streetlights.get.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref Streetlights
+        - DynamoDBReadPolicy:
+            TableName: !Ref StreetlightMetadata
+      Events:
+        GetStreetlight:
+          Type: Api
+          Properties:
+            Path: /streetlights/{id}
+            Method: get
+
+  UpdateStreetlightMetadataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.api.streetlights.update_metadata.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StreetlightMetadata
+      Events:
+        UpdateStreetlightMetadata:
+          Type: Api
+          Properties:
+            Path: /streetlights/{id}/metadata
+            Method: put
+
+  # Tables
+  Streetlights:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tenant_id
+          AttributeType: S
+        - AttributeName: streetlight_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant_id
+          KeyType: HASH
+        - AttributeName: streetlight_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: StreetlightIndex
+          KeySchema:
+            - AttributeName: streetlight_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - tenant_id
+
+  StreetlightMetadata:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: streetlight_id
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: streetlight_id
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  UsersAndTenants:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tenant_id
+          AttributeType: S
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant_id
+          KeyType: HASH
+        - AttributeName: user_id
+          KeyType: RANGE
+
+  WebSocketConnections:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connection_id
+          AttributeType: S
+        - AttributeName: streetlight_id
+          AttributeType: S
+        - AttributeName: tenant_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connection_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StreetlightIndex
+          KeySchema:
+            - AttributeName: streetlight_id
+              KeyType: HASH
+            - AttributeName: tenant_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL

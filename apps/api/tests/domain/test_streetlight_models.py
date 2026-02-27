@@ -13,6 +13,12 @@ def streetlight():
         lng=-122.4194,
         name="Main Street 5th Ave",
         last_seen="2026-02-16T03:41:12+00:00",
+        motion_detected=True,
+        ambient_primary_ok=True,
+        ambient_secondary_ok=False,
+        th_ok=True,
+        motion_primary_ok=True,
+        motion_secondary_ok=True,
     )
 
 
@@ -25,6 +31,16 @@ def test_to_dict_structure(streetlight):
     assert result["lng"] == -122.4194
     assert result["name"] == "Main Street 5th Ave"
     assert result["last_seen"] == "2026-02-16T03:41:12+00:00"
+
+
+def test_to_dict_sensor_fields(streetlight):
+    result = streetlight.to_dict()
+    assert result["motion_detected"] is True
+    assert result["ambient_primary_ok"] is True
+    assert result["ambient_secondary_ok"] is False
+    assert result["th_ok"] is True
+    assert result["motion_primary_ok"] is True
+    assert result["motion_secondary_ok"] is True
 
 
 def test_to_dict_health_is_serialized():
@@ -47,3 +63,9 @@ def test_to_dict_optional_fields_default_none():
     assert result["lng"] is None
     assert result["name"] is None
     assert result["last_seen"] is None
+    assert result["motion_detected"] is None
+    assert result["ambient_primary_ok"] is None
+    assert result["ambient_secondary_ok"] is None
+    assert result["th_ok"] is None
+    assert result["motion_primary_ok"] is None
+    assert result["motion_secondary_ok"] is None
