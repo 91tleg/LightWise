@@ -1,14 +1,15 @@
 from decimal import Decimal
 from functools import lru_cache
+from typing import Optional
 
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from infrastructure.persistence.error import PersistenceError
 from domain.telemetry.models import TelemetryPayload
 from domain.streetlight.health import HealthStatus
 from domain.streetlight.models import Streetlight
 from libs.config import settings
-from libs.logging import logger
 
 
 _DYNAMODB = boto3.resource(
@@ -67,9 +68,9 @@ class StreetlightsRepo:
                 },
             )
         except Exception as e:
-            logger.error(
-                f"Update failed for {telemetry.streetlight_id}: {e}"
-            )
+            raise PersistenceError(
+                f"Database update failed for {telemetry.streetlight_id}"
+            ) from e
 
     def list_by_tenant(self, tenant_id: str) -> list[Streetlight]:
         try:
@@ -95,24 +96,66 @@ class StreetlightsRepo:
                 for item in response.get("Items", [])
             ]
         except Exception as e:
-            logger.error(
-                f"list_by_tenant failed for {tenant_id}: {e}"
-            )
-            return []
+            raise PersistenceError(
+                f"Could not retrieve streetlights for tenant {tenant_id}"
+            ) from e
 
     def get_tenant_id(self, streetlight_id: str) -> str:
-        result = self.table.query(
-            IndexName="StreetlightIndex",
-            KeyConditionExpression=Key("streetlight_id").eq(streetlight_id),
-            ProjectionExpression="tenant_id",
-            Limit=1,
-        )
-        items = result.get("Items", [])
-        if not items:
-            raise ValueError(
-                f"No tenant found for streetlight {streetlight_id}"
+        try:
+            result = self.table.query(
+                IndexName="StreetlightIndex",
+                KeyConditionExpression=Key("streetlight_id").eq(
+                    streetlight_id
+                ),
+                ProjectionExpression="tenant_id",
+                Limit=1,
             )
-        return items[0]["tenant_id"]
+            items = result.get("Items", [])
+            if not items:
+                raise ValueError(
+                    f"No tenant found for streetlight {streetlight_id}"
+                )
+            return items[0]["tenant_id"]
+        except Exception as e:
+            if isinstance(e, ValueError):
+                raise e
+            raise PersistenceError(
+                f"Failed to query tenant for streetlight {streetlight_id}"
+            ) from e
+
+    def get(
+        self,
+        tenant_id: str,
+        streetlight_id: str,
+    ) -> Optional[Streetlight]:
+        try:
+            result = self.table.get_item(
+                Key={
+                    "tenant_id": tenant_id,
+                    "streetlight_id": streetlight_id,
+                }
+            )
+            item = result.get("Item")
+            if not item:
+                return None
+            return Streetlight(
+                streetlight_id=item["streetlight_id"],
+                tenant_id=item["tenant_id"],
+                health=HealthStatus(
+                    item.get("health_status", HealthStatus.OK.value)
+                ),
+                last_seen=item.get("last_seen"),
+                motion_detected=item.get("motion_detected"),
+                ambient_primary_ok=item.get("ambient_primary_ok"),
+                ambient_secondary_ok=item.get("ambient_secondary_ok"),
+                th_ok=item.get("th_ok"),
+                motion_primary_ok=item.get("motion_primary_ok"),
+                motion_secondary_ok=item.get("motion_secondary_ok"),
+            )
+        except Exception as e:
+            raise PersistenceError(
+                f"Error retrieving streetlight {streetlight_id}"
+            ) from e
 
 
 @lru_cache(maxsize=1)

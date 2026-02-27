@@ -4,6 +4,7 @@ from datetime import datetime
 
 import boto3
 
+from infrastructure.persistence.error import PersistenceError
 from domain.websocket.models import WebSocketConnection
 from libs.config import settings
 
@@ -36,28 +37,33 @@ class WebSocketConnectionRepo:
         tenant_id: str,
         streetlight_id: str
     ) -> List[WebSocketConnection]:
-        response = self._table.query(
-            IndexName="StreetlightIndex",
-            KeyConditionExpression=(
-                "streetlight_id = :sl AND tenant_id = :t"
-            ),
-            ExpressionAttributeValues={
-                ":sl": streetlight_id,
-                ":t": tenant_id,
-            }
-        )
-
-        return [
-            WebSocketConnection(
-                tenant_id=item["tenant_id"],
-                user_id=item["user_id"],
-                connection_id=item["connection_id"],
-                connected_at=datetime.fromisoformat(
-                    item["connected_at"]
+        try:
+            response = self._table.query(
+                IndexName="StreetlightIndex",
+                KeyConditionExpression=(
+                    "streetlight_id = :sl AND tenant_id = :t"
                 ),
+                ExpressionAttributeValues={
+                    ":sl": streetlight_id,
+                    ":t": tenant_id,
+                }
             )
-            for item in response.get("Items", [])
-        ]
+
+            return [
+                WebSocketConnection(
+                    tenant_id=item["tenant_id"],
+                    user_id=item["user_id"],
+                    connection_id=item["connection_id"],
+                    connected_at=datetime.fromisoformat(
+                        item["connected_at"]
+                    ),
+                )
+                for item in response.get("Items", [])
+            ]
+        except Exception as e:
+            raise PersistenceError(
+                f"Error fetching subscriptions for {streetlight_id}"
+            ) from e
 
     def save(
         self,
@@ -65,15 +71,22 @@ class WebSocketConnectionRepo:
         ttl_seconds: int = 7200
     ) -> None:
         """persist a connection itself."""
-        self._table.put_item(
-            Item={
-                "connection_id": connection.connection_id,
-                "tenant_id": connection.tenant_id,
-                "user_id": connection.user_id,
-                "connected_at": connection.connected_at.isoformat(),
-                "ttl": int(connection.connected_at.timestamp() + ttl_seconds),
-            }
-        )
+        try:
+            self._table.put_item(
+                Item={
+                    "connection_id": connection.connection_id,
+                    "tenant_id": connection.tenant_id,
+                    "user_id": connection.user_id,
+                    "connected_at": connection.connected_at.isoformat(),
+                    "ttl": int(
+                        connection.connected_at.timestamp() + ttl_seconds
+                    ),
+                }
+            )
+        except Exception as e:
+            raise PersistenceError(
+                "Could not persist WebSocket connection"
+            ) from e
 
     def save_subscription(
         self,
@@ -83,26 +96,36 @@ class WebSocketConnectionRepo:
         ttl_seconds: int = 7200,
     ) -> None:
         """persist a subscription."""
-        self._table.put_item(
-            Item={
-                "connection_id": connection.connection_id,
-                "tenant_id": connection.tenant_id,
-                "user_id": connection.user_id,
-                "streetlight_id": streetlight_id,
-                "connected_at": connection.connected_at.isoformat(),
-                "ttl": int(
-                    connection.connected_at.timestamp() + ttl_seconds
-                ),
-            }
-        )
+        try:
+            self._table.put_item(
+                Item={
+                    "connection_id": connection.connection_id,
+                    "tenant_id": connection.tenant_id,
+                    "user_id": connection.user_id,
+                    "streetlight_id": streetlight_id,
+                    "connected_at": connection.connected_at.isoformat(),
+                    "ttl": int(
+                        connection.connected_at.timestamp() + ttl_seconds
+                    ),
+                }
+            )
+        except Exception as e:
+            raise PersistenceError(
+                f"Could not save subscription: {connection.connection_id}"
+            ) from e
 
     def delete(self, connection_id: str) -> None:
         """
         Cleans up a session when a user disconnects.
         """
-        self._table.delete_item(
-            Key={"connection_id": connection_id}
-        )
+        try:
+            self._table.delete_item(
+                Key={"connection_id": connection_id}
+            )
+        except Exception as e:
+            raise PersistenceError(
+                f"Could not remove connection: {connection_id}"
+            ) from e
 
 
 @lru_cache(maxsize=1)

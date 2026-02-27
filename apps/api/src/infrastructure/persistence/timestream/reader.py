@@ -1,53 +1,56 @@
-from datetime import datetime, timezone
-from typing import List, Dict
+from datetime import datetime
+from botocore.exceptions import BotoCoreError, ClientError
 from .client import TimestreamClientManager
+from domain.error import PersistenceError
 from libs.config import settings
-from libs.logging import logger
 
 
-def query_records(
-    streetlight_id: str,
-    start_time: datetime,
-    end_time: datetime,
-    limit: int = 100,
-) -> List[Dict]:
-    client = TimestreamClientManager.get_query_client()
+class TimestreamReader:
+    def __init__(
+        self,
+        database: str = settings.TS_DATABASE,
+        table: str = settings.TS_TABLE,
+    ):
+        self.database = database
+        self.table = table
+        self.client = TimestreamClientManager.get_query_client()
 
-    # Ensure UTC ISO8601 with Z
-    start_time_str = start_time \
-        .astimezone(timezone.utc) \
-        .strftime("%Y-%m-%dT%H:%M:%SZ")
+    def get_telemetry(
+        self,
+        streetlight_id: str,
+        from_dt: datetime,
+        to_dt: datetime,
+        interval: str = "1m",
+    ) -> list[dict]:
+        if not self.database or not self.table:
+            return []
 
-    end_time_str = end_time \
-        .astimezone(timezone.utc) \
-        .strftime("%Y-%m-%dT%H:%M:%SZ")
+        from_dt_str = from_dt.isoformat()
+        to_dt_str = to_dt.isoformat()
+        query = f"""
+            SELECT
+                bin(time, {interval}) AS time,
+                AVG(lux) AS lux,
+                AVG(temperature) AS temperature_c,
+                AVG(humidity) AS humidity_pct,
+                AVG(light_level) AS light_level_pct
+            FROM "{self.database}"."{self.table}"
+            WHERE streetlightId = '{streetlight_id}'
+              AND time BETWEEN '{from_dt_str}' AND '{to_dt_str}'
+            GROUP BY bin(time, {interval})
+            ORDER BY bin(time, {interval}) ASC
+        """
 
-    query_string = (
-        f'SELECT * '
-        f'FROM "{settings.TS_DATABASE}"."{settings.TS_TABLE}" '
-        f"WHERE streetlight_id = '{streetlight_id}' "
-        f"AND time BETWEEN '{start_time_str}' AND '{end_time_str}' "
-        f"ORDER BY time ASC "
-        f"LIMIT {limit}"
-    )
+        try:
+            response = self.client.query(QueryString=query)
+            return self._parse(response)
+        except (BotoCoreError, ClientError) as e:
+            raise PersistenceError(f"Timestream query failed: {e}") from e
 
-    try:
-        response = client.query(QueryString=query_string)
-        rows = response.get("Rows", [])
-        columns = response.get("ColumnInfo", [])
-
-        result = []
-        for row in rows:
-            record = {}
-            for i, datum in enumerate(row["Data"]):
-                col_name = columns[i]["Name"]
-                if "ScalarValue" in datum:
-                    record[col_name] = datum["ScalarValue"]
-                else:
-                    record[col_name] = None
-            result.append(record)
-        return result
-
-    except Exception as e:
-        logger.exception(f"Timestream query failed: {e}")
-        return []
+    def _parse(self, response: dict) -> list[dict]:
+        columns = [c["Name"] for c in response["ColumnInfo"]]
+        results = []
+        for row in response["Rows"]:
+            values = [v.get("ScalarValue") for v in row["Data"]]
+            results.append(dict(zip(columns, values)))
+        return results
