@@ -1,0 +1,13 @@
+{
+  "requestContext": {
+    "httpMethod": "GET",
+    "stage": "local"
+  },
+  "httpMethod": "GET",
+  "path": "/streetlights",
+  "queryStringParameters": {
+    "tenant_id": "tenant-001"
+  },
+  "headers": {},
+  "body": null
+}

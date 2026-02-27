@@ -1,0 +1,15 @@
+{
+  "requestContext": {
+    "connectionId": "test-connection-id",
+    "eventType": "CONNECT",
+    "connectedAt": 1740528000000,
+    "requestId": "test-request-id",
+    "routeKey": "$connect",
+    "stage": "local",
+    "domainName": "localhost"
+  },
+  "queryStringParameters": {
+    "tenant_id": "tenant-001"
+  },
+  "headers": {}
+}
