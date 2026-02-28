@@ -1,28 +1,17 @@
 // src/services/api.js
 
-// ===== CONFIGURATION BLOCK =====
-// These values are read from environment variables.
-// They control whether we use mock data or real backend data,
-// and where the backend API is located.
-const USE_MOCK = String(process.env.REACT_APP_USE_MOCK || "true") !== "false";
-const API_BASE = process.env.REACT_APP_API_BASE || "";
-const API_KEY = process.env.REACT_APP_API_KEY || "";
-
-// ===== REQUEST ID / CORRELATION BLOCK =====
-// Used for correlationId passthrough (#50).
-// Backend can log this requestId so we can trace a frontend call end-to-end.
-function makeRequestId() {
-  // Modern browsers support this. If you need a fallback later, we can add one.
-  return crypto.randomUUID();
+function env() {
+  return {
+    USE_MOCK: String(process.env.REACT_APP_USE_MOCK || "true") !== "false",
+    API_BASE: process.env.REACT_APP_API_BASE || "",
+    API_KEY: process.env.REACT_APP_API_KEY || "",
+    TENANT_ID: process.env.REACT_APP_TENANT_ID || "tenant-001",
+  };
 }
 
-// ===== SAFE JSON PARSE BLOCK =====
-// Some backends may return empty body or non-JSON on errors.
-// This safely returns null if JSON parsing fails.
 async function parseJsonSafely(res) {
   const text = await res.text();
   if (!text) return null;
-
   try {
     return JSON.parse(text);
   } catch {
@@ -30,41 +19,56 @@ async function parseJsonSafely(res) {
   }
 }
 
-// ===== CORE REQUEST HELPER BLOCK =====
-// Centralizes:
-// - headers (API key + requestId)
-// - stable JSON parsing
-// - stable error mapping
-async function request(path, options = {}) {
-  const requestId = makeRequestId();
+function withTenant(path, API_BASE, TENANT_ID) {
+  const base = (API_BASE || "").replace(/\/$/, "");
+  const full = base ? `${base}${path}` : path;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
-      // Correlation ID passthrough (#50)
-      "x-request-id": requestId,
-      ...(options.headers || {}),
-    },
-  });
+  // If base missing, keep path unchanged
+  if (!base) return full;
+
+  const u = new URL(full);
+  if (TENANT_ID) u.searchParams.set("tenant_id", TENANT_ID);
+  return u.toString();
+}
+
+async function request(path, options = {}) {
+  const { API_BASE, API_KEY, TENANT_ID } = env();
+
+  const method = (options.method || "GET").toUpperCase();
+  const hasBody = options.body !== undefined && options.body !== null;
+
+  const headers = {
+    ...(options.headers || {}),
+    ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
+  };
+
+  // Don’t trigger preflight on GET if you can avoid it
+  if (hasBody) headers["Content-Type"] = "application/json";
+
+  const url = withTenant(path, API_BASE, TENANT_ID);
+
+  let res;
+  try {
+    res = await fetch(url, { ...options, method, headers });
+  } catch (e) {
+    const err = new Error(
+      `Failed to fetch (${method} ${url}). Likely CORS/network/DNS.`
+    );
+    err.cause = e;
+    throw err;
+  }
 
   const data = await parseJsonSafely(res);
 
-  // ===== ERROR HANDLING BLOCK =====
-  // Convert backend error shapes into a stable message for the UI.
   if (!res.ok) {
-    // Supports common formats:
-    // { error: { message } } OR { message } OR plain status fallback
     const message =
       data?.error?.message ||
+      data?.error ||
       data?.message ||
       `API error ${res.status}`;
-
     const err = new Error(message);
     err.status = res.status;
-    err.requestId = requestId; // useful to show/copy in UI or logs
-    err.payload = data;        // keep raw payload for debugging
+    err.payload = data;
     throw err;
   }
 
@@ -72,72 +76,112 @@ async function request(path, options = {}) {
 }
 
 // ============================================================================
-// ===== API FUNCTION BLOCKS =====
+// Streetlights API
 // ============================================================================
 
-// ===== TELEMETRY FUNCTION BLOCK =====
-// This function retrieves telemetry data for the system.
-// It is called by the Overview page when the app loads.
-export async function getTelemetry() {
-  // ===== MOCK MODE BLOCK =====
-  // If mock mode is enabled or no API base URL is set,
-  // we return a fake telemetry object for demo and testing purposes.
-  if (USE_MOCK || !API_BASE) {
-    return {
-      poleId: "LW-001",
-      timestamp: new Date().toISOString(),
-      ambientLux: null,
-      motion: null,
-      tempC: null,
-      humidity: null,
-      rssi: null,
-    };
-  }
+export async function listStreetlights() {
+  const { USE_MOCK, API_BASE, TENANT_ID } = env();
 
-  // ===== REAL API REQUEST BLOCK =====
-  // Fetch telemetry data from the /telemetry endpoint.
-  return request(`/telemetry`, { method: "GET" });
-}
-
-// ===== LIST DEVICES FUNCTION BLOCK (#49) =====
-// input: userId (stubbed from headers for now on backend)
-// output: devices owned by user
-export async function listDevices() {
-  // ===== MOCK MODE BLOCK =====
   if (USE_MOCK || !API_BASE) {
     return [
-      { deviceId: "LW-001", name: "Pole LW-001", status: "online" },
-      { deviceId: "LW-002", name: "Pole LW-002", status: "offline" },
+      {
+        streetlight_id: "LW-00042",
+        tenant_id: TENANT_ID,
+        health: "OK",
+        lat: 47.6101,
+        lng: -122.2015,
+        name: "BC Demo Pole",
+        last_seen: new Date().toISOString(),
+        motion_detected: false,
+        light_level_pct: 55,
+        ambient_primary_ok: true,
+        ambient_secondary_ok: true,
+        th_ok: true,
+        motion_primary_ok: true,
+        motion_secondary_ok: true,
+      },
+      {
+        streetlight_id: "LW-00043",
+        tenant_id: TENANT_ID,
+        health: "DEGRADED",
+        lat: 47.6099,
+        lng: -122.2022,
+        name: "Parking Lot Pole",
+        last_seen: new Date().toISOString(),
+        motion_detected: true,
+        light_level_pct: 90,
+        ambient_primary_ok: true,
+        ambient_secondary_ok: false,
+        th_ok: true,
+        motion_primary_ok: true,
+        motion_secondary_ok: false,
+      },
     ];
   }
 
-  // Backend might read userId from headers (stubbed).
-  // If you have a header for userId, add it in request() call below.
-  return request(`/devices`, { method: "GET" });
+  return request(`/streetlights`, { method: "GET" });
 }
 
-// ===== GET DEVICE STATE FUNCTION BLOCK (#49) =====
-// input: deviceId
-// output: latest DeviceState from Dynamo
-export async function getDeviceState(deviceId) {
-  if (!deviceId) throw new Error("deviceId is required");
+export async function getStreetlight(id) {
+  const { USE_MOCK, API_BASE, TENANT_ID } = env();
 
-  // ===== MOCK MODE BLOCK =====
+  if (!id) throw new Error("streetlight id is required");
+
   if (USE_MOCK || !API_BASE) {
     return {
-      deviceId,
-      timestamp: new Date().toISOString(),
-      ambientLux: null,
-      motion: null,
-      tempC: null,
-      humidity: null,
-      rssi: null,
-      status: "ok",
+      streetlight_id: id,
+      tenant_id: TENANT_ID,
+      health: "OK",
+      lat: 47.6101,
+      lng: -122.2015,
+      name: `Streetlight ${id}`,
+      last_seen: new Date().toISOString(),
+      motion_detected: false,
+      light_level_pct: 50,
+      ambient_primary_ok: true,
+      ambient_secondary_ok: true,
+      th_ok: true,
+      motion_primary_ok: true,
+      motion_secondary_ok: true,
     };
   }
 
-  // Adjust this path if Max names it differently.
-  return request(`/devices/${encodeURIComponent(deviceId)}/state`, {
-    method: "GET",
+  return request(`/streetlights/${encodeURIComponent(id)}`, { method: "GET" });
+}
+
+export async function getStreetlightTelemetry(id, { from, to, interval = "5m" }) {
+  const { USE_MOCK, API_BASE } = env();
+
+  if (!id) throw new Error("streetlight id is required");
+  if (!from || !to) throw new Error("from and to are required");
+
+  if (USE_MOCK || !API_BASE) {
+    return { streetlight_id: id, data: [] };
+  }
+
+  const params = new URLSearchParams();
+  params.set("from", from);
+  params.set("to", to);
+  if (interval) params.set("interval", interval);
+
+  return request(
+    `/streetlights/${encodeURIComponent(id)}/telemetry?${params.toString()}`,
+    { method: "GET" }
+  );
+}
+
+export async function updateStreetlightMetadata(id, body) {
+  const { USE_MOCK, API_BASE } = env();
+
+  if (!id) throw new Error("streetlight id is required");
+  if (!body || typeof body !== "object") throw new Error("body is required");
+
+  if (USE_MOCK || !API_BASE) {
+    return { message: "updated (mock)" };
+  }
+
+  return request(`/streetlights/${encodeURIComponent(id)}/metadata`, {
+    method: "PUT",
+    body: JSON.stringify(body),
   });
 }

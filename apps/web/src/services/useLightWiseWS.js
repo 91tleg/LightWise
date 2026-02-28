@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  * Subscribe payload:
  *   { "action": "subscribe", "streetlight_id": "LW-00042" }
  */
-export function useLightWiseWS(wsUrl, options = {}) {
+export function useLightWiseWS(wsBaseUrl, options = {}) {
   const {
     autoReconnect = true,
     reconnectDelayMs = 1500,
@@ -26,10 +26,22 @@ export function useLightWiseWS(wsUrl, options = {}) {
   const reconnectTimerRef = useRef(null);
   const manualCloseRef = useRef(false);
 
-  const [status, setStatus] = useState(wsUrl ? "connecting" : "idle");
+  const [status, setStatus] = useState(wsBaseUrl ? "connecting" : "idle");
   const [error, setError] = useState(null);
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
+
+  const wsUrl = useMemo(() => {
+    if (!wsBaseUrl) return "";
+    try {
+      const u = new URL(wsBaseUrl);
+      if (tenantId) u.searchParams.set("tenant_id", tenantId);
+      return u.toString();
+    } catch {
+      const sep = wsBaseUrl.includes("?") ? "&" : "?";
+      return tenantId ? `${wsBaseUrl}${sep}tenant_id=${encodeURIComponent(tenantId)}` : wsBaseUrl;
+    }
+  }, [wsBaseUrl, tenantId]);
 
   const log = useCallback(
     (...args) => {
@@ -146,7 +158,6 @@ export function useLightWiseWS(wsUrl, options = {}) {
     ws.onmessage = (evt) => {
       const raw = evt.data;
       let parsed;
-
       try {
         parsed = JSON.parse(raw);
       } catch {
@@ -154,10 +165,7 @@ export function useLightWiseWS(wsUrl, options = {}) {
       }
 
       setLastMessage(parsed);
-      setMessages((prev) => {
-        const next = [parsed, ...prev];
-        return next.slice(0, maxMessages);
-      });
+      setMessages((prev) => [parsed, ...prev].slice(0, maxMessages));
     };
 
     ws.onerror = (evt) => {
@@ -213,8 +221,8 @@ export function useLightWiseWS(wsUrl, options = {}) {
     lastMessage,
     messages,
     send,
+    subscribe,
     connect,
     disconnect,
-    subscribe,
   };
 }

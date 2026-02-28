@@ -68,7 +68,7 @@ export default function AdminWsControls({
       >
         Simulate Motion
         <br />
-        Event
+        (WS)
       </button>
 
       <div style={{ marginLeft: 12, display: "flex", flexDirection: "column" }}>
