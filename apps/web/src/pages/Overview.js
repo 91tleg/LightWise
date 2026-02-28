@@ -1,5 +1,3 @@
-// LightWise/apps/web/src/pages/Overview.js
-
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
@@ -27,7 +25,6 @@ export default function Overview() {
     const degraded = streetlights.filter((s) => s.health === "DEGRADED").length;
     const critical = streetlights.filter((s) => s.health === "CRITICAL").length;
 
-    // Keep it honest: list endpoint gives "all poles", not strictly "online"
     const totalPoles = total;
 
     const alerts = streetlights
@@ -36,6 +33,10 @@ export default function Overview() {
 
     const selected = streetlights[0] || null;
 
+    // Honest system status:
+    // - If any critical -> CRITICAL
+    // - Else if any degraded -> DEGRADED
+    // - Else OK (if we have any poles)
     const systemStatus =
       critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
 
@@ -62,7 +63,12 @@ export default function Overview() {
 
   const kpis = [
     {
-      icon: stats.systemStatus === "CRITICAL" ? "🟥" : stats.systemStatus === "DEGRADED" ? "🟧" : "✅",
+      icon:
+        stats.systemStatus === "CRITICAL"
+          ? "🟥"
+          : stats.systemStatus === "DEGRADED"
+          ? "🟧"
+          : "✅",
       label: "System Status",
       value: stats.systemStatus,
       note: stats.total ? `${stats.total} poles` : "No data",

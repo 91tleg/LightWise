@@ -1,9 +1,13 @@
-// LightWise/apps/web/src/services/api.js
+// src/services/api.js
 
-const USE_MOCK = String(process.env.REACT_APP_USE_MOCK || "true") !== "false";
-const API_BASE = process.env.REACT_APP_API_BASE || "";
-const API_KEY = process.env.REACT_APP_API_KEY || "";
-const TENANT_ID = process.env.REACT_APP_TENANT_ID || "tenant-001";
+function env() {
+  return {
+    USE_MOCK: String(process.env.REACT_APP_USE_MOCK || "true") !== "false",
+    API_BASE: process.env.REACT_APP_API_BASE || "",
+    API_KEY: process.env.REACT_APP_API_KEY || "",
+    TENANT_ID: process.env.REACT_APP_TENANT_ID || "tenant-001",
+  };
+}
 
 async function parseJsonSafely(res) {
   const text = await res.text();
@@ -15,11 +19,12 @@ async function parseJsonSafely(res) {
   }
 }
 
-function withTenant(path) {
-  const base = API_BASE.replace(/\/$/, "");
-  const full = `${base}${path}`;
+function withTenant(path, API_BASE, TENANT_ID) {
+  const base = (API_BASE || "").replace(/\/$/, "");
+  const full = base ? `${base}${path}` : path;
 
-  if (!base) return path;
+  // If base missing, keep path unchanged
+  if (!base) return full;
 
   const u = new URL(full);
   if (TENANT_ID) u.searchParams.set("tenant_id", TENANT_ID);
@@ -27,32 +32,27 @@ function withTenant(path) {
 }
 
 async function request(path, options = {}) {
+  const { API_BASE, API_KEY, TENANT_ID } = env();
+
   const method = (options.method || "GET").toUpperCase();
   const hasBody = options.body !== undefined && options.body !== null;
 
-  // IMPORTANT:
-  // - Do NOT send Content-Type on GET (causes CORS preflight)
-  // - Do NOT send custom headers like x-request-id unless Kirat explicitly allows them
   const headers = {
     ...(options.headers || {}),
     ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
   };
 
-  if (hasBody) {
-    headers["Content-Type"] = "application/json";
-  }
+  // Don’t trigger preflight on GET if you can avoid it
+  if (hasBody) headers["Content-Type"] = "application/json";
+
+  const url = withTenant(path, API_BASE, TENANT_ID);
 
   let res;
   try {
-    res = await fetch(withTenant(path), {
-      ...options,
-      method,
-      headers,
-    });
+    res = await fetch(url, { ...options, method, headers });
   } catch (e) {
-    // This is the classic "Failed to fetch" (CORS/network/DNS)
     const err = new Error(
-      `Failed to fetch (${method} ${withTenant(path)}). Most likely CORS is blocking the request.`
+      `Failed to fetch (${method} ${url}). Likely CORS/network/DNS.`
     );
     err.cause = e;
     throw err;
@@ -76,33 +76,55 @@ async function request(path, options = {}) {
 }
 
 // ============================================================================
-// Max Contract: Streetlights API
+// Streetlights API
 // ============================================================================
 
 export async function listStreetlights() {
+  const { USE_MOCK, API_BASE, TENANT_ID } = env();
+
   if (USE_MOCK || !API_BASE) {
     return [
       {
         streetlight_id: "LW-00042",
         tenant_id: TENANT_ID,
-        health: "DEGRADED",
-        lat: 37.7749,
-        lng: -122.4194,
-        name: "Main Street 5th Ave",
+        health: "OK",
+        lat: 47.6101,
+        lng: -122.2015,
+        name: "BC Demo Pole",
         last_seen: new Date().toISOString(),
         motion_detected: false,
+        light_level_pct: 55,
         ambient_primary_ok: true,
-        ambient_secondary_ok: false,
+        ambient_secondary_ok: true,
         th_ok: true,
         motion_primary_ok: true,
         motion_secondary_ok: true,
       },
+      {
+        streetlight_id: "LW-00043",
+        tenant_id: TENANT_ID,
+        health: "DEGRADED",
+        lat: 47.6099,
+        lng: -122.2022,
+        name: "Parking Lot Pole",
+        last_seen: new Date().toISOString(),
+        motion_detected: true,
+        light_level_pct: 90,
+        ambient_primary_ok: true,
+        ambient_secondary_ok: false,
+        th_ok: true,
+        motion_primary_ok: true,
+        motion_secondary_ok: false,
+      },
     ];
   }
+
   return request(`/streetlights`, { method: "GET" });
 }
 
 export async function getStreetlight(id) {
+  const { USE_MOCK, API_BASE, TENANT_ID } = env();
+
   if (!id) throw new Error("streetlight id is required");
 
   if (USE_MOCK || !API_BASE) {
@@ -110,11 +132,12 @@ export async function getStreetlight(id) {
       streetlight_id: id,
       tenant_id: TENANT_ID,
       health: "OK",
-      lat: 37.7749,
-      lng: -122.4194,
+      lat: 47.6101,
+      lng: -122.2015,
       name: `Streetlight ${id}`,
       last_seen: new Date().toISOString(),
       motion_detected: false,
+      light_level_pct: 50,
       ambient_primary_ok: true,
       ambient_secondary_ok: true,
       th_ok: true,
@@ -127,6 +150,8 @@ export async function getStreetlight(id) {
 }
 
 export async function getStreetlightTelemetry(id, { from, to, interval = "5m" }) {
+  const { USE_MOCK, API_BASE } = env();
+
   if (!id) throw new Error("streetlight id is required");
   if (!from || !to) throw new Error("from and to are required");
 
@@ -146,11 +171,13 @@ export async function getStreetlightTelemetry(id, { from, to, interval = "5m" })
 }
 
 export async function updateStreetlightMetadata(id, body) {
+  const { USE_MOCK, API_BASE } = env();
+
   if (!id) throw new Error("streetlight id is required");
   if (!body || typeof body !== "object") throw new Error("body is required");
 
   if (USE_MOCK || !API_BASE) {
-    return { message: "updated" };
+    return { message: "updated (mock)" };
   }
 
   return request(`/streetlights/${encodeURIComponent(id)}/metadata`, {

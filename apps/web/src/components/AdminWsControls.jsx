@@ -1,3 +1,5 @@
+// apps/web/src/components/AdminWsControls.jsx
+
 import React, { useMemo, useState } from "react";
 import "../styles/admin.css";
 
@@ -31,9 +33,9 @@ export default function AdminWsControls({ wsStatus, onSimulateMotion, motionStat
   return (
     <div className="lwAdminTop">
       <button className={`${btnClass} lwAdminSimBtn`} onClick={handleClick} disabled={disabled}>
-        Simulate Motion
+        Re-subscribe
         <br />
-        Event
+        (WS)
       </button>
 
       <div className="lwWsStatus">

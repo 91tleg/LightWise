@@ -5,12 +5,16 @@ import App from "./App";
 import "./App.css";
 import "./styles/lightwise.css";
 
+import { LightWiseProvider } from "./context/LightWiseProvider";
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <LightWiseProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </LightWiseProvider>
   </React.StrictMode>
 );

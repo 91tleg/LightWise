@@ -1,4 +1,4 @@
-// LightWise/apps/web/src/services/useLightWiseWS.js
+// src/services/useLightWiseWS.js
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -9,8 +9,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  *    - local: "ws://localhost:3001"
  *    - aws:   "wss://x7zn8xoare.execute-api.us-east-1.amazonaws.com/production"
  *
- * Auto appends tenant_id query param (demo contract).
- *
  * Returns:
  *  { status, error, lastMessage, messages, send, subscribe, connect, disconnect }
  */
@@ -20,6 +18,7 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     reconnectDelayMs = 1500,
     maxMessages = 50,
     debug = false,
+    // Keep tenantId optional (safe even if backend ignores it)
     tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001",
   } = options;
 
@@ -39,7 +38,6 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
       if (tenantId) u.searchParams.set("tenant_id", tenantId);
       return u.toString();
     } catch {
-      // If someone passes a non-standard URL string, fallback
       const sep = wsBaseUrl.includes("?") ? "&" : "?";
       return tenantId ? `${wsBaseUrl}${sep}tenant_id=${encodeURIComponent(tenantId)}` : wsBaseUrl;
     }
@@ -123,10 +121,7 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
       }
 
       setLastMessage(parsed);
-      setMessages((prev) => {
-        const next = [parsed, ...prev];
-        return next.slice(0, maxMessages);
-      });
+      setMessages((prev) => [parsed, ...prev].slice(0, maxMessages));
     };
 
     ws.onerror = (evt) => {
@@ -148,9 +143,7 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
 
       if (autoReconnect) {
         clearReconnectTimer();
-        reconnectTimerRef.current = setTimeout(() => {
-          connect();
-        }, reconnectDelayMs);
+        reconnectTimerRef.current = setTimeout(connect, reconnectDelayMs);
       }
     };
   }, [wsUrl, autoReconnect, reconnectDelayMs, maxMessages, log, clearReconnectTimer]);
@@ -168,13 +161,11 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     }
   }, []);
 
-  // Max contract: subscribe requires streetlight_id (but we handle both styles safely)
+  // Max contract: subscribe requires streetlight_id
   const subscribe = useCallback(
     (streetlightId) => {
-      if (streetlightId) {
-        return send({ action: "subscribe", streetlight_id: streetlightId });
-      }
-      return send({ action: "subscribe" });
+      if (!streetlightId) return false;
+      return send({ action: "subscribe", streetlight_id: streetlightId });
     },
     [send]
   );
@@ -187,10 +178,7 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     }
 
     connect();
-
-    return () => {
-      disconnect();
-    };
+    return () => disconnect();
   }, [wsUrl, connect, disconnect]);
 
   return {
