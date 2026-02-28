@@ -1,16 +1,10 @@
-// src/services/useLightWiseWS.js
-
+// apps/web/src/services/useLightWiseWS.js
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * useLightWiseWS(wsBaseUrl, options?)
- *
- * - wsBaseUrl example:
- *    - local: "ws://localhost:3001"
- *    - aws:   "wss://x7zn8xoare.execute-api.us-east-1.amazonaws.com/production"
- *
- * Returns:
- *  { status, error, lastMessage, messages, send, subscribe, connect, disconnect }
+ * IMPORTANT (Max contract):
+ * Subscribe payload:
+ *   { "action": "subscribe", "streetlight_id": "LW-00042" }
  */
 export function useLightWiseWS(wsBaseUrl, options = {}) {
   const {
@@ -18,8 +12,14 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     reconnectDelayMs = 1500,
     maxMessages = 50,
     debug = false,
-    // Keep tenantId optional (safe even if backend ignores it)
-    tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001",
+
+    tenantId = process.env.REACT_APP_TENANT_ID || "demo",
+    userId = process.env.REACT_APP_USER_ID || "demo",
+
+    autoSubscribeOnOpen = false,
+
+    defaultStreetlightId =
+      process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042",
   } = options;
 
   const wsRef = useRef(null);
@@ -57,6 +57,24 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     }
   }, []);
 
+  const finalWsUrl = useMemo(() => {
+    if (!wsUrl) return "";
+    try {
+      const url = new URL(wsUrl);
+
+      if (!url.searchParams.get("tenant_id") && tenantId) {
+        url.searchParams.set("tenant_id", tenantId);
+      }
+      if (!url.searchParams.get("user_id") && userId) {
+        url.searchParams.set("user_id", userId);
+      }
+
+      return url.toString();
+    } catch {
+      return wsUrl;
+    }
+  }, [wsUrl, tenantId, userId]);
+
   const disconnect = useCallback(() => {
     manualCloseRef.current = true;
     clearReconnectTimer();
@@ -75,8 +93,30 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     setStatus("disconnected");
   }, [clearReconnectTimer]);
 
+  const send = useCallback((obj) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+
+    try {
+      ws.send(JSON.stringify(obj));
+      return true;
+    } catch (e) {
+      setError(e);
+      return false;
+    }
+  }, []);
+
+  // ✅ UPDATED: subscribe requires streetlight_id
+  const subscribe = useCallback(
+    (streetlightId = defaultStreetlightId) => {
+      if (!streetlightId) return false;
+      return send({ action: "subscribe", streetlight_id: streetlightId });
+    },
+    [send, defaultStreetlightId]
+  );
+
   const connect = useCallback(() => {
-    if (!wsUrl) {
+    if (!finalWsUrl) {
       setStatus("idle");
       return;
     }
@@ -96,7 +136,7 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
 
     let ws;
     try {
-      ws = new WebSocket(wsUrl);
+      ws = new WebSocket(finalWsUrl);
     } catch (e) {
       setError(e);
       setStatus("error");
@@ -109,6 +149,10 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
       log("connected");
       setStatus("connected");
       setError(null);
+
+      if (autoSubscribeOnOpen) {
+        subscribe(defaultStreetlightId);
+      }
     };
 
     ws.onmessage = (evt) => {
@@ -143,35 +187,25 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
 
       if (autoReconnect) {
         clearReconnectTimer();
-        reconnectTimerRef.current = setTimeout(connect, reconnectDelayMs);
+        reconnectTimerRef.current = setTimeout(() => {
+          connect();
+        }, reconnectDelayMs);
       }
     };
-  }, [wsUrl, autoReconnect, reconnectDelayMs, maxMessages, log, clearReconnectTimer]);
-
-  const send = useCallback((obj) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-
-    try {
-      ws.send(JSON.stringify(obj));
-      return true;
-    } catch (e) {
-      setError(e);
-      return false;
-    }
-  }, []);
-
-  // Max contract: subscribe requires streetlight_id
-  const subscribe = useCallback(
-    (streetlightId) => {
-      if (!streetlightId) return false;
-      return send({ action: "subscribe", streetlight_id: streetlightId });
-    },
-    [send]
-  );
+  }, [
+    finalWsUrl,
+    autoReconnect,
+    reconnectDelayMs,
+    maxMessages,
+    log,
+    clearReconnectTimer,
+    subscribe,
+    autoSubscribeOnOpen,
+    defaultStreetlightId,
+  ]);
 
   useEffect(() => {
-    if (!wsUrl) {
+    if (!finalWsUrl) {
       disconnect();
       setStatus("idle");
       return;
@@ -179,7 +213,7 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
 
     connect();
     return () => disconnect();
-  }, [wsUrl, connect, disconnect]);
+  }, [finalWsUrl, connect, disconnect]);
 
   return {
     status,
@@ -190,5 +224,6 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     subscribe,
     connect,
     disconnect,
+    subscribe,
   };
 }

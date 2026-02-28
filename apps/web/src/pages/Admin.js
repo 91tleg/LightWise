@@ -110,31 +110,35 @@ export default function Admin() {
   };
 
   return (
-    <Layout
-      title="Admin"
-      subtitle="Live WebSocket telemetry + controls (backend-driven)."
-      backgroundImage={adminBg}
+    <div
+      className="lwAdminPage"
+      style={{
+        backgroundImage: `url(${adminBg})`,
+      }}
     >
-      {/* LIGHT BLUE PANEL so text is readable */}
-      <div
-        style={{
-          background: "rgba(220, 240, 255, 0.88)", // very light blue
-          borderRadius: 18,
-          padding: 16,
-          color: "#0b1b2b", // dark navy text
-        }}
-      >
-        {apiError ? <div className="lwErrorBanner">API Error: {apiError}</div> : null}
+      <div className="lwAdminPageOverlay">
+        <Layout title="Admin" subtitle="System controls & configuration.">
+          <AdminWsControls
+            wsStatus={wsStatus}
+            onSimulateMotion={simulateMotion}
+            onSubscribeDemo={subscribeDemo}
+            motionState={motionState}
+          />
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <div className="lwInputGroup">
-            <label className="lwLabel" style={{ color: "#0b1b2b" }}>
-              Select Streetlight
-            </label>
-            <select
-              className="lwSelect"
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
+          <PoleManager />
+
+          <ActivityFeed wsStatus={wsStatus} lastMessage={lastMessage} />
+
+          <div className="lwBubbleGrid">
+            <BubbleCard
+              icon="🧠"
+              title="Rules Engine"
+              sub="Dimming + safety thresholds"
+              pills={["Auto", "Night", "Motion"]}
+              primaryLabel="Edit Rules"
+              secondaryLabel="View Logs"
+              onPrimary={() => alert("Edit Rules (demo)")}
+              onSecondary={() => alert("View Logs (demo)")}
             >
               {streetlights.map((s) => (
                 <option key={s.streetlight_id} value={s.streetlight_id}>
