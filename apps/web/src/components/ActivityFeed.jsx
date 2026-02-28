@@ -1,17 +1,17 @@
+// LightWise/apps/web/src/components/ActivityFeed.jsx
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * ActivityFeed
  *
  * Props:
- *  - wsStatus: string ("idle"|"connecting"|"connected"|"disconnected"|"error")
- *  - lastMessage: object|null  (latest message parsed from WS)
+ *  - wsStatus: string
+ *  - lastMessage: object|null (latest WS message)
  *  - maxItems?: number (default 20)
  */
 export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
   const [events, setEvents] = useState([]);
-
-  // Keeps track of the most recent signature so we don't double-add identical events
   const lastSigRef = useRef(null);
 
   useEffect(() => {
@@ -20,159 +20,102 @@ export default function ActivityFeed({ wsStatus, lastMessage, maxItems = 20 }) {
     const evt = normalizeEvent(lastMessage);
     const sig = evt.sig;
 
-    // If this exact event signature just arrived, ignore it (prevents duplicates)
     if (sig && sig === lastSigRef.current) return;
-
     lastSigRef.current = sig;
 
     setEvents((prev) => {
-      // Also protect against duplicates already in list (extra safety)
-      if (sig && prev.some((p) => p.sig === sig)) return prev;
-
       const next = [evt, ...prev];
       return next.slice(0, maxItems);
     });
   }, [lastMessage, maxItems]);
 
-  const statusBadge = useMemo(() => {
-    const base = {
-      padding: "4px 10px",
-      borderRadius: 999,
-      fontSize: 12,
-      border: "1px solid #d1d5db",
-      background: "#fff",
-      display: "inline-block",
-    };
-
-    const label = wsStatus || "idle";
-
-    let borderColor = "#d1d5db";
-    if (label === "connected") borderColor = "#16a34a";
-    if (label === "connecting") borderColor = "#f59e0b";
-    if (label === "error") borderColor = "#dc2626";
-    if (label === "disconnected") borderColor = "#6b7280";
-
-    return (
-      <span style={{ ...base, borderColor }}>
-        WS: <b>{label}</b>
-      </span>
-    );
+  const header = useMemo(() => {
+    if (wsStatus === "connected") return "Live Events (connected)";
+    if (wsStatus === "connecting") return "Live Events (connecting...)";
+    if (wsStatus === "error") return "Live Events (error)";
+    return "Live Events";
   }, [wsStatus]);
 
-  const clear = () => {
-    setEvents([]);
-    lastSigRef.current = null;
-  };
-
   return (
-    <div
-      style={{
-        marginTop: 16,
-        padding: 16,
-        borderRadius: 12,
-        border: "1px solid #e5e7eb",
-        background: "white",
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <div>
-          <h3 style={{ margin: 0 }}>Live Activity</h3>
-          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
-            Incoming events from your AWS WebSocket broadcast.
-          </div>
-        </div>
+    <div className="lwActivityFeed">
+      <div className="lwActivityHeader">{header}</div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {statusBadge}
-          <button
-            onClick={clear}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 10,
-              border: "1px solid #d1d5db",
-              background: "white",
-              cursor: "pointer",
-            }}
-          >
-            Clear
-          </button>
+      {!events.length ? (
+        <div className="lwActivityEmpty">
+          No events yet. (If WS is connected but nothing arrives, it usually means no telemetry is being published.)
         </div>
-      </div>
-
-      <div style={{ marginTop: 14 }}>
-        {events.length === 0 ? (
-          <div style={{ opacity: 0.7 }}>
-            No events yet. Click <b>Simulate Motion</b> to broadcast an event.
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-              <thead>
-                <tr style={{ textAlign: "left" }}>
-                  <th style={thStyle}>Time</th>
-                  <th style={thStyle}>Type</th>
-                  <th style={thStyle}>Pole</th>
-                  <th style={thStyle}>Value</th>
-                  <th style={thStyle}>Raw</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((e, i) => (
-                  <tr key={e.id || i}>
-                    <td style={tdStyle}>{formatTime(e.timestamp)}</td>
-                    <td style={tdStyle}><b>{e.type}</b></td>
-                    <td style={tdStyle}>{e.poleId}</td>
-                    <td style={tdStyle}>{String(e.value)}</td>
-                    <td style={tdStyle}>
-                      <details>
-                        <summary style={{ cursor: "pointer" }}>view</summary>
-                        <pre style={{ margin: 0, fontSize: 12, whiteSpace: "pre-wrap" }}>
-                          {JSON.stringify(e.raw, null, 2)}
-                        </pre>
-                      </details>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      ) : (
+        <div className="lwActivityList">
+          {events.map((e) => (
+            <div key={e.id} className="lwActivityItem">
+              <div className="lwActivityTop">
+                <span className="lwActivityType">{e.type}</span>
+                <span className="lwActivityTime">{formatTime(e.timestamp)}</span>
+              </div>
+              <div className="lwActivityMid">
+                <span className="lwActivityPole">{e.streetlightId}</span>
+                <span className="lwActivityVal">{String(e.value)}</span>
+              </div>
+              {e.note ? <div className="lwActivityNote">{e.note}</div> : null}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-const thStyle = {
-  padding: 10,
-  borderBottom: "1px solid #e5e7eb",
-  fontSize: 12,
-  opacity: 0.8,
-};
-
-const tdStyle = {
-  padding: 10,
-  borderBottom: "1px solid #f3f4f6",
-  verticalAlign: "top",
-};
-
+// --- Normalization for BOTH old + new message styles ---
 function normalizeEvent(msg) {
   const raw = msg;
 
-  const type = safeStr(raw?.type ?? raw?.payload?.type, "event");
-  const poleId = safeStr(raw?.poleId ?? raw?.payload?.poleId ?? raw?.pole, "unknown_pole");
-  const value = raw?.value ?? raw?.payload?.value ?? raw?.reading ?? raw?.level ?? "";
-  const timestamp = raw?.timestamp ?? raw?.payload?.timestamp ?? raw?.time ?? new Date().toISOString();
+  // Max telemetry push format:
+  // { tenant_id, streetlight_id, timestamp, health, data{...}, diagnostics{...} }
+  const streetlightId =
+    safeStr(raw?.streetlight_id, "") ||
+    safeStr(raw?.poleId ?? raw?.payload?.poleId ?? raw?.pole, "unknown");
 
-  // ✅ Stable signature: if the same event arrives twice, this matches
-  const sig = `${type}|${poleId}|${String(value)}|${String(timestamp)}`;
+  const ts = raw?.timestamp ?? raw?.time ?? raw?.payload?.timestamp ?? new Date().toISOString();
+
+  const health = safeStr(raw?.health, "");
+  const motion = raw?.data?.motion;
+  const lightLevel = raw?.data?.light_level;
+
+  // Choose a useful “type/value” for the feed
+  let type = "telemetry";
+  let value = "";
+
+  if (typeof motion === "boolean") {
+    type = "motion";
+    value = motion ? "DETECTED" : "clear";
+  } else if (typeof lightLevel === "number") {
+    type = "light_level";
+    value = `${lightLevel}%`;
+  } else if (health) {
+    type = "health";
+    value = health;
+  } else {
+    // fallback for unknown shapes
+    type = safeStr(raw?.type ?? raw?.payload?.type, "event");
+    value = raw?.value ?? raw?.payload?.value ?? raw?.reading ?? raw?.level ?? "";
+  }
+
+  const noteParts = [];
+  if (typeof raw?.data?.lux === "number") noteParts.push(`lux ${raw.data.lux}`);
+  if (typeof raw?.data?.temp_c === "number") noteParts.push(`temp ${raw.data.temp_c}°C`);
+  if (typeof raw?.data?.humidity === "number") noteParts.push(`humidity ${raw.data.humidity}%`);
+  const note = noteParts.join(" • ");
+
+  const sig = `${type}|${streetlightId}|${String(value)}|${String(ts)}`;
 
   return {
-    id: raw?.id || sig, // stable key now
+    id: raw?.id || sig,
     sig,
     type,
-    poleId,
+    streetlightId,
     value,
-    timestamp,
+    timestamp: ts,
+    note,
     raw,
   };
 }

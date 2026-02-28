@@ -1,31 +1,49 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+// LightWise/apps/web/src/services/useLightWiseWS.js
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * useLightWiseWS(wsUrl, options?)
+ * useLightWiseWS(wsBaseUrl, options?)
  *
- * - wsUrl: string like "wss://xxxx.execute-api.us-east-1.amazonaws.com/prod"
- * - Returns:
- *    { status, lastMessage, messages, send, connect, disconnect, error }
+ * - wsBaseUrl example:
+ *    - local: "ws://localhost:3001"
+ *    - aws:   "wss://x7zn8xoare.execute-api.us-east-1.amazonaws.com/production"
  *
- * Status values:
- *  - "idle" | "connecting" | "connected" | "disconnected" | "error"
+ * Auto appends tenant_id query param (demo contract).
+ *
+ * Returns:
+ *  { status, error, lastMessage, messages, send, subscribe, connect, disconnect }
  */
-export function useLightWiseWS(wsUrl, options = {}) {
+export function useLightWiseWS(wsBaseUrl, options = {}) {
   const {
     autoReconnect = true,
     reconnectDelayMs = 1500,
     maxMessages = 50,
     debug = false,
+    tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001",
   } = options;
 
   const wsRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const manualCloseRef = useRef(false);
 
-  const [status, setStatus] = useState(wsUrl ? "connecting" : "idle");
+  const [status, setStatus] = useState(wsBaseUrl ? "connecting" : "idle");
   const [error, setError] = useState(null);
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
+
+  const wsUrl = useMemo(() => {
+    if (!wsBaseUrl) return "";
+    try {
+      const u = new URL(wsBaseUrl);
+      if (tenantId) u.searchParams.set("tenant_id", tenantId);
+      return u.toString();
+    } catch {
+      // If someone passes a non-standard URL string, fallback
+      const sep = wsBaseUrl.includes("?") ? "&" : "?";
+      return tenantId ? `${wsBaseUrl}${sep}tenant_id=${encodeURIComponent(tenantId)}` : wsBaseUrl;
+    }
+  }, [wsBaseUrl, tenantId]);
 
   const log = useCallback(
     (...args) => {
@@ -65,7 +83,6 @@ export function useLightWiseWS(wsUrl, options = {}) {
       return;
     }
 
-    // If a socket is already open/connecting, do nothing
     if (
       wsRef.current &&
       (wsRef.current.readyState === WebSocket.OPEN ||
@@ -99,7 +116,6 @@ export function useLightWiseWS(wsUrl, options = {}) {
     ws.onmessage = (evt) => {
       const raw = evt.data;
       let parsed;
-
       try {
         parsed = JSON.parse(raw);
       } catch {
@@ -123,7 +139,6 @@ export function useLightWiseWS(wsUrl, options = {}) {
       log("closed", evt.code, evt.reason);
       wsRef.current = null;
 
-      // If user manually disconnected, don't reconnect
       if (manualCloseRef.current) {
         setStatus("disconnected");
         return;
@@ -131,23 +146,14 @@ export function useLightWiseWS(wsUrl, options = {}) {
 
       setStatus("disconnected");
 
-      // Auto-reconnect
       if (autoReconnect) {
         clearReconnectTimer();
         reconnectTimerRef.current = setTimeout(() => {
-          // Reconnect with latest settings
           connect();
         }, reconnectDelayMs);
       }
     };
-  }, [
-    wsUrl,
-    autoReconnect,
-    reconnectDelayMs,
-    maxMessages,
-    log,
-    clearReconnectTimer,
-  ]);
+  }, [wsUrl, autoReconnect, reconnectDelayMs, maxMessages, log, clearReconnectTimer]);
 
   const send = useCallback((obj) => {
     const ws = wsRef.current;
@@ -162,7 +168,17 @@ export function useLightWiseWS(wsUrl, options = {}) {
     }
   }, []);
 
-  // Connect automatically when wsUrl or connect/disconnect changes
+  // Max contract: subscribe requires streetlight_id (but we handle both styles safely)
+  const subscribe = useCallback(
+    (streetlightId) => {
+      if (streetlightId) {
+        return send({ action: "subscribe", streetlight_id: streetlightId });
+      }
+      return send({ action: "subscribe" });
+    },
+    [send]
+  );
+
   useEffect(() => {
     if (!wsUrl) {
       disconnect();
@@ -183,6 +199,7 @@ export function useLightWiseWS(wsUrl, options = {}) {
     lastMessage,
     messages,
     send,
+    subscribe,
     connect,
     disconnect,
   };

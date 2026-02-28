@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+// LightWise/apps/web/src/pages/Overview.js
+
+import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
 import MapEmbed from "../components/MapEmbed";
@@ -6,70 +8,126 @@ import Legend from "../components/Legend";
 import Panel from "../components/Panel";
 import Card from "../components/Card";
 import PillRow from "../components/PillRow";
-import { getTelemetry } from "../services/api";
+import { listStreetlights } from "../services/api";
 
 export default function Overview() {
-  const [telemetry, setTelemetry] = useState(null);
+  const [streetlights, setStreetlights] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getTelemetry()
-      .then(setTelemetry)
+    listStreetlights()
+      .then((rows) => setStreetlights(Array.isArray(rows) ? rows : []))
       .catch((e) => setError(e?.message || String(e)));
   }, []);
 
-  // ✅ don’t lie with LW-001 if no real telemetry came in
-  const poleId = telemetry?.poleId ?? "—";
+  const stats = useMemo(() => {
+    const total = streetlights.length;
+
+    const ok = streetlights.filter((s) => s.health === "OK").length;
+    const degraded = streetlights.filter((s) => s.health === "DEGRADED").length;
+    const critical = streetlights.filter((s) => s.health === "CRITICAL").length;
+
+    // Keep it honest: list endpoint gives "all poles", not strictly "online"
+    const totalPoles = total;
+
+    const alerts = streetlights
+      .filter((s) => s.health === "DEGRADED" || s.health === "CRITICAL")
+      .slice(0, 5);
+
+    const selected = streetlights[0] || null;
+
+    const systemStatus =
+      critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
+
+    return {
+      total,
+      ok,
+      degraded,
+      critical,
+      totalPoles,
+      systemStatus,
+      alerts,
+      selected,
+    };
+  }, [streetlights]);
+
+  const selectedId = stats.selected?.streetlight_id ?? "—";
+
+  const selectedMotion =
+    typeof stats.selected?.motion_detected === "boolean"
+      ? stats.selected.motion_detected
+        ? "true"
+        : "false"
+      : "N/A";
 
   const kpis = [
-    { icon: "✅", label: "System Status", value: "N/A", note: "Demo mode" },
-    { icon: "⚠️", label: "Faults Detected", value: "N/A", note: "Last 24h" },
-    { icon: "♻️", label: "Energy Savings", value: "N/A kWh", note: "Today" },
-    { icon: "📡", label: "Active Poles", value: "N/A", note: "Online" },
+    {
+      icon: stats.systemStatus === "CRITICAL" ? "🟥" : stats.systemStatus === "DEGRADED" ? "🟧" : "✅",
+      label: "System Status",
+      value: stats.systemStatus,
+      note: stats.total ? `${stats.total} poles` : "No data",
+    },
+    {
+      icon: "⚠️",
+      label: "Faults Detected",
+      value: String(stats.degraded + stats.critical || "0"),
+      note: "DEGRADED + CRITICAL",
+    },
+    {
+      icon: "♻️",
+      label: "Energy Savings",
+      value: "N/A",
+      note: "Not computed (needs meter/baseline)",
+    },
+    {
+      icon: "📡",
+      label: "Total Poles",
+      value: String(stats.totalPoles || "0"),
+      note: "From /streetlights",
+    },
   ];
 
   return (
-    <Layout
-      title="Overview"
-      subtitle="System health, alerts, and a quick view of the network."
-    >
+    <Layout title="Overview" subtitle="System health, alerts, and a quick view of the network.">
       {error && <div className="lwErrorBanner">API Error: {error}</div>}
 
       <div className="lwKpiGrid">
         {kpis.map(({ icon, label, value, note }) => (
-          <StatCard
-            key={label}
-            icon={icon}
-            label={label}
-            value={value}
-            note={note}
-          />
+          <StatCard key={label} icon={icon} label={label} value={value} note={note} />
         ))}
       </div>
 
       <div className="lwPanelGrid">
         <Panel title="Recent Alerts">
-          <ul className="lwList">
-            {["N/A", "N/A", "N/A"].map((item, i) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
+          {!stats.alerts.length ? (
+            <div className="lwPlaceholder">No alerts (or no data)</div>
+          ) : (
+            <ul className="lwList">
+              {stats.alerts.map((s) => (
+                <li key={s.streetlight_id}>
+                  <b>{s.streetlight_id}</b> — {s.health} — {s.name || "Unnamed"}
+                </li>
+              ))}
+            </ul>
+          )}
         </Panel>
 
         <Panel title="Energy Trend">
-          <div className="lwPlaceholder">N/A</div>
+          <div className="lwPlaceholder">
+            N/A (needs time-series energy data or computed savings model)
+          </div>
         </Panel>
 
         <Panel title="Operations">
           <PillRow
             pills={[
-              { label: "Normal", color: "green" },
-              { label: "Investigating", color: "orange" },
-              { label: "Fault", color: "red" },
+              { label: `OK: ${stats.ok}`, color: "green" },
+              { label: `DEGRADED: ${stats.degraded}`, color: "orange" },
+              { label: `CRITICAL: ${stats.critical}`, color: "red" },
             ]}
           />
           <div className="lwSmallText" style={{ marginTop: 10 }}>
-            Latest pole: <b>{poleId}</b>
+            Latest pole: <b>{selectedId}</b>
           </div>
         </Panel>
       </div>
@@ -80,13 +138,23 @@ export default function Overview() {
             <div className="lwPoleAvatar" />
             <div className="lwPoleMeta">
               <div>
-                <b>ID:</b> {poleId}
+                <b>ID:</b> {selectedId}
               </div>
               <div>
-                <b>Lux:</b> {telemetry?.ambientLux ?? "N/A"}
+                <b>Name:</b> {stats.selected?.name ?? "N/A"}
               </div>
               <div>
-                <b>Motion:</b> {telemetry?.motion ?? "N/A"}
+                <b>Health:</b> {stats.selected?.health ?? "N/A"}
+              </div>
+              <div>
+                <b>Motion:</b> {selectedMotion}
+              </div>
+              <div>
+                <b>Last seen:</b> {stats.selected?.last_seen ?? "N/A"}
+              </div>
+              <div className="lwSmallText" style={{ marginTop: 8, opacity: 0.9 }}>
+                Lux/Temp/Humidity/Light Level are WS telemetry fields (not available from
+                `/streetlights` list response unless backend adds them there).
               </div>
             </div>
           </div>
