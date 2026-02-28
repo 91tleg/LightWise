@@ -1,34 +1,34 @@
 // apps/web/src/services/wsClient.js
 //
-// LightWise WebSocket client (Learner Lab friendly)
-// - No auth (per Kirat)
-// - Subscribe payload is ONLY: { action: "subscribe" }
-// - Backend currently only replies: { message: "Subscribed successfully" }
-// - No real-time broadcast yet (ManageConnections not implemented), so this client
-//   focuses on stable connect + subscribe + clean reconnection.
+// LightWise WebSocket client
+// - No auth (per team)
+// - Subscribe payload (Max contract):
+//     { "action": "subscribe", "streetlight_id": "LW-00042" }
 //
-// Env:
-//   REACT_APP_LIGHTWISE_WS_URL=wss://x7zn8xoare.execute-api.us-east-1.amazonaws.com/production
+// Env (preferred):
+//   REACT_APP_WS_URL=wss://.../dev/
+// Legacy fallback supported:
+//   REACT_APP_LIGHTWISE_WS_URL=wss://... (older name)
 //
-// Usage:
-//   const client = createLightWiseWsClient({ onStatus, onMessage, debug: true });
-//   client.connect();
-//   // optional: client.subscribe() if you want manual subscribe, but connect() auto-subscribes.
+// NOTE: Your app currently uses useLightWiseWS.js (hook) via Provider.
+// This file is kept as a standalone client for future use / debugging.
 
 export function createLightWiseWsClient({
   onStatus = () => {},
   onMessage = () => {},
   debug = false,
 
-  // reconnect behavior
   autoReconnect = true,
   reconnectBaseMs = 750,
   reconnectMaxMs = 8000,
 
-  // subscribe behavior
-  autoSubscribeOnOpen = true,
+  autoSubscribeOnOpen = false,
+  defaultStreetlightId = process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042",
 } = {}) {
-  const wssUrl = process.env.REACT_APP_LIGHTWISE_WS_URL;
+  const wssUrl =
+    process.env.REACT_APP_WS_URL ||
+    process.env.REACT_APP_LIGHTWISE_WS_URL ||
+    "";
 
   let ws = null;
   let reconnectTimer = null;
@@ -38,13 +38,7 @@ export function createLightWiseWsClient({
   const state = {
     status: "CLOSED", // CONNECTING | OPEN | CLOSED | ERROR
     lastError: null,
-
-    // Kept for compatibility with your existing UI/status payload
-    // even though backend doesn't use streetlight ids yet.
     subscriptions: new Set(),
-
-    // tracks whether we've sent the minimal subscribe at least once in this session
-    didSubscribeThisSession: false,
   };
 
   function log(...args) {
@@ -72,7 +66,6 @@ export function createLightWiseWsClient({
   }
 
   function nextReconnectDelay() {
-    // exponential backoff with cap
     const raw = reconnectBaseMs * Math.pow(2, reconnectAttempt);
     return Math.min(raw, reconnectMaxMs);
   }
@@ -85,23 +78,19 @@ export function createLightWiseWsClient({
     reconnectAttempt += 1;
 
     log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempt})...`);
-    reconnectTimer = setTimeout(() => {
-      connect();
-    }, delay);
+    reconnectTimer = setTimeout(() => connect(), delay);
   }
 
   function safeCloseWs() {
     try {
       ws?.close();
-    } catch {
-      // ignore
-    }
+    } catch {}
     ws = null;
   }
 
   function connect() {
     if (!wssUrl) {
-      state.lastError = "Missing REACT_APP_LIGHTWISE_WS_URL in .env";
+      state.lastError = "Missing REACT_APP_WS_URL in .env.local";
       setStatus("ERROR");
       return;
     }
@@ -109,7 +98,6 @@ export function createLightWiseWsClient({
     closedManually = false;
     clearReconnectTimer();
     state.lastError = null;
-    state.didSubscribeThisSession = false;
 
     setStatus("CONNECTING");
     log("Connecting:", wssUrl);
@@ -128,44 +116,34 @@ export function createLightWiseWsClient({
       setStatus("OPEN");
       log("OPEN");
 
-      // Per Kirat: minimal subscribe payload, no other fields.
       if (autoSubscribeOnOpen) {
-        subscribe(); // minimal subscribe
+        subscribe(defaultStreetlightId);
       }
     };
 
     ws.onmessage = (evt) => {
       let data = evt.data;
-
-      // Try JSON parse; fallback to raw
-      if (typeof evt.data === "string") {
+      if (typeof data === "string") {
         try {
-          data = JSON.parse(evt.data);
+          data = JSON.parse(data);
         } catch {
-          // keep raw string
+          data = { raw: data };
         }
       }
-
       onMessage(data);
     };
 
     ws.onerror = (err) => {
-      // browsers often provide very little info here
       state.lastError = err?.message || "WebSocket error";
       setStatus("ERROR");
       log("ERROR:", err);
-      // do not reconnect here; onclose will fire and handle it
     };
 
     ws.onclose = (evt) => {
       log("CLOSED", { code: evt?.code, reason: evt?.reason });
-
       safeCloseWs();
       setStatus("CLOSED");
-
-      if (!closedManually) {
-        scheduleReconnect();
-      }
+      if (!closedManually) scheduleReconnect();
     };
   }
 
@@ -188,36 +166,23 @@ export function createLightWiseWsClient({
     }
   }
 
-  /**
-   * subscribe()
-   * Kirat confirmed the ONLY required payload right now is:
-   *   { "action": "subscribe" }
-   *
-   * We keep a streetlightId parameter for forward-compat, but we DO NOT send it
-   * until backend supports it.
-   */
-  function subscribe(streetlightId) {
-    // forward-compat: track what UI thinks is "subscribed"
-    if (streetlightId) state.subscriptions.add(streetlightId);
+  function subscribe(streetlightId = defaultStreetlightId) {
+    const id = String(streetlightId || "").trim();
+    if (!id) return false;
 
-    // Avoid spamming subscribe on every reconnect loop if you want:
-    // (but currently harmless even if repeated)
-    state.didSubscribeThisSession = true;
-
-    return sendJson({ action: "subscribe" });
+    state.subscriptions.add(id);
+    return sendJson({ action: "subscribe", streetlight_id: id });
   }
 
   return {
     connect,
     disconnect,
     subscribe,
-
-    // optional: if you ever need to inspect client state from outside
+    sendJson,
     getState: () => ({
       status: state.status,
       lastError: state.lastError,
       subscriptions: Array.from(state.subscriptions),
-      didSubscribeThisSession: state.didSubscribeThisSession,
     }),
   };
 }

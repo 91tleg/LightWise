@@ -8,26 +8,22 @@ import { loadPoles, savePoles } from "../services/poleStorage";
 export const LightWiseContext = createContext(null);
 
 export function LightWiseProvider({ children }) {
-  // Support both env variable names (you currently use REACT_APP_LIGHTWISE_WS_URL in .env.local)
+  // Prefer the standard name; fallback to legacy if present
   const WS_URL =
-    process.env.REACT_APP_LIGHTWISE_WS_URL ||
     process.env.REACT_APP_WS_URL ||
+    process.env.REACT_APP_LIGHTWISE_WS_URL ||
     "";
 
-  // Poles = list of streetlight_id strings
   const [poles, setPoles] = useState(() => loadPoles());
-
-  // Events = normalized objects for ActivityFeed
   const [events, setEvents] = useState([]);
 
-  // WebSocket engine
   const { status: wsStatus, error: wsError, lastMessage, send, subscribe } =
     useLightWiseWS(WS_URL, {
       debug: false,
       autoReconnect: true,
+      autoSubscribeOnOpen: false, // we subscribe once per pole below
     });
 
-  // Persist poles whenever they change
   useEffect(() => {
     savePoles(poles);
   }, [poles]);
@@ -38,17 +34,16 @@ export function LightWiseProvider({ children }) {
     poles.forEach((id) => subscribe(id));
   }, [wsStatus, poles, subscribe]);
 
-  // Convert incoming WS messages into events once (single pipeline)
+  // Convert incoming WS messages into ActivityFeed events
   useEffect(() => {
     if (!lastMessage) return;
 
     const ev = normalizeEvent(lastMessage);
     if (!ev) return;
 
-    setEvents((prev) => [ev, ...prev].slice(0, 200)); // cap feed size
+    setEvents((prev) => [ev, ...prev].slice(0, 200));
   }, [lastMessage]);
 
-  // Actions (these are what UI will call)
   const addPole = useCallback((streetlightId) => {
     const id = String(streetlightId || "").trim();
     if (!id) return;
@@ -65,22 +60,16 @@ export function LightWiseProvider({ children }) {
     setPoles((prev) => prev.filter((p) => p !== id));
   }, []);
 
-  const clearPoles = useCallback(() => {
-    setPoles([]);
-  }, []);
+  const clearPoles = useCallback(() => setPoles([]), []);
+  const clearEvents = useCallback(() => setEvents([]), []);
 
-  const clearEvents = useCallback(() => {
-    setEvents([]);
-  }, []);
-
-  // Context value exposed to the app
   const value = useMemo(
     () => ({
       wsStatus,
       wsError,
       lastMessage,
       send,
-      subscribe, // helpful if UI wants manual subscribe
+      subscribe,
       poles,
       addPole,
       removePole,

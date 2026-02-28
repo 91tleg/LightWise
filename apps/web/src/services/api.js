@@ -2,7 +2,8 @@
 
 function env() {
   return {
-    USE_MOCK: String(process.env.REACT_APP_USE_MOCK || "true") !== "false",
+    // mock is OFF by default unless you set REACT_APP_USE_MOCK=true
+    USE_MOCK: String(process.env.REACT_APP_USE_MOCK || "false").toLowerCase() === "true",
     API_BASE: process.env.REACT_APP_API_BASE || "",
     API_KEY: process.env.REACT_APP_API_KEY || "",
     TENANT_ID: process.env.REACT_APP_TENANT_ID || "tenant-001",
@@ -23,7 +24,6 @@ function withTenant(path, API_BASE, TENANT_ID) {
   const base = (API_BASE || "").replace(/\/$/, "");
   const full = base ? `${base}${path}` : path;
 
-  // If base missing, keep path unchanged
   if (!base) return full;
 
   const u = new URL(full);
@@ -42,7 +42,6 @@ async function request(path, options = {}) {
     ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
   };
 
-  // Don’t trigger preflight on GET if you can avoid it
   if (hasBody) headers["Content-Type"] = "application/json";
 
   const url = withTenant(path, API_BASE, TENANT_ID);
@@ -124,7 +123,6 @@ export async function listStreetlights() {
 
 export async function getStreetlight(id) {
   const { USE_MOCK, API_BASE, TENANT_ID } = env();
-
   if (!id) throw new Error("streetlight id is required");
 
   if (USE_MOCK || !API_BASE) {
