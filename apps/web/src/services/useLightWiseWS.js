@@ -224,6 +224,5 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     subscribe,
     connect,
     disconnect,
-    subscribe,
   };
 }
