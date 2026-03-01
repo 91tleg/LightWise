@@ -86,7 +86,7 @@ namespace light
         return kMsPerSecond / static_cast<uint32_t>( stepsPerSecond_ );
     }
 
-    constexpr uint8_t Manager::clamp( uint8_t value, uint8_t low, uint8_t high )
+    uint8_t Manager::clamp( uint8_t value, uint8_t low, uint8_t high )
     {
         uint8_t result = value;
         if( value < low )
