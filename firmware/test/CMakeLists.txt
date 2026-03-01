@@ -48,10 +48,11 @@ foreach(TEST_FILE ${TEST_FILES})
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_DIR}/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_DIR}/${MODULE_NAME}.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/lorawan/payloads/uplink_payload_v1.cpp" 
-        "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}/${MODULE_NAME}.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}/${MODULE_NAME}.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/${MODULE_NAME}.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/ambient/${MODULE_NAME}.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/th/${MODULE_NAME}.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/light/${MODULE_NAME}.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/lorawan/${MODULE_NAME}.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mmwave/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/${MODULE_NAME}.c"
     )
 
