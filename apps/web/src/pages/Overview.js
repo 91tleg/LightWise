@@ -24,7 +24,9 @@ function MiniLineChart({ values = [], height = 120 }) {
   const h = height;
 
   const pts = useMemo(() => {
-    const arr = (values || []).filter((v) => Number.isFinite(Number(v))).map(Number);
+    const arr = (values || [])
+      .filter((v) => Number.isFinite(Number(v)))
+      .map(Number);
     if (arr.length < 2) return "";
 
     const min = Math.min(...arr);
@@ -46,7 +48,13 @@ function MiniLineChart({ values = [], height = 120 }) {
 
   return (
     <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
-      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="3" opacity="0.9" />
+      <polyline
+        points={pts}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        opacity="0.9"
+      />
     </svg>
   );
 }
@@ -64,7 +72,8 @@ function toNumberOrNull(x) {
 
 export default function Overview() {
   const tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001";
-  const WS_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
+  const WS_URL =
+    process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
 
   const [streetlights, setStreetlights] = useState([]);
   const [error, setError] = useState("");
@@ -131,7 +140,7 @@ export default function Overview() {
   const selected = stats.selected;
   const selectedId = selected?.streetlight_id ?? "—";
 
-  // keep metadata draft synced to selection
+  // keep metadata draft synced to selection (CI-safe deps)
   useEffect(() => {
     setMetaMsg("");
     setMetaDraft({
@@ -141,7 +150,7 @@ export default function Overview() {
     });
     setWsMotion(null);
     setLightTrend([]);
-  }, [selectedId]); // selection changes
+  }, [selected]); // ✅ satisfies react-hooks/exhaustive-deps
 
   // Auto-subscribe to selected pole for trend
   useEffect(() => {
@@ -170,7 +179,6 @@ export default function Overview() {
     if (typeof m === "boolean") {
       setWsMotion(m);
     } else if (typeof m === "number") {
-      // in case backend ever sends 0/1
       setWsMotion(Boolean(m));
     }
   }, [lastMessage, selected]);
@@ -178,7 +186,9 @@ export default function Overview() {
   // Selected Motion display (prefer WS if present; fall back to REST field)
   const selectedMotion = useMemo(() => {
     if (typeof wsMotion === "boolean") return wsMotion ? "true" : "false";
-    if (typeof selected?.motion_detected === "boolean") return selected.motion_detected ? "true" : "false";
+    if (typeof selected?.motion_detected === "boolean") {
+      return selected.motion_detected ? "true" : "false";
+    }
     return "N/A";
   }, [wsMotion, selected]);
 
@@ -235,7 +245,6 @@ export default function Overview() {
         throw new Error("Lng must be a valid number (or blank).");
       }
 
-      // patch only fields that are not blank (name can be blank if you want; here we allow blank -> sends blank)
       const patch = {
         name: metaDraft.name,
         ...(metaDraft.lat === "" ? {} : { lat: nextLat }),
@@ -245,8 +254,6 @@ export default function Overview() {
       await updateStreetlightMetadata(selected.streetlight_id, patch);
 
       setMetaMsg("Saved ✅");
-
-      // refresh to pull updated metadata back into Overview
       await refreshStreetlights();
     } catch (e) {
       const msg = e?.message || String(e);
@@ -311,7 +318,6 @@ export default function Overview() {
           <div className="lwPoleRow">
             <div className="lwPoleAvatar" />
             <div className="lwPoleMeta">
-              {/* Max requested fields */}
               <div><b>ID:</b> {selectedId}</div>
               <div><b>Tenant:</b> {selected?.tenant_id ?? "N/A"}</div>
               <div><b>Name:</b> {selected?.name ?? "N/A"}</div>
@@ -327,7 +333,6 @@ export default function Overview() {
               <div><b>Motion Primary:</b> {okFail(selected?.motion_primary_ok)}</div>
               <div><b>Motion Secondary:</b> {okFail(selected?.motion_secondary_ok)}</div>
 
-              {/* Metadata editor (push update thing) */}
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                 <div style={{ fontWeight: 700, marginBottom: 8 }}>Edit Metadata</div>
 
@@ -370,7 +375,7 @@ export default function Overview() {
                   </div>
 
                   <div className="lwSmallText" style={{ opacity: 0.85 }}>
-                    This calls <code>PUT /streetlights/&lt;id&gt;/metadata</code>. Backend may return nulls if not configured.
+                    This calls <code>PUT /streetlights/&lt;id&gt;/metadata</code>.
                   </div>
                 </div>
               </div>
