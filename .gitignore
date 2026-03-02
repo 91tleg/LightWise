@@ -7,7 +7,9 @@ __pycache__/
 *.db
 *.egg-info/
 *.env
-.env/
+.env
+.env.local
+.env.*.local
 venv/
 env/
 .venv/
@@ -21,28 +23,5 @@ api_keys.txt
 *.pem
 *.key
 *.crt
-# env (never commit)
-apps/web/.env
-apps/web/.env.local
-.env
-.env.local
-# -----------------------------
-# LightWise ignores (auto-added)
-# -----------------------------
-
-# AWS SAM build output (never commit)
-.aws-sam/
-apps/api/.aws-sam/
-
-# node / builds
-node_modules/
-apps/web/node_modules/
-dist/
+*.swp
 build/
-coverage/
-
-# env (never commit)
-.env
-.env.local
-apps/web/.env
-apps/web/.env.local
