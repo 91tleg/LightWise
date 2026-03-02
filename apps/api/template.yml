@@ -8,6 +8,11 @@ Parameters:
     Type: String
 
 Globals:
+  Api:
+    Cors:
+      AllowMethods: "'GET,PUT,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization'"
+      AllowOrigin: "'*'"
   Function:
     Runtime: python3.11
     Timeout: 15
@@ -39,6 +44,12 @@ Resources:
             TableName: !Ref Streetlights
         - DynamoDBReadPolicy:
             TableName: !Ref UsersAndTenants
+        - Statement:
+            - Effect: Allow
+              Action:
+                - timestream:WriteRecords
+                - timestream:DescribeEndpoints
+              Resource: "*"
 
   WebSocketConnectFunction:
     Type: AWS::Serverless::Function
@@ -96,6 +107,27 @@ Resources:
           Type: Api
           Properties:
             Path: /streetlights/{id}
+            Method: get
+
+  GetStreetlightTelemetryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.api.streetlights.telemetry.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref Streetlights
+        - Statement:
+            - Effect: Allow
+              Action:
+                - timestream:Select
+                - timestream:DescribeTable
+                - timestream:ListMeasures
+              Resource: "*"
+      Events:
+        GetStreetlightTelemetry:
+          Type: Api
+          Properties:
+            Path: /streetlights/{id}/telemetry
             Method: get
 
   UpdateStreetlightMetadataFunction:
