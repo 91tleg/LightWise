@@ -1,3 +1,5 @@
+// apps/web/src/pages/Overview.js
+
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
@@ -6,16 +8,97 @@ import Legend from "../components/Legend";
 import Panel from "../components/Panel";
 import Card from "../components/Card";
 import PillRow from "../components/PillRow";
-import { listStreetlights } from "../services/api";
+
+import { listStreetlights, updateStreetlightMetadata } from "../services/api";
+import { useLightWiseWS } from "../services/useLightWiseWS";
+
+function clampPct(x) {
+  const n = Number(x);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+
+function MiniLineChart({ values = [], height = 120 }) {
+  // simple SVG polyline chart without extra libs
+  const w = 520;
+  const h = height;
+
+  const pts = useMemo(() => {
+    const arr = (values || []).filter((v) => Number.isFinite(Number(v))).map(Number);
+    if (arr.length < 2) return "";
+
+    const min = Math.min(...arr);
+    const max = Math.max(...arr);
+    const span = max - min || 1;
+
+    return arr
+      .map((v, i) => {
+        const x = (i / (arr.length - 1)) * (w - 20) + 10;
+        const y = h - 10 - ((v - min) / span) * (h - 20);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ");
+  }, [values, w, h]);
+
+  if (!pts) {
+    return <div className="lwPlaceholder">Waiting for telemetry to plot…</div>;
+  }
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="3" opacity="0.9" />
+    </svg>
+  );
+}
+
+function okFail(val) {
+  if (val == null) return "N/A";
+  return val ? "OK" : "FAIL";
+}
+
+function toNumberOrNull(x) {
+  if (x === "" || x === null || x === undefined) return null;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
 
 export default function Overview() {
+  const tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001";
+  const WS_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
+
   const [streetlights, setStreetlights] = useState([]);
   const [error, setError] = useState("");
 
+  // Metadata editor UI state
+  const [metaDraft, setMetaDraft] = useState({ name: "", lat: "", lng: "" });
+  const [metaSaving, setMetaSaving] = useState(false);
+  const [metaMsg, setMetaMsg] = useState("");
+
+  // WS for trend data
+  const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
+    tenantId,
+    debug: false,
+  });
+
+  // store last N light levels for selected pole (trend)
+  const [lightTrend, setLightTrend] = useState([]);
+
+  // track latest WS motion for selected pole (optional)
+  const [wsMotion, setWsMotion] = useState(null);
+
+  const refreshStreetlights = async () => {
+    setError("");
+    try {
+      const rows = await listStreetlights();
+      setStreetlights(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setError(e?.message || String(e));
+    }
+  };
+
   useEffect(() => {
-    listStreetlights()
-      .then((rows) => setStreetlights(Array.isArray(rows) ? rows : []))
-      .catch((e) => setError(e?.message || String(e)));
+    refreshStreetlights();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stats = useMemo(() => {
@@ -25,18 +108,12 @@ export default function Overview() {
     const degraded = streetlights.filter((s) => s.health === "DEGRADED").length;
     const critical = streetlights.filter((s) => s.health === "CRITICAL").length;
 
-    const totalPoles = total;
-
     const alerts = streetlights
       .filter((s) => s.health === "DEGRADED" || s.health === "CRITICAL")
       .slice(0, 5);
 
     const selected = streetlights[0] || null;
 
-    // Honest system status:
-    // - If any critical -> CRITICAL
-    // - Else if any degraded -> DEGRADED
-    // - Else OK (if we have any poles)
     const systemStatus =
       critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
 
@@ -45,21 +122,65 @@ export default function Overview() {
       ok,
       degraded,
       critical,
-      totalPoles,
       systemStatus,
       alerts,
       selected,
     };
   }, [streetlights]);
 
-  const selectedId = stats.selected?.streetlight_id ?? "—";
+  const selected = stats.selected;
+  const selectedId = selected?.streetlight_id ?? "—";
 
-  const selectedMotion =
-    typeof stats.selected?.motion_detected === "boolean"
-      ? stats.selected.motion_detected
-        ? "true"
-        : "false"
-      : "N/A";
+  // keep metadata draft synced to selection
+  useEffect(() => {
+    setMetaMsg("");
+    setMetaDraft({
+      name: selected?.name ?? "",
+      lat: selected?.lat ?? "",
+      lng: selected?.lng ?? "",
+    });
+    setWsMotion(null);
+    setLightTrend([]);
+  }, [selectedId]); // selection changes
+
+  // Auto-subscribe to selected pole for trend
+  useEffect(() => {
+    if (wsStatus !== "connected") return;
+    if (!selected?.streetlight_id) return;
+    subscribe(selected.streetlight_id);
+  }, [wsStatus, selected, subscribe]);
+
+  // Collect light_level for trend graph + motion
+  useEffect(() => {
+    const msg = lastMessage;
+    if (!msg || typeof msg !== "object") return;
+    if (msg.streetlight_id !== selected?.streetlight_id) return;
+
+    // trend
+    const lvl = msg?.data?.light_level;
+    if (typeof lvl === "number") {
+      setLightTrend((prev) => {
+        const next = [...prev, clampPct(lvl)];
+        return next.slice(-40); // last 40 points
+      });
+    }
+
+    // motion
+    const m = msg?.data?.motion;
+    if (typeof m === "boolean") {
+      setWsMotion(m);
+    } else if (typeof m === "number") {
+      // in case backend ever sends 0/1
+      setWsMotion(Boolean(m));
+    }
+  }, [lastMessage, selected]);
+
+  // Selected Motion display (prefer WS if present; fall back to REST field)
+  const selectedMotion = useMemo(() => {
+    if (typeof wsMotion === "boolean") return wsMotion ? "true" : "false";
+    if (typeof selected?.motion_detected === "boolean") return selected.motion_detected ? "true" : "false";
+    return "N/A";
+  }, [wsMotion, selected]);
 
   const kpis = [
     {
@@ -81,17 +202,60 @@ export default function Overview() {
     },
     {
       icon: "♻️",
-      label: "Energy Savings",
-      value: "N/A",
-      note: "Not computed (needs meter/baseline)",
+      label: "Energy Trend",
+      value: wsStatus === "connected" ? "Live" : "N/A",
+      note: "Brightness proxy from WS light_level",
     },
     {
       icon: "📡",
       label: "Total Poles",
-      value: String(stats.totalPoles || "0"),
+      value: String(stats.total || "0"),
       note: "From /streetlights",
     },
   ];
+
+  const lat = typeof selected?.lat === "number" ? selected.lat : null;
+  const lng = typeof selected?.lng === "number" ? selected.lng : null;
+
+  const onSaveMetadata = async () => {
+    if (!selected?.streetlight_id) return;
+
+    setMetaMsg("");
+    setError("");
+    setMetaSaving(true);
+
+    try {
+      const nextLat = toNumberOrNull(metaDraft.lat);
+      const nextLng = toNumberOrNull(metaDraft.lng);
+
+      if (metaDraft.lat !== "" && nextLat === null) {
+        throw new Error("Lat must be a valid number (or blank).");
+      }
+      if (metaDraft.lng !== "" && nextLng === null) {
+        throw new Error("Lng must be a valid number (or blank).");
+      }
+
+      // patch only fields that are not blank (name can be blank if you want; here we allow blank -> sends blank)
+      const patch = {
+        name: metaDraft.name,
+        ...(metaDraft.lat === "" ? {} : { lat: nextLat }),
+        ...(metaDraft.lng === "" ? {} : { lng: nextLng }),
+      };
+
+      await updateStreetlightMetadata(selected.streetlight_id, patch);
+
+      setMetaMsg("Saved ✅");
+
+      // refresh to pull updated metadata back into Overview
+      await refreshStreetlights();
+    } catch (e) {
+      const msg = e?.message || String(e);
+      setMetaMsg("");
+      setError(msg);
+    } finally {
+      setMetaSaving(false);
+    }
+  };
 
   return (
     <Layout title="Overview" subtitle="System health, alerts, and a quick view of the network.">
@@ -119,9 +283,10 @@ export default function Overview() {
         </Panel>
 
         <Panel title="Energy Trend">
-          <div className="lwPlaceholder">
-            N/A (needs time-series energy data or computed savings model)
+          <div className="lwSmallText" style={{ opacity: 0.85, marginBottom: 8 }}>
+            This is a <b>brightness trend</b> from WS telemetry (<code>data.light_level</code>) — not metered kWh.
           </div>
+          <MiniLineChart values={lightTrend} height={120} />
         </Panel>
 
         <Panel title="Operations">
@@ -135,6 +300,9 @@ export default function Overview() {
           <div className="lwSmallText" style={{ marginTop: 10 }}>
             Latest pole: <b>{selectedId}</b>
           </div>
+          <div className="lwSmallText" style={{ marginTop: 6, opacity: 0.85 }}>
+            WS status: <b>{wsStatus}</b>
+          </div>
         </Panel>
       </div>
 
@@ -143,31 +311,79 @@ export default function Overview() {
           <div className="lwPoleRow">
             <div className="lwPoleAvatar" />
             <div className="lwPoleMeta">
-              <div>
-                <b>ID:</b> {selectedId}
+              {/* Max requested fields */}
+              <div><b>ID:</b> {selectedId}</div>
+              <div><b>Tenant:</b> {selected?.tenant_id ?? "N/A"}</div>
+              <div><b>Name:</b> {selected?.name ?? "N/A"}</div>
+              <div><b>Health:</b> {selected?.health ?? "N/A"}</div>
+              <div><b>Lat:</b> {selected?.lat ?? "N/A"}</div>
+              <div><b>Lng:</b> {selected?.lng ?? "N/A"}</div>
+              <div><b>Motion:</b> {selectedMotion}</div>
+              <div><b>Last seen:</b> {selected?.last_seen ?? "N/A"}</div>
+
+              <div><b>Ambient Primary:</b> {okFail(selected?.ambient_primary_ok)}</div>
+              <div><b>Ambient Secondary:</b> {okFail(selected?.ambient_secondary_ok)}</div>
+              <div><b>Temp/Humidity:</b> {okFail(selected?.th_ok)}</div>
+              <div><b>Motion Primary:</b> {okFail(selected?.motion_primary_ok)}</div>
+              <div><b>Motion Secondary:</b> {okFail(selected?.motion_secondary_ok)}</div>
+
+              {/* Metadata editor (push update thing) */}
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>Edit Metadata</div>
+
+                <div style={{ display: "grid", gap: 8, maxWidth: 340 }}>
+                  <label>
+                    <div className="lwSmallText" style={{ opacity: 0.85 }}>Name</div>
+                    <input
+                      value={metaDraft.name}
+                      onChange={(e) => setMetaDraft((d) => ({ ...d, name: e.target.value }))}
+                      placeholder="BC Demo Pole"
+                      style={{ width: "100%" }}
+                    />
+                  </label>
+
+                  <label>
+                    <div className="lwSmallText" style={{ opacity: 0.85 }}>Lat</div>
+                    <input
+                      value={metaDraft.lat}
+                      onChange={(e) => setMetaDraft((d) => ({ ...d, lat: e.target.value }))}
+                      placeholder="47.6101"
+                      style={{ width: "100%" }}
+                    />
+                  </label>
+
+                  <label>
+                    <div className="lwSmallText" style={{ opacity: 0.85 }}>Lng</div>
+                    <input
+                      value={metaDraft.lng}
+                      onChange={(e) => setMetaDraft((d) => ({ ...d, lng: e.target.value }))}
+                      placeholder="-122.2015"
+                      style={{ width: "100%" }}
+                    />
+                  </label>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <button onClick={onSaveMetadata} disabled={!selected?.streetlight_id || metaSaving}>
+                      {metaSaving ? "Saving..." : "Save metadata"}
+                    </button>
+                    {metaMsg && <div className="lwSmallText" style={{ opacity: 0.9 }}>{metaMsg}</div>}
+                  </div>
+
+                  <div className="lwSmallText" style={{ opacity: 0.85 }}>
+                    This calls <code>PUT /streetlights/&lt;id&gt;/metadata</code>. Backend may return nulls if not configured.
+                  </div>
+                </div>
               </div>
-              <div>
-                <b>Name:</b> {stats.selected?.name ?? "N/A"}
-              </div>
-              <div>
-                <b>Health:</b> {stats.selected?.health ?? "N/A"}
-              </div>
-              <div>
-                <b>Motion:</b> {selectedMotion}
-              </div>
-              <div>
-                <b>Last seen:</b> {stats.selected?.last_seen ?? "N/A"}
-              </div>
-              <div className="lwSmallText" style={{ marginTop: 8, opacity: 0.9 }}>
-                Lux/Temp/Humidity/Light Level are WS telemetry fields (not available from
-                `/streetlights` list response unless backend adds them there).
+
+              <div className="lwSmallText" style={{ marginTop: 10, opacity: 0.85 }}>
+                Tip: if WS motion feels “stuck”, it updates only when telemetry pushes from the device.
               </div>
             </div>
           </div>
         </Card>
 
         <Card title="Map">
-          <MapEmbed title="Bellevue College Area" height={300} />
+          <MapEmbed title="Selected pole pin" height={300} lat={lat} lng={lng} zoom={17} />
         </Card>
 
         <Legend />

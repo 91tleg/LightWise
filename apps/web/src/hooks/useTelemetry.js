@@ -1,5 +1,4 @@
-// src/hooks/useTelemetry.js
-
+// apps/web/src/hooks/useTelemetry.js
 import { useEffect, useState } from "react";
 import { getStreetlightTelemetry } from "../services/api";
 

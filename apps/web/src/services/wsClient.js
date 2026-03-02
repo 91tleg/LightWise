@@ -1,188 +1,85 @@
 // apps/web/src/services/wsClient.js
-//
-// LightWise WebSocket client
-// - No auth (per team)
-// - Subscribe payload (Max contract):
-//     { "action": "subscribe", "streetlight_id": "LW-00042" }
-//
-// Env (preferred):
-//   REACT_APP_WS_URL=wss://.../dev/
-// Legacy fallback supported:
-//   REACT_APP_LIGHTWISE_WS_URL=wss://... (older name)
-//
-// NOTE: Your app currently uses useLightWiseWS.js (hook) via Provider.
-// This file is kept as a standalone client for future use / debugging.
 
 export function createLightWiseWsClient({
+  url,
+  tenantId = (process.env.REACT_APP_TENANT_ID || "tenant-001").trim(),
   onStatus = () => {},
   onMessage = () => {},
-  debug = false,
-
+  onError = () => {},
   autoReconnect = true,
-  reconnectBaseMs = 750,
-  reconnectMaxMs = 8000,
-
-  autoSubscribeOnOpen = false,
-  defaultStreetlightId = process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042",
+  reconnectDelayMs = 1200,
 } = {}) {
-  const wssUrl =
-    process.env.REACT_APP_WS_URL ||
-    process.env.REACT_APP_LIGHTWISE_WS_URL ||
-    "";
+  if (!url) throw new Error("wsClient: missing url");
+
+  const u = new URL(url);
+  if (tenantId) u.searchParams.set("tenant_id", tenantId);
+  const wsUrl = u.toString();
 
   let ws = null;
-  let reconnectTimer = null;
-  let closedManually = false;
-  let reconnectAttempt = 0;
+  let closedByUser = false;
+  let timer = null;
 
-  const state = {
-    status: "CLOSED", // CONNECTING | OPEN | CLOSED | ERROR
-    lastError: null,
-    subscriptions: new Set(),
+  const clearTimer = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
   };
 
-  function log(...args) {
-    if (debug) console.log("[LightWise WS]", ...args);
-  }
+  const setStatus = (s) => onStatus(s);
 
-  function emitStatus() {
-    onStatus({
-      status: state.status,
-      lastError: state.lastError,
-      subscriptions: Array.from(state.subscriptions),
-    });
-  }
+  const connect = () => {
+    clearTimer();
+    closedByUser = false;
 
-  function setStatus(next) {
-    state.status = next;
-    emitStatus();
-  }
+    setStatus("connecting");
+    console.log("🧷 WS connect:", wsUrl);
 
-  function clearReconnectTimer() {
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-    }
-  }
+    ws = new WebSocket(wsUrl);
 
-  function nextReconnectDelay() {
-    const raw = reconnectBaseMs * Math.pow(2, reconnectAttempt);
-    return Math.min(raw, reconnectMaxMs);
-  }
+    ws.onopen = () => setStatus("connected");
+    ws.onmessage = (evt) => {
+      const raw = evt.data;
+      try {
+        onMessage(JSON.parse(raw));
+      } catch {
+        onMessage({ raw });
+      }
+    };
+    ws.onerror = (err) => {
+      setStatus("error");
+      onError(err);
+    };
+    ws.onclose = () => {
+      setStatus("disconnected");
+      ws = null;
+      if (closedByUser) return;
+      if (!autoReconnect) return;
+      timer = setTimeout(connect, reconnectDelayMs);
+    };
+  };
 
-  function scheduleReconnect() {
-    if (!autoReconnect) return;
-    clearReconnectTimer();
-
-    const delay = nextReconnectDelay();
-    reconnectAttempt += 1;
-
-    log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempt})...`);
-    reconnectTimer = setTimeout(() => connect(), delay);
-  }
-
-  function safeCloseWs() {
+  const disconnect = () => {
+    clearTimer();
+    closedByUser = true;
     try {
-      ws?.close();
+      ws && ws.close();
     } catch {}
     ws = null;
-  }
+    setStatus("disconnected");
+  };
 
-  function connect() {
-    if (!wssUrl) {
-      state.lastError = "Missing REACT_APP_WS_URL in .env.local";
-      setStatus("ERROR");
-      return;
-    }
+  const sendJson = (obj) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify(obj));
+    return true;
+  };
 
-    closedManually = false;
-    clearReconnectTimer();
-    state.lastError = null;
-
-    setStatus("CONNECTING");
-    log("Connecting:", wssUrl);
-
-    try {
-      ws = new WebSocket(wssUrl);
-    } catch (e) {
-      state.lastError = e?.message || "Failed to create WebSocket";
-      setStatus("ERROR");
-      scheduleReconnect();
-      return;
-    }
-
-    ws.onopen = () => {
-      reconnectAttempt = 0;
-      setStatus("OPEN");
-      log("OPEN");
-
-      if (autoSubscribeOnOpen) {
-        subscribe(defaultStreetlightId);
-      }
-    };
-
-    ws.onmessage = (evt) => {
-      let data = evt.data;
-      if (typeof data === "string") {
-        try {
-          data = JSON.parse(data);
-        } catch {
-          data = { raw: data };
-        }
-      }
-      onMessage(data);
-    };
-
-    ws.onerror = (err) => {
-      state.lastError = err?.message || "WebSocket error";
-      setStatus("ERROR");
-      log("ERROR:", err);
-    };
-
-    ws.onclose = (evt) => {
-      log("CLOSED", { code: evt?.code, reason: evt?.reason });
-      safeCloseWs();
-      setStatus("CLOSED");
-      if (!closedManually) scheduleReconnect();
-    };
-  }
-
-  function disconnect() {
-    closedManually = true;
-    clearReconnectTimer();
-    safeCloseWs();
-    setStatus("CLOSED");
-  }
-
-  function sendJson(obj) {
-    if (!ws || state.status !== "OPEN") return false;
-    try {
-      ws.send(JSON.stringify(obj));
-      return true;
-    } catch (e) {
-      state.lastError = e?.message || "Failed to send WebSocket message";
-      setStatus("ERROR");
-      return false;
-    }
-  }
-
-  function subscribe(streetlightId = defaultStreetlightId) {
+  const subscribe = (streetlightId) => {
     const id = String(streetlightId || "").trim();
     if (!id) return false;
-
-    state.subscriptions.add(id);
     return sendJson({ action: "subscribe", streetlight_id: id });
-  }
-
-  return {
-    connect,
-    disconnect,
-    subscribe,
-    sendJson,
-    getState: () => ({
-      status: state.status,
-      lastError: state.lastError,
-      subscriptions: Array.from(state.subscriptions),
-    }),
   };
+
+  return { connect, disconnect, sendJson, subscribe };
 }
