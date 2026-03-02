@@ -1,10 +1,9 @@
-// apps/web/src/services/useLightWiseWS.js
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * IMPORTANT (Max contract):
- * Subscribe payload:
- *   { "action": "subscribe", "streetlight_id": "LW-00042" }
+ * Contract:
+ *  - WS $connect needs tenant_id as query param (demo mode)
+ *  - subscribe payload: { action:"subscribe", streetlight_id:"LW-00042" }
  */
 export function useLightWiseWS(wsBaseUrl, options = {}) {
   const {
@@ -12,43 +11,27 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     reconnectDelayMs = 1500,
     maxMessages = 50,
     debug = false,
-
-    tenantId = process.env.REACT_APP_TENANT_ID || "demo",
-    userId = process.env.REACT_APP_USER_ID || "demo",
-
-    autoSubscribeOnOpen = false,
-
-    defaultStreetlightId =
-      process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042",
+    tenantId = (process.env.REACT_APP_TENANT_ID || "tenant-001").trim(),
   } = options;
+
+  const wsUrl = useMemo(() => {
+    const base = (wsBaseUrl || "").trim();
+    if (!base) return "";
+    const u = new URL(base);
+    if (tenantId) u.searchParams.set("tenant_id", tenantId);
+    return u.toString();
+  }, [wsBaseUrl, tenantId]);
 
   const wsRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const manualCloseRef = useRef(false);
 
-  const [status, setStatus] = useState(wsBaseUrl ? "connecting" : "idle");
+  const [status, setStatus] = useState(wsUrl ? "connecting" : "idle");
   const [error, setError] = useState(null);
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
 
-  const wsUrl = useMemo(() => {
-    if (!wsBaseUrl) return "";
-    try {
-      const u = new URL(wsBaseUrl);
-      if (tenantId) u.searchParams.set("tenant_id", tenantId);
-      return u.toString();
-    } catch {
-      const sep = wsBaseUrl.includes("?") ? "&" : "?";
-      return tenantId ? `${wsBaseUrl}${sep}tenant_id=${encodeURIComponent(tenantId)}` : wsBaseUrl;
-    }
-  }, [wsBaseUrl, tenantId]);
-
-  const log = useCallback(
-    (...args) => {
-      if (debug) console.log("[LightWiseWS]", ...args);
-    },
-    [debug]
-  );
+  const log = useCallback((...args) => debug && console.log("[LightWiseWS]", ...args), [debug]);
 
   const clearReconnectTimer = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -57,46 +40,22 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     }
   }, []);
 
-  const finalWsUrl = useMemo(() => {
-    if (!wsUrl) return "";
-    try {
-      const url = new URL(wsUrl);
-
-      if (!url.searchParams.get("tenant_id") && tenantId) {
-        url.searchParams.set("tenant_id", tenantId);
-      }
-      if (!url.searchParams.get("user_id") && userId) {
-        url.searchParams.set("user_id", userId);
-      }
-
-      return url.toString();
-    } catch {
-      return wsUrl;
-    }
-  }, [wsUrl, tenantId, userId]);
-
   const disconnect = useCallback(() => {
     manualCloseRef.current = true;
     clearReconnectTimer();
-
     const ws = wsRef.current;
     wsRef.current = null;
-
     if (ws) {
       try {
         ws.close(1000, "client disconnect");
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
-
     setStatus("disconnected");
   }, [clearReconnectTimer]);
 
   const send = useCallback((obj) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-
     try {
       ws.send(JSON.stringify(obj));
       return true;
@@ -106,17 +65,17 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     }
   }, []);
 
-  // ✅ UPDATED: subscribe requires streetlight_id
   const subscribe = useCallback(
-    (streetlightId = defaultStreetlightId) => {
-      if (!streetlightId) return false;
-      return send({ action: "subscribe", streetlight_id: streetlightId });
+    (streetlightId) => {
+      const id = String(streetlightId || "").trim();
+      if (!id) return false;
+      return send({ action: "subscribe", streetlight_id: id });
     },
-    [send, defaultStreetlightId]
+    [send]
   );
 
   const connect = useCallback(() => {
-    if (!finalWsUrl) {
+    if (!wsUrl) {
       setStatus("idle");
       return;
     }
@@ -134,9 +93,11 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     setError(null);
     setStatus("connecting");
 
+    console.log("🧷 WS connect:", wsUrl);
+
     let ws;
     try {
-      ws = new WebSocket(finalWsUrl);
+      ws = new WebSocket(wsUrl);
     } catch (e) {
       setError(e);
       setStatus("error");
@@ -149,10 +110,6 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
       log("connected");
       setStatus("connected");
       setError(null);
-
-      if (autoSubscribeOnOpen) {
-        subscribe(defaultStreetlightId);
-      }
     };
 
     ws.onmessage = (evt) => {
@@ -163,13 +120,11 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
       } catch {
         parsed = { raw };
       }
-
       setLastMessage(parsed);
       setMessages((prev) => [parsed, ...prev].slice(0, maxMessages));
     };
 
-    ws.onerror = (evt) => {
-      log("error", evt);
+    ws.onerror = () => {
       setStatus("error");
       setError(new Error("WebSocket error"));
     };
@@ -187,42 +142,20 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
 
       if (autoReconnect) {
         clearReconnectTimer();
-        reconnectTimerRef.current = setTimeout(() => {
-          connect();
-        }, reconnectDelayMs);
+        reconnectTimerRef.current = setTimeout(() => connect(), reconnectDelayMs);
       }
     };
-  }, [
-    finalWsUrl,
-    autoReconnect,
-    reconnectDelayMs,
-    maxMessages,
-    log,
-    clearReconnectTimer,
-    subscribe,
-    autoSubscribeOnOpen,
-    defaultStreetlightId,
-  ]);
+  }, [wsUrl, autoReconnect, reconnectDelayMs, maxMessages, log, clearReconnectTimer]);
 
   useEffect(() => {
-    if (!finalWsUrl) {
+    if (!wsUrl) {
       disconnect();
       setStatus("idle");
       return;
     }
-
     connect();
     return () => disconnect();
-  }, [finalWsUrl, connect, disconnect]);
+  }, [wsUrl, connect, disconnect]);
 
-  return {
-    status,
-    error,
-    lastMessage,
-    messages,
-    send,
-    subscribe,
-    connect,
-    disconnect,
-  };
+  return { status, error, lastMessage, messages, send, subscribe, connect, disconnect };
 }

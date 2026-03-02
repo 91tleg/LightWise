@@ -13,6 +13,9 @@ export default function AdminWsControls({
     process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042"
   );
 
+  const isConnected = wsStatus === "connected";
+  const isBusy = flash === "sending" || motionState === "simulating";
+
   const handleSimulateClick = async () => {
     setFlash("sending");
     try {
@@ -39,49 +42,46 @@ export default function AdminWsControls({
 
   const state = motionState && motionState !== "idle" ? motionState : flash;
 
-  const simulateBtnClass = useMemo(() => {
+  const btnClass = useMemo(() => {
     if (state === "simulating" || state === "sending") return "lwBtn lwBtnSending";
     if (state === "success" || state === "ok") return "lwBtn lwBtnOk";
     if (state === "error" || state === "err") return "lwBtn lwBtnErr";
     return "lwBtn";
   }, [state]);
 
-  const isConnected = wsStatus === "connected";
-  const isBusy = flash === "sending" || motionState === "simulating";
-
   const simulateDisabled = !isConnected || isBusy;
-  const subscribeDisabled = !isConnected || isBusy;
+  const subscribeDisabled = !isConnected || isBusy || !String(streetlightId || "").trim();
 
   const subscribeTitle = `Sends: {"action":"subscribe","streetlight_id":"${streetlightId}"}`;
 
   return (
     <div className="lwAdminTop">
       <button
-        className={`${simulateBtnClass} lwAdminSimBtn`}
+        className={`${btnClass} lwAdminSimBtn`}
         onClick={handleSimulateClick}
         disabled={simulateDisabled}
         title={
           !isConnected
             ? "Connect WS first"
-            : "Simulate Motion is frontend-demo only unless backend supports broadcast"
+            : "UI-only demo (Kirat confirmed WS supports only 'subscribe' route right now)"
         }
       >
         Simulate Motion
         <br />
-        (WS)
+        (UI only)
       </button>
 
       <div style={{ marginLeft: 12, display: "flex", flexDirection: "column" }}>
         <input
           value={streetlightId}
           onChange={(e) => setStreetlightId(e.target.value)}
-          placeholder="Streetlight ID"
+          placeholder="Streetlight ID (e.g. LW-00042)"
           style={{
             padding: "8px 10px",
             borderRadius: 8,
             border: "1px solid #ddd",
             marginBottom: 8,
-            width: 160,
+            width: 190,
           }}
         />
 
@@ -100,6 +100,9 @@ export default function AdminWsControls({
 
       <div className="lwWsStatus" style={{ marginLeft: 12 }}>
         WebSocket status: <b>{wsStatus}</b>
+        <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>
+          WS routes: $connect / $default / $disconnect / <b>subscribe</b>
+        </div>
       </div>
     </div>
   );

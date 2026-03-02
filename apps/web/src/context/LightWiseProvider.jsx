@@ -8,11 +8,12 @@ import { loadPoles, savePoles } from "../services/poleStorage";
 export const LightWiseContext = createContext(null);
 
 export function LightWiseProvider({ children }) {
-  // Support both env variable names (you currently use REACT_APP_LIGHTWISE_WS_URL in .env.local)
   const WS_URL =
-    process.env.REACT_APP_LIGHTWISE_WS_URL ||
-    process.env.REACT_APP_WS_URL ||
-    "";
+    (process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "").trim();
+
+  const API_BASE = (process.env.REACT_APP_API_BASE || "").trim();
+  const TENANT_ID = (process.env.REACT_APP_TENANT_ID || "tenant-001").trim();
+  const USE_MOCK = String(process.env.REACT_APP_USE_MOCK || "false").toLowerCase() === "true";
 
   // Poles = list of streetlight_id strings
   const [poles, setPoles] = useState(() => loadPoles());
@@ -45,18 +46,13 @@ export function LightWiseProvider({ children }) {
     const ev = normalizeEvent(lastMessage);
     if (!ev) return;
 
-    setEvents((prev) => [ev, ...prev].slice(0, 200)); // cap feed size
+    setEvents((prev) => [ev, ...prev].slice(0, 200));
   }, [lastMessage]);
 
-  // Actions (these are what UI will call)
   const addPole = useCallback((streetlightId) => {
     const id = String(streetlightId || "").trim();
     if (!id) return;
-
-    setPoles((prev) => {
-      if (prev.includes(id)) return prev;
-      return [...prev, id];
-    });
+    setPoles((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }, []);
 
   const removePole = useCallback((streetlightId) => {
@@ -65,22 +61,24 @@ export function LightWiseProvider({ children }) {
     setPoles((prev) => prev.filter((p) => p !== id));
   }, []);
 
-  const clearPoles = useCallback(() => {
-    setPoles([]);
-  }, []);
+  const clearPoles = useCallback(() => setPoles([]), []);
+  const clearEvents = useCallback(() => setEvents([]), []);
 
-  const clearEvents = useCallback(() => {
-    setEvents([]);
-  }, []);
-
-  // Context value exposed to the app
   const value = useMemo(
     () => ({
+      env: {
+        WS_URL,
+        API_BASE,
+        TENANT_ID,
+        USE_MOCK,
+        // Kirat confirmed only subscribe exists on WS right now
+        wsCapabilities: { subscribe: true, controls: false },
+      },
       wsStatus,
       wsError,
       lastMessage,
       send,
-      subscribe, // helpful if UI wants manual subscribe
+      subscribe,
       poles,
       addPole,
       removePole,
@@ -89,6 +87,10 @@ export function LightWiseProvider({ children }) {
       clearEvents,
     }),
     [
+      WS_URL,
+      API_BASE,
+      TENANT_ID,
+      USE_MOCK,
       wsStatus,
       wsError,
       lastMessage,

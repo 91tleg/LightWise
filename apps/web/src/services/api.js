@@ -1,11 +1,11 @@
-// src/services/api.js
+// apps/web/src/services/api.js
 
 function env() {
   return {
-    USE_MOCK: String(process.env.REACT_APP_USE_MOCK || "true") !== "false",
-    API_BASE: process.env.REACT_APP_API_BASE || "",
-    API_KEY: process.env.REACT_APP_API_KEY || "",
-    TENANT_ID: process.env.REACT_APP_TENANT_ID || "tenant-001",
+    USE_MOCK: String(process.env.REACT_APP_USE_MOCK || "false").toLowerCase() === "true",
+    API_BASE: (process.env.REACT_APP_API_BASE || "").trim(),
+    API_KEY: (process.env.REACT_APP_API_KEY || "").trim(), // optional
+    TENANT_ID: (process.env.REACT_APP_TENANT_ID || "tenant-001").trim(),
   };
 }
 
@@ -19,41 +19,48 @@ async function parseJsonSafely(res) {
   }
 }
 
-function withTenant(path, API_BASE, TENANT_ID) {
+function buildUrl(path, API_BASE, TENANT_ID, extraQuery = {}) {
   const base = (API_BASE || "").replace(/\/$/, "");
-  const full = base ? `${base}${path}` : path;
+  if (!base) return null;
 
-  // If base missing, keep path unchanged
-  if (!base) return full;
+  const url = new URL(`${base}${path.startsWith("/") ? path : `/${path}`}`);
+  if (TENANT_ID) url.searchParams.set("tenant_id", TENANT_ID);
 
-  const u = new URL(full);
-  if (TENANT_ID) u.searchParams.set("tenant_id", TENANT_ID);
-  return u.toString();
+  Object.entries(extraQuery).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === "") return;
+    url.searchParams.set(k, String(v));
+  });
+
+  return url.toString();
 }
 
-async function request(path, options = {}) {
+async function request(path, { method = "GET", body, headers, query } = {}) {
   const { API_BASE, API_KEY, TENANT_ID } = env();
 
-  const method = (options.method || "GET").toUpperCase();
-  const hasBody = options.body !== undefined && options.body !== null;
+  const url = buildUrl(path, API_BASE, TENANT_ID, query || {});
+  if (!url) throw new Error("Missing REACT_APP_API_BASE in .env.local");
 
-  const headers = {
-    ...(options.headers || {}),
+  const finalHeaders = {
+    ...(headers || {}),
     ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
   };
 
-  // Don’t trigger preflight on GET if you can avoid it
-  if (hasBody) headers["Content-Type"] = "application/json";
+  const hasBody = body !== undefined && body !== null;
+  if (hasBody) finalHeaders["Content-Type"] = "application/json";
 
-  const url = withTenant(path, API_BASE, TENANT_ID);
+  // 🔎 proof in console that HTTP is being called
+  // (Remove later if you want)
+  console.log("🌐 HTTP", method, url);
 
   let res;
   try {
-    res = await fetch(url, { ...options, method, headers });
+    res = await fetch(url, {
+      method,
+      headers: finalHeaders,
+      body: hasBody ? JSON.stringify(body) : undefined,
+    });
   } catch (e) {
-    const err = new Error(
-      `Failed to fetch (${method} ${url}). Likely CORS/network/DNS.`
-    );
+    const err = new Error(`Failed to fetch (${method} ${url}). Check CORS / URL / network.`);
     err.cause = e;
     throw err;
   }
@@ -61,12 +68,11 @@ async function request(path, options = {}) {
   const data = await parseJsonSafely(res);
 
   if (!res.ok) {
-    const message =
-      data?.error?.message ||
+    const msg =
       data?.error ||
       data?.message ||
       `API error ${res.status}`;
-    const err = new Error(message);
+    const err = new Error(msg);
     err.status = res.status;
     err.payload = data;
     throw err;
@@ -75,69 +81,51 @@ async function request(path, options = {}) {
   return data;
 }
 
-// ============================================================================
-// Streetlights API
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Max Contract Endpoints
+// ---------------------------------------------------------------------------
 
 export async function listStreetlights() {
-  const { USE_MOCK, API_BASE, TENANT_ID } = env();
+  const { USE_MOCK, TENANT_ID } = env();
 
-  if (USE_MOCK || !API_BASE) {
+  if (USE_MOCK) {
     return [
       {
         streetlight_id: "LW-00042",
         tenant_id: TENANT_ID,
-        health: "OK",
-        lat: 47.6101,
-        lng: -122.2015,
-        name: "BC Demo Pole",
-        last_seen: new Date().toISOString(),
-        motion_detected: false,
-        light_level_pct: 55,
-        ambient_primary_ok: true,
-        ambient_secondary_ok: true,
-        th_ok: true,
-        motion_primary_ok: true,
-        motion_secondary_ok: true,
-      },
-      {
-        streetlight_id: "LW-00043",
-        tenant_id: TENANT_ID,
         health: "DEGRADED",
-        lat: 47.6099,
-        lng: -122.2022,
-        name: "Parking Lot Pole",
+        lat: 37.7749,
+        lng: -122.4194,
+        name: "Main Street 5th Ave",
         last_seen: new Date().toISOString(),
         motion_detected: true,
-        light_level_pct: 90,
         ambient_primary_ok: true,
         ambient_secondary_ok: false,
         th_ok: true,
         motion_primary_ok: true,
-        motion_secondary_ok: false,
+        motion_secondary_ok: true,
       },
     ];
   }
 
-  return request(`/streetlights`, { method: "GET" });
+  // GET /streetlights?tenant_id=...
+  return request("/streetlights", { method: "GET" });
 }
 
 export async function getStreetlight(id) {
-  const { USE_MOCK, API_BASE, TENANT_ID } = env();
-
+  const { USE_MOCK, TENANT_ID } = env();
   if (!id) throw new Error("streetlight id is required");
 
-  if (USE_MOCK || !API_BASE) {
+  if (USE_MOCK) {
     return {
       streetlight_id: id,
       tenant_id: TENANT_ID,
       health: "OK",
-      lat: 47.6101,
-      lng: -122.2015,
+      lat: 37.7749,
+      lng: -122.4194,
       name: `Streetlight ${id}`,
       last_seen: new Date().toISOString(),
       motion_detected: false,
-      light_level_pct: 50,
       ambient_primary_ok: true,
       ambient_secondary_ok: true,
       th_ok: true,
@@ -146,42 +134,38 @@ export async function getStreetlight(id) {
     };
   }
 
+  // GET /streetlights/{id}?tenant_id=...
   return request(`/streetlights/${encodeURIComponent(id)}`, { method: "GET" });
 }
 
-export async function getStreetlightTelemetry(id, { from, to, interval = "5m" }) {
-  const { USE_MOCK, API_BASE } = env();
-
+export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } = {}) {
+  const { USE_MOCK } = env();
   if (!id) throw new Error("streetlight id is required");
   if (!from || !to) throw new Error("from and to are required");
 
-  if (USE_MOCK || !API_BASE) {
+  if (USE_MOCK) {
     return { streetlight_id: id, data: [] };
   }
 
-  const params = new URLSearchParams();
-  params.set("from", from);
-  params.set("to", to);
-  if (interval) params.set("interval", interval);
-
-  return request(
-    `/streetlights/${encodeURIComponent(id)}/telemetry?${params.toString()}`,
-    { method: "GET" }
-  );
+  // GET /streetlights/{id}/telemetry?tenant_id=...&from=...&to=...&interval=...
+  return request(`/streetlights/${encodeURIComponent(id)}/telemetry`, {
+    method: "GET",
+    query: { from, to, interval },
+  });
 }
 
 export async function updateStreetlightMetadata(id, body) {
-  const { USE_MOCK, API_BASE } = env();
-
+  const { USE_MOCK } = env();
   if (!id) throw new Error("streetlight id is required");
   if (!body || typeof body !== "object") throw new Error("body is required");
 
-  if (USE_MOCK || !API_BASE) {
+  if (USE_MOCK) {
     return { message: "updated (mock)" };
   }
 
+  // PUT /streetlights/{id}/metadata?tenant_id=...
   return request(`/streetlights/${encodeURIComponent(id)}/metadata`, {
     method: "PUT",
-    body: JSON.stringify(body),
+    body,
   });
 }
