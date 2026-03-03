@@ -30,6 +30,20 @@ function asNumberOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+// readable timestamp (text-only change; no layout change)
+function formatTimestamp(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (!Number.isFinite(d.getTime())) return String(ts);
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 // ✅ Max request: validate lat/lng ranges on frontend
 function validateLatLng(latStr, lngStr) {
   const latEmpty = !latStr || latStr.trim() === "";
@@ -61,7 +75,6 @@ function normalizeFeedEvent(msg) {
   const id = msg.streetlight_id || msg.streetlightId;
   const ts = msg.timestamp || new Date().toISOString();
 
-  // motion event
   if (typeof msg?.data?.motion === "boolean") {
     return {
       type: "telemetry",
@@ -72,7 +85,6 @@ function normalizeFeedEvent(msg) {
     };
   }
 
-  // generic telemetry
   if (msg.data) {
     return {
       type: "telemetry",
@@ -101,10 +113,8 @@ export default function Admin() {
     debug: false,
   });
 
-  // Activity feed
   const [events, setEvents] = useState([]);
 
-  // Form state for metadata editor
   const selectedMeta = metaMap[selectedId] || {};
   const [nameInput, setNameInput] = useState(selectedMeta.name || "");
   const [latInput, setLatInput] = useState(
@@ -117,14 +127,13 @@ export default function Admin() {
   const [saveMsg, setSaveMsg] = useState("");
   const [coordError, setCoordError] = useState("");
 
-  // Load streetlights once
+  // Load streetlights once (Admin still needs list for dropdown + last_seen display)
   useEffect(() => {
     listStreetlights()
       .then((rows) => {
         const list = Array.isArray(rows) ? rows : [];
         setStreetlights(list);
 
-        // ✅ Fix: if selectedId is missing from backend list, fallback to first
         if (list.length > 0) {
           const hasSelected = list.some((s) => s.streetlight_id === selectedId);
           if (!hasSelected) setSelectedId(list[0]?.streetlight_id || "LW-00042");
@@ -134,7 +143,7 @@ export default function Admin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When selection changes, load inputs from local meta (or reset)
+  // When selection changes, load inputs from local meta
   useEffect(() => {
     const meta = metaMap[selectedId] || {};
     setNameInput(meta.name || "");
@@ -204,7 +213,7 @@ export default function Admin() {
       ? clampPct(selected.light_level_pct)
       : 0;
 
-  // ✅ Fix: map uses current input so pin updates as you type (no UI changes)
+  // Map uses current input so pin updates as you type
   const mapLat = asNumberOrNull(latInput);
   const mapLng = asNumberOrNull(lngInput);
 
@@ -216,7 +225,6 @@ export default function Admin() {
     const latStr = latInput?.trim() || "";
     const lngStr = lngInput?.trim() || "";
 
-    // ✅ Max request: check input is in range before saving
     const err = validateLatLng(latStr, lngStr);
     if (err) {
       setSaveState("idle");
@@ -224,21 +232,27 @@ export default function Admin() {
       return;
     }
 
-    // Build patch safely:
-    // - name only if non-empty
-    // - lat/lng only if BOTH provided (validated above)
     const patch = {
       ...(nameInput.trim() ? { name: nameInput.trim() } : {}),
       ...(latStr && lngStr ? { lat: Number(latStr), lng: Number(lngStr) } : {}),
     };
 
-    // Local update first (instant pin)
-    upsertPoleMeta(selectedId, patch);
-    setMetaMap(loadPoleMetaMap());
+    // Local update first (instant pin + name in UI)
+    if (Object.keys(patch).length > 0) {
+      upsertPoleMeta(selectedId, patch);
+      setMetaMap(loadPoleMetaMap());
+
+      // also reflect locally in streetlights list WITHOUT GET (Max request)
+      setStreetlights((prev) =>
+        (Array.isArray(prev) ? prev : []).map((s) =>
+          s.streetlight_id === selectedId ? { ...s, ...patch } : s
+        )
+      );
+    }
 
     try {
       if (Object.keys(patch).length > 0) {
-        await updateStreetlightMetadata(selectedId, patch);
+        await updateStreetlightMetadata(selectedId, patch); // ✅ PUT only
       }
       setSaveState("saved");
       setSaveMsg("Saved");
@@ -262,9 +276,15 @@ export default function Admin() {
     setLatInput("");
     setLngInput("");
 
+    // also reflect locally in streetlights list WITHOUT GET
+    setStreetlights((prev) =>
+      (Array.isArray(prev) ? prev : []).map((s) =>
+        s.streetlight_id === selectedId ? { ...s, lat: null, lng: null } : s
+      )
+    );
+
     try {
-      // ✅ Max request: clear coordinates calls the API too
-      await updateStreetlightMetadata(selectedId, { lat: null, lng: null });
+      await updateStreetlightMetadata(selectedId, { lat: null, lng: null }); // ✅ PUT only
       setSaveState("saved");
       setSaveMsg("Cleared");
       setTimeout(() => {
@@ -408,7 +428,7 @@ export default function Admin() {
               <b>Diagnostics:</b> {live?.diagnostics ? "available" : "—"}
             </div>
             <div>
-              <b>Last seen:</b> {live?.timestamp ?? selected?.last_seen ?? "—"}
+              <b>Last seen:</b> {formatTimestamp(live?.timestamp ?? selected?.last_seen)}
             </div>
           </div>
 
