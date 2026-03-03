@@ -1,84 +1,115 @@
 import boto3
+import os
 
+DYNAMO_ENDPOINT = os.getenv("DYNAMO_ENDPOINT", "http://localhost:8000")
 
-dynamo = boto3.resource(
+client = boto3.client(
     "dynamodb",
     region_name="us-west-2",
-    endpoint_url="http://localhost:8000",
+    endpoint_url=DYNAMO_ENDPOINT,
+    aws_access_key_id="local",
+    aws_secret_access_key="local",
 )
 
-dynamo.create_table(
-    TableName="Streetlights",
-    BillingMode="PAY_PER_REQUEST",
-    AttributeDefinitions=[
-        {"AttributeName": "tenant_id", "AttributeType": "S"},
-        {"AttributeName": "streetlight_id", "AttributeType": "S"},
-    ],
-    KeySchema=[
-        {"AttributeName": "tenant_id", "KeyType": "HASH"},
-        {"AttributeName": "streetlight_id", "KeyType": "RANGE"},
-    ],
-    GlobalSecondaryIndexes=[
-        {
-            "IndexName": "StreetlightIndex",
-            "KeySchema": [
-                {"AttributeName": "streetlight_id", "KeyType": "HASH"},
-            ],
-            "Projection": {
-                "ProjectionType": "INCLUDE",
-                "NonKeyAttributes": ["tenant_id"],
-            },
-        }
-    ],
-)
+TABLES = [
+    {
+        "TableName": "Streetlights",
+        "AttributeDefinitions": [
+            {"AttributeName": "tenant_id",      "AttributeType": "S"},
+            {"AttributeName": "streetlight_id", "AttributeType": "S"},
+        ],
+        "KeySchema": [
+            {"AttributeName": "tenant_id",      "KeyType": "HASH"},
+            {"AttributeName": "streetlight_id", "KeyType": "RANGE"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "StreetlightIndex",
+                "KeySchema": [
+                    {"AttributeName": "streetlight_id", "KeyType": "HASH"},
+                ],
+                "Projection": {
+                    "ProjectionType": "INCLUDE",
+                    "NonKeyAttributes": ["tenant_id"],
+                },
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1
+                },
+            }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+    },
+    {
+        "TableName": "StreetlightMetadata",
+        "AttributeDefinitions": [
+            {"AttributeName": "streetlight_id", "AttributeType": "S"},
+            {"AttributeName": "SK",             "AttributeType": "S"},
+        ],
+        "KeySchema": [
+            {"AttributeName": "streetlight_id", "KeyType": "HASH"},
+            {"AttributeName": "SK",             "KeyType": "RANGE"},
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+    },
+    {
+        "TableName": "UsersAndTenants",
+        "AttributeDefinitions": [
+            {"AttributeName": "tenant_id", "AttributeType": "S"},
+            {"AttributeName": "user_id",   "AttributeType": "S"},
+        ],
+        "KeySchema": [
+            {"AttributeName": "tenant_id", "KeyType": "HASH"},
+            {"AttributeName": "user_id",   "KeyType": "RANGE"},
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+    },
+    {
+        "TableName": "WebSocketConnections",
+        "AttributeDefinitions": [
+            {"AttributeName": "connection_id",  "AttributeType": "S"},
+            {"AttributeName": "streetlight_id", "AttributeType": "S"},
+            {"AttributeName": "tenant_id",      "AttributeType": "S"},
+        ],
+        "KeySchema": [
+            {"AttributeName": "connection_id", "KeyType": "HASH"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "StreetlightIndex",
+                "KeySchema": [
+                    {"AttributeName": "streetlight_id", "KeyType": "HASH"},
+                    {"AttributeName": "tenant_id",      "KeyType": "RANGE"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1
+                },
+            }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+    },
+]
 
-dynamo.create_table(
-    TableName="StreetlightMetadata",
-    BillingMode="PAY_PER_REQUEST",
-    AttributeDefinitions=[
-        {"AttributeName": "streetlight_id", "AttributeType": "S"},
-        {"AttributeName": "SK", "AttributeType": "S"},
-    ],
-    KeySchema=[
-        {"AttributeName": "streetlight_id", "KeyType": "HASH"},
-        {"AttributeName": "SK", "KeyType": "RANGE"},
-    ],
-)
 
-dynamo.create_table(
-    TableName="UsersAndTenants",
-    BillingMode="PAY_PER_REQUEST",
-    AttributeDefinitions=[
-        {"AttributeName": "tenant_id", "AttributeType": "S"},
-        {"AttributeName": "user_id", "AttributeType": "S"},
-    ],
-    KeySchema=[
-        {"AttributeName": "tenant_id", "KeyType": "HASH"},
-        {"AttributeName": "user_id", "KeyType": "RANGE"},
-    ],
-)
+def delete_table(name):
+    try:
+        client.delete_table(TableName=name)
+        waiter = client.get_waiter("table_not_exists")
+        waiter.wait(TableName=name)
+    except client.exceptions.ResourceNotFoundException:
+        pass  # already gone
 
-dynamo.create_table(
-    TableName="WebSocketConnections",
-    BillingMode="PAY_PER_REQUEST",
-    AttributeDefinitions=[
-        {"AttributeName": "connection_id", "AttributeType": "S"},
-        {"AttributeName": "streetlight_id", "AttributeType": "S"},
-        {"AttributeName": "tenant_id", "AttributeType": "S"},
-    ],
-    KeySchema=[
-        {"AttributeName": "connection_id", "KeyType": "HASH"},
-    ],
-    GlobalSecondaryIndexes=[
-        {
-            "IndexName": "StreetlightIndex",
-            "KeySchema": [
-                {"AttributeName": "streetlight_id", "KeyType": "HASH"},
-                {"AttributeName": "tenant_id", "KeyType": "RANGE"},
-            ],
-            "Projection": {"ProjectionType": "ALL"},
-        }
-    ],
-)
 
-print("Tables created")
+def create_table(definition):
+    client.create_table(**definition)
+    waiter = client.get_waiter("table_exists")
+    waiter.wait(TableName=definition["TableName"])
+
+
+for table in TABLES:
+    name = table["TableName"]
+    delete_table(name)
+    create_table(table)
+    print(f"Created: {name}")
