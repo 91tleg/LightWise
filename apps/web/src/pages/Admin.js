@@ -30,6 +30,32 @@ function asNumberOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+// ✅ Max request: validate lat/lng ranges on frontend
+function validateLatLng(latStr, lngStr) {
+  const latEmpty = !latStr || latStr.trim() === "";
+  const lngEmpty = !lngStr || lngStr.trim() === "";
+
+  // allow both empty (means: no coords)
+  if (latEmpty && lngEmpty) return null;
+
+  // one missing
+  if (latEmpty || lngEmpty) return "Enter both latitude and longitude.";
+
+  const lat = Number(latStr);
+  const lng = Number(lngStr);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return "Latitude and longitude must be valid numbers.";
+  }
+  if (lat < -90 || lat > 90) {
+    return "Latitude must be between -90 and 90.";
+  }
+  if (lng < -180 || lng > 180) {
+    return "Longitude must be between -180 and 180.";
+  }
+  return null;
+}
+
 function normalizeFeedEvent(msg) {
   if (!msg || typeof msg !== "object") return null;
   const id = msg.streetlight_id || msg.streetlightId;
@@ -89,6 +115,7 @@ export default function Admin() {
   );
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [saveMsg, setSaveMsg] = useState("");
+  const [coordError, setCoordError] = useState("");
 
   // Load streetlights once
   useEffect(() => {
@@ -115,6 +142,7 @@ export default function Admin() {
     setLngInput(meta.lng === 0 || meta.lng ? String(meta.lng) : "");
     setSaveState("idle");
     setSaveMsg("");
+    setCoordError("");
   }, [selectedId, metaMap]);
 
   // Auto-subscribe on connect + whenever selected changes
@@ -183,11 +211,25 @@ export default function Admin() {
   async function handleSaveMetadata() {
     setSaveState("saving");
     setSaveMsg("");
+    setCoordError("");
 
+    const latStr = latInput?.trim() || "";
+    const lngStr = lngInput?.trim() || "";
+
+    // ✅ Max request: check input is in range before saving
+    const err = validateLatLng(latStr, lngStr);
+    if (err) {
+      setSaveState("idle");
+      setCoordError(err);
+      return;
+    }
+
+    // Build patch safely:
+    // - name only if non-empty
+    // - lat/lng only if BOTH provided (validated above)
     const patch = {
       ...(nameInput.trim() ? { name: nameInput.trim() } : {}),
-      ...(latInput.trim() ? { lat: asNumberOrNull(latInput.trim()) } : {}),
-      ...(lngInput.trim() ? { lng: asNumberOrNull(lngInput.trim()) } : {}),
+      ...(latStr && lngStr ? { lat: Number(latStr), lng: Number(lngStr) } : {}),
     };
 
     // Local update first (instant pin)
@@ -213,6 +255,7 @@ export default function Admin() {
   async function handleClearCoords() {
     setSaveState("saving");
     setSaveMsg("");
+    setCoordError("");
 
     clearPoleMeta(selectedId);
     setMetaMap(loadPoleMetaMap());
@@ -220,6 +263,7 @@ export default function Admin() {
     setLngInput("");
 
     try {
+      // ✅ Max request: clear coordinates calls the API too
       await updateStreetlightMetadata(selectedId, { lat: null, lng: null });
       setSaveState("saved");
       setSaveMsg("Cleared");
@@ -263,18 +307,12 @@ export default function Admin() {
 
           <div style={{ marginTop: 12 }}>
             <label className="lwLabel">Streetlight</label>
-            <select
-              className="lwInput"
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-            >
-              {(streetlights.length ? streetlights : [{ streetlight_id: "LW-00042", name: null }]).map(
-                (s) => (
-                  <option key={s.streetlight_id} value={s.streetlight_id}>
-                    {s.streetlight_id} — ({s.name || "fallback"})
-                  </option>
-                )
-              )}
+            <select className="lwInput" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
+              {(streetlights.length ? streetlights : [{ streetlight_id: "LW-00042", name: null }]).map((s) => (
+                <option key={s.streetlight_id} value={s.streetlight_id}>
+                  {s.streetlight_id} — ({s.name || "fallback"})
+                </option>
+              ))}
             </select>
           </div>
 
@@ -318,11 +356,14 @@ export default function Admin() {
                 Clear coordinates
               </button>
 
-              {saveMsg ? <span style={{ fontWeight: 700, opacity: 0.9 }}>{saveMsg}</span> : null}
+              {(coordError || saveMsg) ? (
+                <span style={{ fontWeight: 700, opacity: 0.9 }}>{coordError || saveMsg}</span>
+              ) : null}
             </div>
 
             <div className="lwSmallText" style={{ marginTop: 8, opacity: 0.85 }}>
-              Pin appears on map when lat/lng are set. Clearing removes the pin instantly.
+              Pin appears on map when lat/lng are set. Valid ranges: latitude [-90, 90], longitude [-180, 180]. Clearing
+              removes the pin instantly.
             </div>
           </div>
         </BubbleCard>

@@ -23,7 +23,7 @@ Globals:
         ENV: !Ref Env
         AWS_REGION: us-west-2
         AUTH_ENABLED: false
-        DYNAMO_ENDPOINT: http://host.docker.internal:8000
+        DYNAMO_ENDPOINT: http://dynamodb:8000
         COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
         COGNITO_CLIENT_ID: !Ref CognitoClientId
         DDB_TABLE_STREETLIGHTS: !Ref Streetlights

@@ -9,7 +9,7 @@ import Panel from "../components/Panel";
 import Card from "../components/Card";
 import PillRow from "../components/PillRow";
 
-import { listStreetlights } from "../services/api";
+import { listStreetlights, getStreetlightTelemetry } from "../services/api";
 import { useLightWiseWS } from "../services/useLightWiseWS";
 
 function clampPct(x) {
@@ -55,12 +55,62 @@ function okFail(val) {
   return val ? "OK" : "FAIL";
 }
 
+/**
+ * Try to normalize backend telemetry response into a list of points.
+ * We keep this defensive so it survives small backend shape changes.
+ */
+function normalizeTelemetryPoints(payload) {
+  if (!payload) return [];
+
+  // most common shapes
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.items)) return payload.items;
+  if (Array.isArray(payload.records)) return payload.records;
+  if (Array.isArray(payload.telemetry)) return payload.telemetry;
+
+  // sometimes nested
+  if (payload.data && Array.isArray(payload.data.points)) return payload.data.points;
+
+  return [];
+}
+
+function getPointLightLevel(p) {
+  // supports a few likely shapes:
+  // { light_level: 12 } OR { data: { light_level: 12 } }
+  const direct = p?.light_level;
+  if (typeof direct === "number") return direct;
+
+  const nested = p?.data?.light_level;
+  if (typeof nested === "number") return nested;
+
+  // sometimes stored as string
+  const directStr = Number(p?.light_level);
+  if (Number.isFinite(directStr)) return directStr;
+
+  const nestedStr = Number(p?.data?.light_level);
+  if (Number.isFinite(nestedStr)) return nestedStr;
+
+  return null;
+}
+
+function getPointMotion(p) {
+  const m = p?.motion ?? p?.data?.motion;
+  if (typeof m === "boolean") return m;
+  if (typeof m === "number") return Boolean(m);
+  return null;
+}
+
 export default function Overview() {
   const tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001";
   const WS_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
 
   const [streetlights, setStreetlights] = useState([]);
   const [error, setError] = useState("");
+
+  // HTTP telemetry loading state (for trend hydration)
+  const [telemetryError, setTelemetryError] = useState("");
+  const [telemetryLoading, setTelemetryLoading] = useState(false);
 
   // WS for trend data
   const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
@@ -102,7 +152,8 @@ export default function Overview() {
 
     const selected = streetlights[0] || null;
 
-    const systemStatus = critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
+    const systemStatus =
+      critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
 
     return { total, ok, degraded, critical, systemStatus, alerts, selected };
   }, [streetlights]);
@@ -111,10 +162,66 @@ export default function Overview() {
   const selectedId = selected?.streetlight_id ?? "—";
   const selectedStreetlightId = selected?.streetlight_id || "";
 
-  // Reset WS-derived visuals when selection changes
+  // Reset visuals when selection changes
   useEffect(() => {
     setWsMotion(null);
     setLightTrend([]);
+    setTelemetryError("");
+  }, [selectedStreetlightId]);
+
+  /**
+   * NEW: hydrate the trend using Max's HTTP telemetry endpoint
+   * so your chart isn't empty before WS starts pushing.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrateFromHttp() {
+      if (!selectedStreetlightId) return;
+
+      setTelemetryError("");
+      setTelemetryLoading(true);
+
+      try {
+        const to = new Date().toISOString();
+        const from = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(); // last 6 hours
+        const payload = await getStreetlightTelemetry(selectedStreetlightId, {
+          from,
+          to,
+          interval: "5m",
+        });
+
+        if (cancelled) return;
+
+        const points = normalizeTelemetryPoints(payload);
+
+        // build the trend from telemetry points
+        const values = points
+          .map(getPointLightLevel)
+          .filter((v) => typeof v === "number" && Number.isFinite(v))
+          .map(clampPct);
+
+        if (values.length) {
+          setLightTrend(values.slice(-40));
+        }
+
+        // optionally hydrate motion from latest point if present
+        const last = points[points.length - 1];
+        const motion = getPointMotion(last);
+        if (typeof motion === "boolean") setWsMotion(motion);
+      } catch (e) {
+        if (cancelled) return;
+        setTelemetryError(e?.message || String(e));
+      } finally {
+        if (!cancelled) setTelemetryLoading(false);
+      }
+    }
+
+    hydrateFromHttp();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedStreetlightId]);
 
   // Subscribe when connected + selection exists
@@ -124,7 +231,7 @@ export default function Overview() {
     subscribe(selectedStreetlightId);
   }, [wsStatus, selectedStreetlightId, subscribe]);
 
-  // Collect light_level for trend graph + motion
+  // Collect light_level for trend graph + motion (WS keeps updating after HTTP hydration)
   useEffect(() => {
     const msg = lastMessage;
     if (!msg || typeof msg !== "object") return;
@@ -203,9 +310,20 @@ export default function Overview() {
 
         <Panel title="Energy Trend">
           <div className="lwSmallText" style={{ opacity: 0.85, marginBottom: 8 }}>
-            This is a <b>brightness trend</b> from WS telemetry (<code>data.light_level</code>) — not metered kWh.
+            This is a <b>brightness trend</b> from telemetry (<code>data.light_level</code>) — not metered kWh.
           </div>
-          <MiniLineChart values={lightTrend} height={120} />
+
+          {telemetryError && (
+            <div className="lwSmallText" style={{ opacity: 0.85, marginBottom: 8 }}>
+              <b>Telemetry:</b> {telemetryError}
+            </div>
+          )}
+
+          {telemetryLoading && !lightTrend.length ? (
+            <div className="lwPlaceholder">Loading telemetry…</div>
+          ) : (
+            <MiniLineChart values={lightTrend} height={120} />
+          )}
         </Panel>
 
         <Panel title="Operations">

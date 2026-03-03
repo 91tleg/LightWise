@@ -68,10 +68,7 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
   const data = await parseJsonSafely(res);
 
   if (!res.ok) {
-    const msg =
-      data?.error ||
-      data?.message ||
-      `API error ${res.status}`;
+    const msg = data?.error || data?.message || `API error ${res.status}`;
     const err = new Error(msg);
     err.status = res.status;
     err.payload = data;
