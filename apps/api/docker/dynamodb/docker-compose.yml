@@ -4,3 +4,26 @@ services:
     ports:
       - "8000:8000"
     command: "-jar DynamoDBLocal.jar -sharedDb"
+    healthcheck:
+      test: ["CMD-SHELL", "echo > /dev/tcp/localhost/8000 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  dynamodb-setup:
+    image: python:3.11-slim
+    depends_on:
+      dynamodb:
+        condition: service_healthy
+    volumes:
+      - ../../scripts:/app/scripts
+    working_dir: /app
+    environment:
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-west-2
+      DYNAMO_ENDPOINT: http://dynamodb:8000
+    command: >
+      sh -c "pip install boto3 -q &&
+             python scripts/create_local_tables.py &&
+             python scripts/seed_local_data.py"
