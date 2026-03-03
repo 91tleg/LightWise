@@ -97,8 +97,11 @@ export default function Admin() {
         const list = Array.isArray(rows) ? rows : [];
         setStreetlights(list);
 
-        // If selected missing, use first
-        if (!selectedId) setSelectedId(list[0]?.streetlight_id || "LW-00042");
+        // ✅ Fix: if selectedId is missing from backend list, fallback to first
+        if (list.length > 0) {
+          const hasSelected = list.some((s) => s.streetlight_id === selectedId);
+          if (!hasSelected) setSelectedId(list[0]?.streetlight_id || "LW-00042");
+        }
       })
       .catch((e) => setApiError(e?.message || String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,15 +176,15 @@ export default function Admin() {
       ? clampPct(selected.light_level_pct)
       : 0;
 
-  const mapLat = asNumberOrNull(selectedMeta.lat);
-  const mapLng = asNumberOrNull(selectedMeta.lng);
+  // ✅ Fix: map uses current input so pin updates as you type (no UI changes)
+  const mapLat = asNumberOrNull(latInput);
+  const mapLng = asNumberOrNull(lngInput);
 
   async function handleSaveMetadata() {
     setSaveState("saving");
     setSaveMsg("");
 
     const patch = {
-      // Only send fields that are present (Max contract: at least one required)
       ...(nameInput.trim() ? { name: nameInput.trim() } : {}),
       ...(latInput.trim() ? { lat: asNumberOrNull(latInput.trim()) } : {}),
       ...(lngInput.trim() ? { lng: asNumberOrNull(lngInput.trim()) } : {}),
@@ -192,7 +195,6 @@ export default function Admin() {
     setMetaMap(loadPoleMetaMap());
 
     try {
-      // Best-effort backend save (if implemented)
       if (Object.keys(patch).length > 0) {
         await updateStreetlightMetadata(selectedId, patch);
       }
@@ -212,14 +214,12 @@ export default function Admin() {
     setSaveState("saving");
     setSaveMsg("");
 
-    // local clear removes pin instantly
     clearPoleMeta(selectedId);
     setMetaMap(loadPoleMetaMap());
     setLatInput("");
     setLngInput("");
 
     try {
-      // optional: if backend supports clearing by setting nulls
       await updateStreetlightMetadata(selectedId, { lat: null, lng: null });
       setSaveState("saved");
       setSaveMsg("Cleared");
@@ -228,7 +228,6 @@ export default function Admin() {
         setSaveMsg("");
       }, 1200);
     } catch {
-      // even if backend fails, local pin is cleared
       setSaveState("idle");
       setSaveMsg("Cleared locally");
       setTimeout(() => setSaveMsg(""), 1200);
@@ -319,9 +318,7 @@ export default function Admin() {
                 Clear coordinates
               </button>
 
-              {saveMsg ? (
-                <span style={{ fontWeight: 700, opacity: 0.9 }}>{saveMsg}</span>
-              ) : null}
+              {saveMsg ? <span style={{ fontWeight: 700, opacity: 0.9 }}>{saveMsg}</span> : null}
             </div>
 
             <div className="lwSmallText" style={{ marginTop: 8, opacity: 0.85 }}>
@@ -376,13 +373,7 @@ export default function Admin() {
 
           <div style={{ marginTop: 12 }}>
             <label className="lwLabel">Map pin for selected pole</label>
-            <MapEmbed
-              title="Selected pole pin"
-              height={240}
-              lat={mapLat}
-              lng={mapLng}
-              zoom={17}
-            />
+            <MapEmbed title="Selected pole pin" height={240} lat={mapLat} lng={mapLng} zoom={17} />
           </div>
         </BubbleCard>
 
