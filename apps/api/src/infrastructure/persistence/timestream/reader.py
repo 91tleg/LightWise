@@ -1,7 +1,7 @@
 from datetime import datetime
 from botocore.exceptions import BotoCoreError, ClientError
 from .client import TimestreamClientManager
-from domain.error import PersistenceError
+from infrastructure.persistence.error import PersistenceError
 from libs.config import settings
 
 
