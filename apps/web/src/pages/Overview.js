@@ -18,6 +18,26 @@ function clampPct(x) {
   return Math.max(0, Math.min(100, n));
 }
 
+function formatTimestamp(ts) {
+  if (!ts) return "N/A";
+  const d = new Date(ts);
+  if (!Number.isFinite(d.getTime())) return String(ts);
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+// Build ISO string WITHOUT milliseconds (backend-friendly)
+function isoNoMs(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  if (!Number.isFinite(x.getTime())) return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  return x.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
 function MiniLineChart({ values = [], height = 120 }) {
   const w = 520;
   const h = height;
@@ -55,36 +75,24 @@ function okFail(val) {
   return val ? "OK" : "FAIL";
 }
 
-/**
- * Try to normalize backend telemetry response into a list of points.
- * We keep this defensive so it survives small backend shape changes.
- */
 function normalizeTelemetryPoints(payload) {
   if (!payload) return [];
-
-  // most common shapes
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload.data)) return payload.data;
   if (Array.isArray(payload.items)) return payload.items;
   if (Array.isArray(payload.records)) return payload.records;
   if (Array.isArray(payload.telemetry)) return payload.telemetry;
-
-  // sometimes nested
   if (payload.data && Array.isArray(payload.data.points)) return payload.data.points;
-
   return [];
 }
 
 function getPointLightLevel(p) {
-  // supports a few likely shapes:
-  // { light_level: 12 } OR { data: { light_level: 12 } }
   const direct = p?.light_level;
   if (typeof direct === "number") return direct;
 
   const nested = p?.data?.light_level;
   if (typeof nested === "number") return nested;
 
-  // sometimes stored as string
   const directStr = Number(p?.light_level);
   if (Number.isFinite(directStr)) return directStr;
 
@@ -108,20 +116,15 @@ export default function Overview() {
   const [streetlights, setStreetlights] = useState([]);
   const [error, setError] = useState("");
 
-  // HTTP telemetry loading state (for trend hydration)
   const [telemetryError, setTelemetryError] = useState("");
   const [telemetryLoading, setTelemetryLoading] = useState(false);
 
-  // WS for trend data
   const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
     tenantId,
     debug: false,
   });
 
-  // store last N light levels for selected pole (trend)
   const [lightTrend, setLightTrend] = useState([]);
-
-  // track latest WS motion for selected pole (optional)
   const [wsMotion, setWsMotion] = useState(null);
 
   const refreshStreetlights = async () => {
@@ -169,12 +172,20 @@ export default function Overview() {
     setTelemetryError("");
   }, [selectedStreetlightId]);
 
-  /**
-   * NEW: hydrate the trend using Max's HTTP telemetry endpoint
-   * so your chart isn't empty before WS starts pushing.
-   */
+  // Hydrate trend using HTTP telemetry (shorter time window + retry)
   useEffect(() => {
     let cancelled = false;
+
+    async function fetchTelemetryOnce() {
+      const to = isoNoMs(new Date());
+      const from = isoNoMs(new Date(Date.now() - 60 * 60 * 1000)); // ✅ last 60 minutes
+      const payload = await getStreetlightTelemetry(selectedStreetlightId, {
+        from,
+        to,
+        interval: "5m",
+      });
+      return payload;
+    }
 
     async function hydrateFromHttp() {
       if (!selectedStreetlightId) return;
@@ -183,19 +194,19 @@ export default function Overview() {
       setTelemetryLoading(true);
 
       try {
-        const to = new Date().toISOString();
-        const from = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(); // last 6 hours
-        const payload = await getStreetlightTelemetry(selectedStreetlightId, {
-          from,
-          to,
-          interval: "5m",
-        });
+        let payload;
+        try {
+          payload = await fetchTelemetryOnce();
+        } catch (e1) {
+          // ✅ one small retry helps when local SAM/Lambda is booting
+          await new Promise((r) => setTimeout(r, 800));
+          payload = await fetchTelemetryOnce();
+        }
 
         if (cancelled) return;
 
         const points = normalizeTelemetryPoints(payload);
 
-        // build the trend from telemetry points
         const values = points
           .map(getPointLightLevel)
           .filter((v) => typeof v === "number" && Number.isFinite(v))
@@ -205,7 +216,6 @@ export default function Overview() {
           setLightTrend(values.slice(-40));
         }
 
-        // optionally hydrate motion from latest point if present
         const last = points[points.length - 1];
         const motion = getPointMotion(last);
         if (typeof motion === "boolean") setWsMotion(motion);
@@ -370,7 +380,7 @@ export default function Overview() {
                 <b>Motion:</b> {selectedMotion}
               </div>
               <div>
-                <b>Last seen:</b> {selected?.last_seen ?? "N/A"}
+                <b>Last seen:</b> {formatTimestamp(selected?.last_seen)}
               </div>
 
               <div>

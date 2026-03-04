@@ -1,5 +1,7 @@
 // apps/web/src/services/api.js
 
+import { loadPoleMetaMap } from "./poleStorage";
+
 function env() {
   return {
     USE_MOCK: String(process.env.REACT_APP_USE_MOCK || "false").toLowerCase() === "true",
@@ -48,8 +50,6 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
   const hasBody = body !== undefined && body !== null;
   if (hasBody) finalHeaders["Content-Type"] = "application/json";
 
-  // 🔎 proof in console that HTTP is being called
-  // (Remove later if you want)
   console.log("🌐 HTTP", method, url);
 
   let res;
@@ -78,6 +78,30 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
   return data;
 }
 
+// Merge helper: backend list + local meta overrides (so map shows everywhere)
+function mergeLocalMeta(streetlights) {
+  const list = Array.isArray(streetlights) ? streetlights : [];
+  const metaMap = loadPoleMetaMap();
+
+  // metaMap shape: { [streetlight_id]: { name?, lat?, lng? } }
+  return list.map((s) => {
+    const id = s?.streetlight_id;
+    const m = (id && metaMap && metaMap[id]) ? metaMap[id] : null;
+    if (!m) return s;
+
+    // If backend has null coords but local has coords, use local.
+    // If local has empty/undefined, keep backend.
+    const merged = {
+      ...s,
+      ...(typeof m?.name === "string" && m.name.trim() ? { name: m.name.trim() } : {}),
+      ...(typeof m?.lat === "number" && Number.isFinite(m.lat) ? { lat: m.lat } : {}),
+      ...(typeof m?.lng === "number" && Number.isFinite(m.lng) ? { lng: m.lng } : {}),
+    };
+
+    return merged;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Max Contract Endpoints
 // ---------------------------------------------------------------------------
@@ -86,7 +110,7 @@ export async function listStreetlights() {
   const { USE_MOCK, TENANT_ID } = env();
 
   if (USE_MOCK) {
-    return [
+    const mock = [
       {
         streetlight_id: "LW-00042",
         tenant_id: TENANT_ID,
@@ -103,10 +127,12 @@ export async function listStreetlights() {
         motion_secondary_ok: true,
       },
     ];
+    return mergeLocalMeta(mock);
   }
 
   // GET /streetlights?tenant_id=...
-  return request("/streetlights", { method: "GET" });
+  const rows = await request("/streetlights", { method: "GET" });
+  return mergeLocalMeta(rows);
 }
 
 export async function getStreetlight(id) {
@@ -114,7 +140,7 @@ export async function getStreetlight(id) {
   if (!id) throw new Error("streetlight id is required");
 
   if (USE_MOCK) {
-    return {
+    const mock = {
       streetlight_id: id,
       tenant_id: TENANT_ID,
       health: "OK",
@@ -129,10 +155,12 @@ export async function getStreetlight(id) {
       motion_primary_ok: true,
       motion_secondary_ok: true,
     };
+    return mergeLocalMeta([mock])[0];
   }
 
   // GET /streetlights/{id}?tenant_id=...
-  return request(`/streetlights/${encodeURIComponent(id)}`, { method: "GET" });
+  const row = await request(`/streetlights/${encodeURIComponent(id)}`, { method: "GET" });
+  return mergeLocalMeta([row])[0];
 }
 
 export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } = {}) {
@@ -151,6 +179,8 @@ export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } 
   });
 }
 
+// Max request: validation is done in Admin before calling this.
+// Still keep API thin and focused.
 export async function updateStreetlightMetadata(id, body) {
   const { USE_MOCK } = env();
   if (!id) throw new Error("streetlight id is required");

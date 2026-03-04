@@ -21,13 +21,11 @@ export default function MapEmbed({
       Number.isFinite(lng);
 
     if (hasCoords) {
-      // Pin at coordinates
       return `https://www.google.com/maps?q=${encodeURIComponent(
         `${lat},${lng}`
       )}&z=${encodeURIComponent(String(zoom))}&output=embed`;
     }
 
-    // Default area (no specific pin)
     return "https://www.google.com/maps?q=Bellevue%20College%20WA&z=15&output=embed";
   }, [lat, lng, zoom]);
 
