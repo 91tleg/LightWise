@@ -43,9 +43,7 @@ function MiniLineChart({ values = [], height = 120 }) {
   const h = height;
 
   const pts = useMemo(() => {
-    const arr = (values || [])
-      .filter((v) => Number.isFinite(Number(v)))
-      .map(Number);
+    const arr = (values || []).filter((v) => Number.isFinite(Number(v))).map(Number);
     if (arr.length < 2) return "";
 
     const min = Math.min(...arr);
@@ -149,14 +147,11 @@ export default function Overview() {
     const degraded = streetlights.filter((s) => s.health === "DEGRADED").length;
     const critical = streetlights.filter((s) => s.health === "CRITICAL").length;
 
-    const alerts = streetlights
-      .filter((s) => s.health === "DEGRADED" || s.health === "CRITICAL")
-      .slice(0, 5);
+    const alerts = streetlights.filter((s) => s.health === "DEGRADED" || s.health === "CRITICAL").slice(0, 5);
 
     const selected = streetlights[0] || null;
 
-    const systemStatus =
-      critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
+    const systemStatus = critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
 
     return { total, ok, degraded, critical, systemStatus, alerts, selected };
   }, [streetlights]);
@@ -356,7 +351,7 @@ export default function Overview() {
       <div className="lwBottomGrid">
         <Card title="Selected Lightpole">
           <div className="lwPoleRow">
-            <div className="lwPoleAvatar" />
+            {/* removed lwPoleAvatar */}
             <div className="lwPoleMeta">
               <div>
                 <b>ID:</b> {selectedId}
@@ -399,9 +394,7 @@ export default function Overview() {
                 <b>Motion Secondary:</b> {okFail(selected?.motion_secondary_ok)}
               </div>
 
-              <div className="lwSmallText" style={{ marginTop: 10, opacity: 0.85 }}>
-                Tip: if WS motion feels “stuck”, it updates only when telemetry pushes from the device.
-              </div>
+              {/* removed Tip line */}
             </div>
           </div>
         </Card>
