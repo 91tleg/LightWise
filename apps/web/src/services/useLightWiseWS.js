@@ -3,13 +3,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 /**
  * LightWise WebSocket Hook (DEV contract)
  *
- * Kirat-confirmed:
+ * Current assumptions (per Kirat):
  *  - WS URL: wss://x7zn8xoare.execute-api.us-east-1.amazonaws.com/dev
  *  - NO tenant_id required in query params or payload
- *  - subscribe payload: { action: "subscribe", streetlight_id: "LW-00042" }
+ *  - subscribe payload: { action: "subscribe", streetlight_id: "<ID>" }
+ *
+ * IMPORTANT:
+ *  - Backend has NO "unsubscribe" route.
+ *  - To change poles safely, we reconnect and resubscribe.
+ *
+ * Usage pattern:
+ *  const ws = useLightWiseWS(process.env.REACT_APP_WS_URL, { debug: true });
+ *  useEffect(() => { ws.setTarget(selectedId); }, [selectedId]);
  *
  * Returns:
- *  { status, error, lastMessage, messages, send, subscribe, connect, disconnect }
+ *  {
+ *    status, error, lastMessage, messages,
+ *    send, subscribe,
+ *    connect, disconnect,
+ *    targetId, setTarget
+ *  }
  */
 export function useLightWiseWS(wsBaseUrl, options = {}) {
   const {
@@ -22,18 +35,23 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
   // ✅ IMPORTANT: do NOT append tenant_id to WS URL
   const wsUrl = useMemo(() => {
     const base = String(wsBaseUrl || "").trim();
-    if (!base) return "";
-    return base;
+    return base || "";
   }, [wsBaseUrl]);
 
   const wsRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const manualCloseRef = useRef(false);
 
+  // track the currently "desired" streetlight id to subscribe to
+  const desiredTargetRef = useRef("");
+  // track whether we should auto-subscribe on open
+  const shouldAutoSubscribeRef = useRef(false);
+
   const [status, setStatus] = useState(wsUrl ? "connecting" : "idle");
   const [error, setError] = useState(null);
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [targetId, setTargetId] = useState("");
 
   const log = useCallback(
     (...args) => {
@@ -83,9 +101,13 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     (streetlightId) => {
       const id = String(streetlightId || "").trim();
       if (!id) return false;
-      return send({ action: "subscribe", streetlight_id: id });
+
+      const ok = send({ action: "subscribe", streetlight_id: id });
+      if (ok) log("subscribe sent", { streetlight_id: id });
+
+      return ok;
     },
-    [send]
+    [send, log]
   );
 
   const connect = useCallback(() => {
@@ -125,6 +147,14 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
       log("connected");
       setStatus("connected");
       setError(null);
+
+      // Auto-subscribe if we have a desired target
+      const desired = String(desiredTargetRef.current || "").trim();
+      if (desired && shouldAutoSubscribeRef.current) {
+        // attempt immediately
+        const ok = subscribe(desired);
+        if (!ok) log("auto-subscribe failed (socket not open?)", desired);
+      }
     };
 
     ws.onmessage = (evt) => {
@@ -142,7 +172,7 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     };
 
     ws.onerror = () => {
-      // onerror doesn't include details in browsers, so keep it generic
+      // onerror doesn't include details in browsers
       setStatus("error");
       setError(new Error("WebSocket error"));
     };
@@ -161,12 +191,64 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
       if (autoReconnect) {
         clearReconnectTimer();
         reconnectTimerRef.current = setTimeout(() => {
-          // reconnect only if we weren't manually closed
           if (!manualCloseRef.current) connect();
         }, reconnectDelayMs);
       }
     };
-  }, [wsUrl, autoReconnect, reconnectDelayMs, maxMessages, log, clearReconnectTimer]);
+  }, [
+    wsUrl,
+    autoReconnect,
+    reconnectDelayMs,
+    maxMessages,
+    log,
+    clearReconnectTimer,
+    subscribe,
+  ]);
+
+  /**
+   * Set / change the target pole.
+   * Since there is no "unsubscribe", the safest behavior is:
+   *  - store desired target
+   *  - if currently connected: reconnect and auto-subscribe on open
+   *  - if not connected: connect and auto-subscribe on open
+   */
+  const setTarget = useCallback(
+    (streetlightId) => {
+      const id = String(streetlightId || "").trim();
+
+      setTargetId(id);
+      desiredTargetRef.current = id;
+
+      // If empty target, do not subscribe; just keep connection (or disconnect if you prefer)
+      if (!id) {
+        log("setTarget: cleared (no streetlight_id)");
+        shouldAutoSubscribeRef.current = false;
+        return;
+      }
+
+      shouldAutoSubscribeRef.current = true;
+      log("setTarget:", id);
+
+      // If we have an open socket, reconnect for guaranteed clean subscription
+      const ws = wsRef.current;
+      const isOpen = ws && ws.readyState === WebSocket.OPEN;
+      const isConnecting = ws && ws.readyState === WebSocket.CONNECTING;
+
+      if (isOpen || isConnecting) {
+        // Force reconnect to guarantee the backend subscription is fresh
+        log("reconnecting to apply new target:", id);
+        disconnect();
+        // reconnect immediately
+        manualCloseRef.current = false; // allow auto reconnect flow
+        connect();
+        return;
+      }
+
+      // no socket yet, connect now
+      connect();
+    },
+    [connect, disconnect, log]
+  );
 
   // connect on mount + whenever wsUrl changes
   useEffect(() => {
@@ -185,9 +267,13 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     error,
     lastMessage,
     messages,
+
     send,
     subscribe,
     connect,
     disconnect,
+
+    targetId,
+    setTarget,
   };
 }

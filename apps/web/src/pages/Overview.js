@@ -34,7 +34,8 @@ function formatTimestamp(ts) {
 // Build ISO string WITHOUT milliseconds (backend-friendly)
 function isoNoMs(d) {
   const x = d instanceof Date ? d : new Date(d);
-  if (!Number.isFinite(x.getTime())) return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  if (!Number.isFinite(x.getTime()))
+    return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
   return x.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
@@ -43,7 +44,9 @@ function MiniLineChart({ values = [], height = 120 }) {
   const h = height;
 
   const pts = useMemo(() => {
-    const arr = (values || []).filter((v) => Number.isFinite(Number(v))).map(Number);
+    const arr = (values || [])
+      .filter((v) => Number.isFinite(Number(v)))
+      .map(Number);
     if (arr.length < 2) return "";
 
     const min = Math.min(...arr);
@@ -108,17 +111,20 @@ function getPointMotion(p) {
 }
 
 export default function Overview() {
-  const tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001";
+  
   const WS_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
 
   const [streetlights, setStreetlights] = useState([]);
   const [error, setError] = useState("");
 
+  // ✅ Track selected pole (no hardcode, not always streetlights[0])
+  const [selectedStreetlightId, setSelectedStreetlightId] = useState("");
+
   const [telemetryError, setTelemetryError] = useState("");
   const [telemetryLoading, setTelemetryLoading] = useState(false);
 
-  const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
-    tenantId,
+  // ✅ Updated hook usage: use setTarget (reconnects because no unsubscribe)
+  const { status: wsStatus, lastMessage, setTarget } = useLightWiseWS(WS_URL, {
     debug: false,
   });
 
@@ -129,9 +135,29 @@ export default function Overview() {
     setError("");
     try {
       const rows = await listStreetlights();
-      setStreetlights(Array.isArray(rows) ? rows : []);
+      const list = Array.isArray(rows) ? rows : [];
+      setStreetlights(list);
+
+      // ✅ Ensure we always have a valid selected ID if poles exist
+      if (list.length === 0) {
+        setSelectedStreetlightId("");
+        return;
+      }
+
+      const ids = new Set(list.map((s) => s?.streetlight_id).filter(Boolean));
+
+      setSelectedStreetlightId((prev) => {
+        // keep current if still valid
+        if (prev && ids.has(prev)) return prev;
+
+        // else pick first
+        const firstId = list[0]?.streetlight_id || "";
+        return firstId;
+      });
     } catch (e) {
       setError(e?.message || String(e));
+      setStreetlights([]);
+      setSelectedStreetlightId("");
     }
   };
 
@@ -140,6 +166,13 @@ export default function Overview() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const selected = useMemo(() => {
+    if (!streetlights.length) return null;
+    if (!selectedStreetlightId) return streetlights[0] || null;
+    return streetlights.find((s) => s.streetlight_id === selectedStreetlightId) || streetlights[0] || null;
+  }, [streetlights, selectedStreetlightId]);
+
+  // Stats (same UI logic, just uses selected correctly)
   const stats = useMemo(() => {
     const total = streetlights.length;
 
@@ -147,18 +180,17 @@ export default function Overview() {
     const degraded = streetlights.filter((s) => s.health === "DEGRADED").length;
     const critical = streetlights.filter((s) => s.health === "CRITICAL").length;
 
-    const alerts = streetlights.filter((s) => s.health === "DEGRADED" || s.health === "CRITICAL").slice(0, 5);
+    const alerts = streetlights
+      .filter((s) => s.health === "DEGRADED" || s.health === "CRITICAL")
+      .slice(0, 5);
 
-    const selected = streetlights[0] || null;
+    const systemStatus =
+      critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
 
-    const systemStatus = critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
-
-    return { total, ok, degraded, critical, systemStatus, alerts, selected };
+    return { total, ok, degraded, critical, systemStatus, alerts };
   }, [streetlights]);
 
-  const selected = stats.selected;
   const selectedId = selected?.streetlight_id ?? "—";
-  const selectedStreetlightId = selected?.streetlight_id || "";
 
   // Reset visuals when selection changes
   useEffect(() => {
@@ -166,6 +198,12 @@ export default function Overview() {
     setLightTrend([]);
     setTelemetryError("");
   }, [selectedStreetlightId]);
+
+  // ✅ Subscribe target whenever selected pole changes
+  useEffect(() => {
+    if (!selectedStreetlightId) return;
+    setTarget(selectedStreetlightId);
+  }, [selectedStreetlightId, setTarget]);
 
   // Hydrate trend using HTTP telemetry (shorter time window + retry)
   useEffect(() => {
@@ -229,18 +267,14 @@ export default function Overview() {
     };
   }, [selectedStreetlightId]);
 
-  // Subscribe when connected + selection exists
-  useEffect(() => {
-    if (wsStatus !== "connected") return;
-    if (!selectedStreetlightId) return;
-    subscribe(selectedStreetlightId);
-  }, [wsStatus, selectedStreetlightId, subscribe]);
-
   // Collect light_level for trend graph + motion (WS keeps updating after HTTP hydration)
   useEffect(() => {
     const msg = lastMessage;
     if (!msg || typeof msg !== "object") return;
-    if (msg.streetlight_id !== selectedStreetlightId) return;
+    if (!selectedStreetlightId) return;
+
+    // If backend includes streetlight_id, enforce match (prevents cross-pole mixing)
+    if (msg.streetlight_id && msg.streetlight_id !== selectedStreetlightId) return;
 
     const lvl = msg?.data?.light_level;
     if (typeof lvl === "number") {
