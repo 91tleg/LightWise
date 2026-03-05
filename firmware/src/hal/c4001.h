@@ -21,7 +21,6 @@ extern "C" {
  * @param rxPin         GPIO pin number for UART receive
  * @param rxBufSize     Receive buffer size in bytes
  * @param txBufSize     Transmit buffer size in bytes
- * @param queue         FreeRTOS queue handle for UART events
  */
 typedef struct C4001Hw
 {
@@ -48,7 +47,7 @@ typedef struct C4001Hw
  * @return true  Initialization successful
  * @return false Initialization failed or invalid parameter
  */
-bool c4001_hal_init( C4001Hw * sensor );
+bool c4001_hal_init( const C4001Hw * sensor );
 
 /**
  * @brief De-initialize C4001 UART hardware interface
@@ -60,7 +59,7 @@ bool c4001_hal_init( C4001Hw * sensor );
  * @return true  De-initialization successful
  * @return false De-initialization failed or invalid parameter
  */
-bool c4001_hal_deinit( C4001Hw * sensor );
+bool c4001_hal_deinit( const C4001Hw * sensor );
 /**
  * @brief Write data to C4001 UART
  *
