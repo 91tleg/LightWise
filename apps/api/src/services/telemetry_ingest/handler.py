@@ -19,12 +19,12 @@ def handler(event, context):
         return
 
     try:
-        _processor.execute_raw(uplink.dev_eui, uplink.payload_bytes)
+        _processor.execute_raw(uplink, uplink.payload_bytes)
         logger.info(
-            f"Telemetry processed for dev_eui={uplink.dev_eui}"
+            f"Telemetry processed for streetlight_id={uplink.streetlight_id}"
         )
     except Exception:
         logger.exception(
-            f"Unhandled error processing dev_eui={uplink.dev_eui}"
+            f"Error processing streetlight_id={uplink.streetlight_id}"
         )
-        raise  # Re-raise so IoT Core can retry
+        raise
