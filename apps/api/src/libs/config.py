@@ -5,9 +5,21 @@ class Config:
     def __init__(self):
         self.AWS_REGION = os.getenv("AWS_REGION", "us-west-2")
 
-        # Timestream
-        self.TS_DATABASE = os.getenv("TS_DATABASE", "IoTDatabase")
-        self.TS_TABLE = os.getenv("TS_TABLE", "StreetlightMetrics")
+        self.TELEMETRY_BACKEND = os.getenv(
+            "TELEMETRY_BACKEND", "influxdb"
+        )
+
+        # InfluxDB
+        self.INFLUX_URL = os.getenv("INFLUX_URL", "")
+        self.INFLUX_TOKEN = os.getenv("INFLUX_TOKEN", "")
+        self.INFLUX_ORG = os.getenv("INFLUX_ORG", "")
+        self.INFLUX_BUCKET = os.getenv(
+            "INFLUX_BUCKET", "streetlight-telemetry"
+        )
+
+        # Timestream (legacy: used when TELEMETRY_BACKEND=timestream)
+        self.TS_DATABASE = os.getenv("TS_DATABASE", "")
+        self.TS_TABLE = os.getenv("TS_TABLE", "")
 
         # DynamoDB
         self.DYNAMO_ENDPOINT = os.getenv("DYNAMO_ENDPOINT", "")
