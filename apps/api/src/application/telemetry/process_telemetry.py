@@ -6,10 +6,6 @@ from infrastructure.persistence.dynamo.streetlights_repo import (
     StreetlightsRepo,
     get_streetlights_repository,
 )
-from infrastructure.persistence.dynamo.user_tenant_repo import (
-    UserTenantRepo,
-    get_user_tenant_repository,
-)
 from infrastructure.persistence.dynamo.websocket_connection_repo import (
     WebSocketConnectionRepo,
     get_websocket_connection_repository,
@@ -25,13 +21,11 @@ class ProcessTelemetry:
         timestream_writer: TimestreamWriter,
         streetlights_repo: StreetlightsRepo,
         websocket_publisher: SensorEventPublisher,
-        user_tenant_repo: UserTenantRepo,
         ws_repo: WebSocketConnectionRepo,
     ):
         self.timestream = timestream_writer
         self.streetlight_repo = streetlights_repo
         self.websocket = websocket_publisher
-        self.user_tenant_repo = user_tenant_repo
         self.ws_repo = ws_repo
 
     def execute_raw(self, dev_eui: str, raw_bytes: bytes) -> None:
@@ -79,6 +73,5 @@ def get_telemetry_processor() -> ProcessTelemetry:
         timestream_writer=TimestreamWriter(),
         streetlights_repo=get_streetlights_repository(),
         websocket_publisher=SensorEventPublisher(),
-        user_tenant_repo=get_user_tenant_repository(),
         ws_repo=get_websocket_connection_repository(),
     )
