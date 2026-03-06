@@ -178,11 +178,24 @@ Resources:
           AttributeType: S
         - AttributeName: SK
           AttributeType: S
+        - AttributeName: wireless_device_id
+          AttributeType: S
       KeySchema:
         - AttributeName: streetlight_id
           KeyType: HASH
         - AttributeName: SK
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: WirelessDeviceIndex
+          KeySchema:
+            - AttributeName: wireless_device_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - streetlight_id
+              - tenant_id
+              - site_id
 
   UsersAndTenants:
     Type: AWS::DynamoDB::Table
