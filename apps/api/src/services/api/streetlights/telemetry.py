@@ -1,13 +1,18 @@
 import json
 from datetime import datetime
 
-from application.streetlight.get_telemetry import get_telemetry_service
+from application.telemetry.query_telemetry import get_query_telemetry
 from libs.logging import logger
 
 
-_service = get_telemetry_service()
+_service = get_query_telemetry()
 
-VALID_INTERVALS = {"1m", "5m", "15m", "1h", "1d"}
+
+_ALLOWED_INTERVALS = {
+    "1m", "5m", "10m", "15m", "30m",   # short term
+    "1h", "6h", "12h",                 # medium term
+    "1d", "7d", "30d",                 # energy trend analysis
+}
 
 
 def handler(event, context):
@@ -32,11 +37,11 @@ def handler(event, context):
             "body": json.dumps({"error": "from and to are required"}),
         }
 
-    if interval not in VALID_INTERVALS:
+    if interval not in _ALLOWED_INTERVALS:
         return {
             "statusCode": 400,
             "body": json.dumps({
-                "error": f"interval must be one of {VALID_INTERVALS}"
+                "error": f"interval must be one of {_ALLOWED_INTERVALS}"
             }),
         }
 
