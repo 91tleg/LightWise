@@ -6,7 +6,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-bool c4001_hal_init( C4001Hw * const sensor )
+bool c4001_hal_init( const C4001Hw * const sensor )
 {
     bool result = false;
 
@@ -50,7 +50,7 @@ bool c4001_hal_init( C4001Hw * const sensor )
     return result;
 }
 
-bool c4001_hal_deinit( C4001Hw * const sensor )
+bool c4001_hal_deinit( const C4001Hw * const sensor )
 {
     bool result = false;
 
@@ -105,7 +105,7 @@ int c4001_hal_read( const C4001Hw * const sensor,
 {
     int len = 0;
 
-    if( ( sensor != NULL ) && (  buf != NULL ) )
+    if( ( sensor != NULL ) && (  buf != NULL ) && ( maxLen > 0U ) )
     {
         len = uart_read_bytes( sensor->uartNum,
                                buf,
