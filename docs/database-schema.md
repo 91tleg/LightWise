@@ -86,10 +86,16 @@ PK: streetlight_id
 SK: METADATA
 ```
 
+#### GSI
+```text
+PK: wireless_device_id
+```
+
 #### Example Item
 ```json
 {
-  "streetlight_id": "LW-00042",
+  "streetlight_id": "LW-00001",
+  "wireless_device_id": "559bf27a-76d7-4afe-a12c-0c618afe0eeb",
   "lat": 37.7749,
   "lng": -122.4194,
   "site_id": "CITY#SF",
@@ -284,5 +290,5 @@ This design:
 
 ---
 
-**Document Version**: 1.1   
-**Last Updated**: February 24, 2026  
+**Document Version**: 1.2   
+**Last Updated**: March 5, 2026  

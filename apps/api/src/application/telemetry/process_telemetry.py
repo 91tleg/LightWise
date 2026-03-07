@@ -2,19 +2,19 @@ from functools import lru_cache
 
 from domain.streetlight.health import HealthStatus
 from domain.telemetry.models import TelemetryPayload
+from domain.iot.models import IoTUplink
 from infrastructure.persistence.dynamo.streetlights_repo import (
     StreetlightsRepo,
     get_streetlights_repository,
-)
-from infrastructure.persistence.dynamo.user_tenant_repo import (
-    UserTenantRepo,
-    get_user_tenant_repository,
 )
 from infrastructure.persistence.dynamo.websocket_connection_repo import (
     WebSocketConnectionRepo,
     get_websocket_connection_repository,
 )
-from infrastructure.persistence.timestream.writer import TimestreamWriter
+from infrastructure.persistence.telemetry.base import TelemetryWriter
+from infrastructure.persistence.telemetry.provider import (
+    get_writer
+)
 from infrastructure.websocket.publisher import SensorEventPublisher
 from infrastructure.telemetry.lorawan_decoder import decode_uplink
 
@@ -22,35 +22,32 @@ from infrastructure.telemetry.lorawan_decoder import decode_uplink
 class ProcessTelemetry:
     def __init__(
         self,
-        timestream_writer: TimestreamWriter,
+        telemetry_writer: TelemetryWriter,
         streetlights_repo: StreetlightsRepo,
         websocket_publisher: SensorEventPublisher,
-        user_tenant_repo: UserTenantRepo,
         ws_repo: WebSocketConnectionRepo,
     ):
-        self.timestream = timestream_writer
+        self.telemetry_writer = telemetry_writer
         self.streetlight_repo = streetlights_repo
         self.websocket = websocket_publisher
-        self.user_tenant_repo = user_tenant_repo
         self.ws_repo = ws_repo
 
-    def execute_raw(self, dev_eui: str, raw_bytes: bytes) -> None:
+    def execute_raw(self, uplink: IoTUplink, raw_bytes: bytes) -> None:
         """
         Entry point for raw uplink data.
         Translates infrastructure input into a domain event and
         delegates processing.
         """
-        tenant_id = self.streetlight_repo.get_tenant_id(dev_eui)
         event = decode_uplink(
-            tenant_id=tenant_id,
-            streetlight_id=dev_eui,
+            tenant_id=uplink.tenant_id,
+            streetlight_id=uplink.streetlight_id,
             bytes_payload=raw_bytes,
         )
         self.execute(event)
 
     def execute(self, event: TelemetryPayload) -> None:
         """Processes a validated and decoded TelemetryPayload."""
-        self.timestream.write(event)
+        self.telemetry_writer.write(event)
 
         health = self._evaluate_health(event)
         self.streetlight_repo.update(event, health)
@@ -76,9 +73,8 @@ class ProcessTelemetry:
 @lru_cache(maxsize=1)
 def get_telemetry_processor() -> ProcessTelemetry:
     return ProcessTelemetry(
-        timestream_writer=TimestreamWriter(),
+        telemetry_writer=get_writer(),
         streetlights_repo=get_streetlights_repository(),
         websocket_publisher=SensorEventPublisher(),
-        user_tenant_repo=get_user_tenant_repository(),
         ws_repo=get_websocket_connection_repository(),
     )
