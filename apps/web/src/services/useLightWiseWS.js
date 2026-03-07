@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Contract:
- *  - WS $connect needs tenant_id as query param (demo mode)
+ *  - WS connect URL should be exactly the API Gateway WS URL
+ *  - no tenant_id query param
  *  - subscribe payload: { action:"subscribe", streetlight_id:"LW-00042" }
  */
 export function useLightWiseWS(wsBaseUrl, options = {}) {
@@ -11,16 +12,13 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     reconnectDelayMs = 1500,
     maxMessages = 50,
     debug = false,
-    tenantId = (process.env.REACT_APP_TENANT_ID || "tenant-001").trim(),
   } = options;
 
   const wsUrl = useMemo(() => {
     const base = (wsBaseUrl || "").trim();
     if (!base) return "";
-    const u = new URL(base);
-    if (tenantId) u.searchParams.set("tenant_id", tenantId);
-    return u.toString();
-  }, [wsBaseUrl, tenantId]);
+    return base;
+  }, [wsBaseUrl]);
 
   const wsRef = useRef(null);
   const reconnectTimerRef = useRef(null);
@@ -31,7 +29,9 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
 
-  const log = useCallback((...args) => debug && console.log("[LightWiseWS]", ...args), [debug]);
+  const log = useCallback((...args) => {
+    if (debug) console.log("[LightWiseWS]", ...args);
+  }, [debug]);
 
   const clearReconnectTimer = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -43,19 +43,23 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
   const disconnect = useCallback(() => {
     manualCloseRef.current = true;
     clearReconnectTimer();
+
     const ws = wsRef.current;
     wsRef.current = null;
+
     if (ws) {
       try {
         ws.close(1000, "client disconnect");
       } catch {}
     }
+
     setStatus("disconnected");
   }, [clearReconnectTimer]);
 
   const send = useCallback((obj) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+
     try {
       ws.send(JSON.stringify(obj));
       return true;
@@ -115,11 +119,13 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     ws.onmessage = (evt) => {
       const raw = evt.data;
       let parsed;
+
       try {
         parsed = JSON.parse(raw);
       } catch {
         parsed = { raw };
       }
+
       setLastMessage(parsed);
       setMessages((prev) => [parsed, ...prev].slice(0, maxMessages));
     };
@@ -142,7 +148,9 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
 
       if (autoReconnect) {
         clearReconnectTimer();
-        reconnectTimerRef.current = setTimeout(() => connect(), reconnectDelayMs);
+        reconnectTimerRef.current = setTimeout(() => {
+          connect();
+        }, reconnectDelayMs);
       }
     };
   }, [wsUrl, autoReconnect, reconnectDelayMs, maxMessages, log, clearReconnectTimer]);
@@ -153,6 +161,7 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
       setStatus("idle");
       return;
     }
+
     connect();
     return () => disconnect();
   }, [wsUrl, connect, disconnect]);
