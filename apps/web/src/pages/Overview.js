@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
-import StatCard from "../components/StatCard";
 import MapEmbed from "../components/MapEmbed";
 import Legend from "../components/Legend";
 import Panel from "../components/Panel";
