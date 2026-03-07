@@ -1,5 +1,3 @@
-// apps/web/src/pages/Overview.js
-
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
@@ -11,6 +9,12 @@ import PillRow from "../components/PillRow";
 
 import { listStreetlights, getStreetlightTelemetry } from "../services/api";
 import { useLightWiseWS } from "../services/useLightWiseWS";
+
+const CACHE_KEYS = {
+  STREETLIGHTS: "lightwise_overview_streetlights_cache_v1",
+  SNAPSHOTS: "lightwise_overview_snapshots_cache_v1",
+  TRENDS: "lightwise_overview_trends_cache_v1",
+};
 
 function clampPct(x) {
   const n = Number(x);
@@ -31,11 +35,28 @@ function formatTimestamp(ts) {
   });
 }
 
-// Build ISO string WITHOUT milliseconds (backend-friendly)
 function isoNoMs(d) {
   const x = d instanceof Date ? d : new Date(d);
-  if (!Number.isFinite(x.getTime())) return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  if (!Number.isFinite(x.getTime())) {
+    return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  }
   return x.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function readCache(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeCache(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
 }
 
 function MiniLineChart({ values = [], height = 120 }) {
@@ -43,7 +64,10 @@ function MiniLineChart({ values = [], height = 120 }) {
   const h = height;
 
   const pts = useMemo(() => {
-    const arr = (values || []).filter((v) => Number.isFinite(Number(v))).map(Number);
+    const arr = (values || [])
+      .filter((v) => Number.isFinite(Number(v)))
+      .map(Number);
+
     if (arr.length < 2) return "";
 
     const min = Math.min(...arr);
@@ -59,7 +83,7 @@ function MiniLineChart({ values = [], height = 120 }) {
       .join(" ");
   }, [values, w, h]);
 
-  if (!pts) return <div className="lwPlaceholder">Waiting for telemetry to plot…</div>;
+  if (!pts) return <div className="lwPlaceholder lwOverviewPlaceholder">Waiting for telemetry to plot…</div>;
 
   return (
     <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
@@ -107,31 +131,145 @@ function getPointMotion(p) {
   return null;
 }
 
+function toBoolOrNull(v) {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return Boolean(v);
+  return null;
+}
+
+function extractSnapshotFromPoint(point) {
+  if (!point || typeof point !== "object") return null;
+
+  const diagnostics = point?.diagnostics || {};
+  const data = point?.data || {};
+
+  return {
+    timestamp: point?.timestamp || point?.time || point?.ts || null,
+    health: point?.health ?? null,
+    motion_detected: getPointMotion(point),
+    light_level: getPointLightLevel(point),
+
+    ambient_primary_ok: toBoolOrNull(
+      point?.ambient_primary_ok ?? diagnostics?.ambient_primary_ok
+    ),
+    ambient_secondary_ok: toBoolOrNull(
+      point?.ambient_secondary_ok ?? diagnostics?.ambient_secondary_ok
+    ),
+    th_ok: toBoolOrNull(point?.th_ok ?? diagnostics?.th_ok),
+    motion_primary_ok: toBoolOrNull(
+      point?.motion_primary_ok ?? diagnostics?.motion_primary_ok
+    ),
+    motion_secondary_ok: toBoolOrNull(
+      point?.motion_secondary_ok ?? diagnostics?.motion_secondary_ok
+    ),
+
+    temp_c:
+      typeof point?.temp_c === "number"
+        ? point.temp_c
+        : typeof data?.temp_c === "number"
+        ? data.temp_c
+        : null,
+
+    humidity:
+      typeof point?.humidity === "number"
+        ? point.humidity
+        : typeof data?.humidity === "number"
+        ? data.humidity
+        : null,
+  };
+}
+
+function extractSnapshotFromWsMessage(msg) {
+  if (!msg || typeof msg !== "object") return null;
+
+  const diagnostics = msg?.diagnostics || {};
+  const data = msg?.data || {};
+
+  return {
+    timestamp: msg?.timestamp || null,
+    health: msg?.health ?? null,
+    motion_detected: getPointMotion(msg),
+    light_level: getPointLightLevel(msg),
+
+    ambient_primary_ok: toBoolOrNull(diagnostics?.ambient_primary_ok),
+    ambient_secondary_ok: toBoolOrNull(diagnostics?.ambient_secondary_ok),
+    th_ok: toBoolOrNull(diagnostics?.th_ok),
+    motion_primary_ok: toBoolOrNull(diagnostics?.motion_primary_ok),
+    motion_secondary_ok: toBoolOrNull(diagnostics?.motion_secondary_ok),
+
+    temp_c: typeof data?.temp_c === "number" ? data.temp_c : null,
+    humidity: typeof data?.humidity === "number" ? data.humidity : null,
+  };
+}
+
+function statusTone(value) {
+  const v = String(value || "").toUpperCase();
+  if (v === "OK" || v === "LIVE" || v === "TRUE" || v === "CONNECTED") return "good";
+  if (v === "DEGRADED" || v === "WARNING" || v === "RECENT" || v === "CACHED") return "warn";
+  if (v === "CRITICAL" || v === "FAIL" || v === "FALSE" || v === "ERROR") return "bad";
+  return "neutral";
+}
+
+function boolTone(val) {
+  if (val == null) return "neutral";
+  return val ? "good" : "bad";
+}
+
+function FieldRow({ label, value, tone = "neutral" }) {
+  return (
+    <div className="lwFieldRow">
+      <span className="lwFieldLabel">{label}</span>
+      <span className={`lwFieldValue lwTone-${tone}`}>{value ?? "N/A"}</span>
+    </div>
+  );
+}
+
 export default function Overview() {
-  const tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001";
   const WS_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
 
-  const [streetlights, setStreetlights] = useState([]);
+  const [streetlights, setStreetlights] = useState(() =>
+    readCache(CACHE_KEYS.STREETLIGHTS, [])
+  );
   const [error, setError] = useState("");
 
   const [telemetryError, setTelemetryError] = useState("");
   const [telemetryLoading, setTelemetryLoading] = useState(false);
 
+  const [snapshotMap, setSnapshotMap] = useState(() =>
+    readCache(CACHE_KEYS.SNAPSHOTS, {})
+  );
+  const [trendMap, setTrendMap] = useState(() =>
+    readCache(CACHE_KEYS.TRENDS, {})
+  );
+
   const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
-    tenantId,
     debug: false,
   });
 
-  const [lightTrend, setLightTrend] = useState([]);
-  const [wsMotion, setWsMotion] = useState(null);
+  useEffect(() => {
+    writeCache(CACHE_KEYS.STREETLIGHTS, streetlights);
+  }, [streetlights]);
+
+  useEffect(() => {
+    writeCache(CACHE_KEYS.SNAPSHOTS, snapshotMap);
+  }, [snapshotMap]);
+
+  useEffect(() => {
+    writeCache(CACHE_KEYS.TRENDS, trendMap);
+  }, [trendMap]);
 
   const refreshStreetlights = async () => {
     setError("");
+
     try {
       const rows = await listStreetlights();
-      setStreetlights(Array.isArray(rows) ? rows : []);
+      if (Array.isArray(rows) && rows.length > 0) {
+        setStreetlights(rows);
+      } else {
+        setError("Using cached streetlight data (latest fetch returned empty).");
+      }
     } catch (e) {
-      setError(e?.message || String(e));
+      setError(`Using cached streetlight data. ${e?.message || String(e)}`);
     }
   };
 
@@ -147,39 +285,43 @@ export default function Overview() {
     const degraded = streetlights.filter((s) => s.health === "DEGRADED").length;
     const critical = streetlights.filter((s) => s.health === "CRITICAL").length;
 
-    const alerts = streetlights.filter((s) => s.health === "DEGRADED" || s.health === "CRITICAL").slice(0, 5);
+    const alerts = streetlights
+      .filter((s) => s.health === "DEGRADED" || s.health === "CRITICAL")
+      .slice(0, 5);
 
     const selected = streetlights[0] || null;
 
-    const systemStatus = critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
+    const systemStatus =
+      critical > 0 ? "CRITICAL" : degraded > 0 ? "DEGRADED" : total > 0 ? "OK" : "N/A";
 
     return { total, ok, degraded, critical, systemStatus, alerts, selected };
   }, [streetlights]);
 
   const selected = stats.selected;
-  const selectedId = selected?.streetlight_id ?? "—";
   const selectedStreetlightId = selected?.streetlight_id || "";
 
-  // Reset visuals when selection changes
+  const lightTrend = useMemo(() => {
+    return Array.isArray(trendMap[selectedStreetlightId])
+      ? trendMap[selectedStreetlightId]
+      : [];
+  }, [trendMap, selectedStreetlightId]);
+
   useEffect(() => {
-    setWsMotion(null);
-    setLightTrend([]);
     setTelemetryError("");
   }, [selectedStreetlightId]);
 
-  // Hydrate trend using HTTP telemetry (shorter time window + retry)
   useEffect(() => {
     let cancelled = false;
 
     async function fetchTelemetryOnce() {
       const to = isoNoMs(new Date());
-      const from = isoNoMs(new Date(Date.now() - 60 * 60 * 1000)); // ✅ last 60 minutes
-      const payload = await getStreetlightTelemetry(selectedStreetlightId, {
+      const from = isoNoMs(new Date(Date.now() - 60 * 60 * 1000));
+
+      return getStreetlightTelemetry(selectedStreetlightId, {
         from,
         to,
         interval: "5m",
       });
-      return payload;
     }
 
     async function hydrateFromHttp() {
@@ -190,10 +332,10 @@ export default function Overview() {
 
       try {
         let payload;
+
         try {
           payload = await fetchTelemetryOnce();
-        } catch (e1) {
-          // ✅ one small retry helps when local SAM/Lambda is booting
+        } catch {
           await new Promise((r) => setTimeout(r, 800));
           payload = await fetchTelemetryOnce();
         }
@@ -208,12 +350,23 @@ export default function Overview() {
           .map(clampPct);
 
         if (values.length) {
-          setLightTrend(values.slice(-40));
+          setTrendMap((prev) => ({
+            ...prev,
+            [selectedStreetlightId]: values.slice(-40),
+          }));
         }
 
         const last = points[points.length - 1];
-        const motion = getPointMotion(last);
-        if (typeof motion === "boolean") setWsMotion(motion);
+        const snapshot = extractSnapshotFromPoint(last);
+        if (snapshot) {
+          setSnapshotMap((prev) => ({
+            ...prev,
+            [selectedStreetlightId]: {
+              ...(prev[selectedStreetlightId] || {}),
+              ...snapshot,
+            },
+          }));
+        }
       } catch (e) {
         if (cancelled) return;
         setTelemetryError(e?.message || String(e));
@@ -229,14 +382,12 @@ export default function Overview() {
     };
   }, [selectedStreetlightId]);
 
-  // Subscribe when connected + selection exists
   useEffect(() => {
     if (wsStatus !== "connected") return;
     if (!selectedStreetlightId) return;
     subscribe(selectedStreetlightId);
   }, [wsStatus, selectedStreetlightId, subscribe]);
 
-  // Collect light_level for trend graph + motion (WS keeps updating after HTTP hydration)
   useEffect(() => {
     const msg = lastMessage;
     if (!msg || typeof msg !== "object") return;
@@ -244,19 +395,69 @@ export default function Overview() {
 
     const lvl = msg?.data?.light_level;
     if (typeof lvl === "number") {
-      setLightTrend((prev) => [...prev, clampPct(lvl)].slice(-40));
+      setTrendMap((prev) => {
+        const existing = Array.isArray(prev[selectedStreetlightId])
+          ? prev[selectedStreetlightId]
+          : [];
+        return {
+          ...prev,
+          [selectedStreetlightId]: [...existing, clampPct(lvl)].slice(-40),
+        };
+      });
     }
 
-    const m = msg?.data?.motion;
-    if (typeof m === "boolean") setWsMotion(m);
-    else if (typeof m === "number") setWsMotion(Boolean(m));
+    const snapshot = extractSnapshotFromWsMessage(msg);
+    if (snapshot) {
+      setSnapshotMap((prev) => ({
+        ...prev,
+        [selectedStreetlightId]: {
+          ...(prev[selectedStreetlightId] || {}),
+          ...snapshot,
+        },
+      }));
+    }
   }, [lastMessage, selectedStreetlightId]);
 
+  const cachedSnapshot = snapshotMap[selectedStreetlightId] || null;
+
+  const mergedSelected = useMemo(() => {
+    if (!selected) return null;
+
+    return {
+      ...selected,
+      health: cachedSnapshot?.health ?? selected.health,
+      motion_detected:
+        typeof cachedSnapshot?.motion_detected === "boolean"
+          ? cachedSnapshot.motion_detected
+          : selected.motion_detected,
+      last_seen: cachedSnapshot?.timestamp ?? selected.last_seen,
+
+      ambient_primary_ok:
+        cachedSnapshot?.ambient_primary_ok ?? selected.ambient_primary_ok,
+      ambient_secondary_ok:
+        cachedSnapshot?.ambient_secondary_ok ?? selected.ambient_secondary_ok,
+      th_ok: cachedSnapshot?.th_ok ?? selected.th_ok,
+      motion_primary_ok:
+        cachedSnapshot?.motion_primary_ok ?? selected.motion_primary_ok,
+      motion_secondary_ok:
+        cachedSnapshot?.motion_secondary_ok ?? selected.motion_secondary_ok,
+
+      temp_c: cachedSnapshot?.temp_c ?? selected.temp_c,
+      humidity: cachedSnapshot?.humidity ?? selected.humidity,
+    };
+  }, [selected, cachedSnapshot]);
+
+  const selectedId = mergedSelected?.streetlight_id ?? "—";
+
   const selectedMotion = useMemo(() => {
-    if (typeof wsMotion === "boolean") return wsMotion ? "true" : "false";
-    if (typeof selected?.motion_detected === "boolean") return selected.motion_detected ? "true" : "false";
+    if (typeof mergedSelected?.motion_detected === "boolean") {
+      return mergedSelected.motion_detected ? "true" : "false";
+    }
     return "N/A";
-  }, [wsMotion, selected?.motion_detected]);
+  }, [mergedSelected?.motion_detected]);
+
+  const energyTrendState =
+    wsStatus === "connected" ? "Live" : lightTrend.length ? "Cached" : "N/A";
 
   const kpis = [
     {
@@ -264,147 +465,532 @@ export default function Overview() {
       label: "System Status",
       value: stats.systemStatus,
       note: stats.total ? `${stats.total} poles` : "No data",
+      tone: statusTone(stats.systemStatus),
     },
     {
       icon: "⚠️",
       label: "Faults Detected",
       value: String(stats.degraded + stats.critical || "0"),
       note: "DEGRADED + CRITICAL",
+      tone: stats.degraded + stats.critical > 0 ? "warn" : "good",
     },
     {
       icon: "♻️",
       label: "Energy Trend",
-      value: wsStatus === "connected" ? "Live" : "N/A",
-      note: "Brightness proxy from WS light_level",
+      value: energyTrendState,
+      note: "Brightness proxy from telemetry light_level",
+      tone: statusTone(energyTrendState),
     },
     {
       icon: "📡",
       label: "Total Poles",
       value: String(stats.total || "0"),
       note: "From /streetlights",
+      tone: stats.total > 0 ? "good" : "neutral",
     },
   ];
 
-  const lat = typeof selected?.lat === "number" ? selected.lat : null;
-  const lng = typeof selected?.lng === "number" ? selected.lng : null;
+  const lat = typeof mergedSelected?.lat === "number" ? mergedSelected.lat : null;
+  const lng = typeof mergedSelected?.lng === "number" ? mergedSelected.lng : null;
 
   return (
-    <Layout title="Overview" subtitle="System health, alerts, and a quick view of the network.">
-      {error && <div className="lwErrorBanner">API Error: {error}</div>}
+    <>
+      <style>{`
+        .lwKpiGrid .lwCard,
+        .lwPanelGrid .lwCard,
+        .lwBottomGrid .lwCard,
+        .lwPanelGrid .lwPanel,
+        .lwBottomGrid .lwPanel,
+        .lwKpiGrid > *,
+        .lwPanelGrid > *,
+        .lwBottomGrid > * {
+          overflow: hidden;
+        }
 
-      <div className="lwKpiGrid">
-        {kpis.map(({ icon, label, value, note }) => (
-          <StatCard key={label} icon={icon} label={label} value={value} note={note} />
-        ))}
-      </div>
+        .lwKpiGrid > *,
+        .lwPanelGrid > *,
+        .lwBottomGrid > * {
+          border-radius: 22px !important;
+          box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06) !important;
+        }
 
-      <div className="lwPanelGrid">
-        <Panel title="Recent Alerts">
-          {!stats.alerts.length ? (
-            <div className="lwPlaceholder">No alerts (or no data)</div>
-          ) : (
-            <ul className="lwList">
-              {stats.alerts.map((s) => (
-                <li key={s.streetlight_id}>
-                  <b>{s.streetlight_id}</b> — {s.health} — {s.name || "Unnamed"}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+        .lwOverviewPlaceholder {
+          min-height: 124px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 18px;
+          background: linear-gradient(180deg, rgba(248,250,252,0.78), rgba(241,245,249,0.88));
+          color: #7b8794 !important;
+          font-weight: 800;
+          letter-spacing: 0.01em;
+          border: 1px dashed rgba(148, 163, 184, 0.28);
+        }
 
-        <Panel title="Energy Trend">
-          <div className="lwSmallText" style={{ opacity: 0.85, marginBottom: 8 }}>
-            This is a <b>brightness trend</b> from telemetry (<code>data.light_level</code>) — not metered kWh.
-          </div>
+        .lwOverviewSectionText {
+          color: #4b5563;
+          line-height: 1.45;
+          font-size: 15px;
+        }
 
-          {telemetryError && (
-            <div className="lwSmallText" style={{ opacity: 0.85, marginBottom: 8 }}>
-              <b>Telemetry:</b> {telemetryError}
+        .lwOverviewErrorBox {
+          margin-top: 12px;
+          margin-bottom: 12px;
+          padding: 12px 14px;
+          border-radius: 14px;
+          background: rgba(255, 243, 243, 0.9);
+          border: 1px solid rgba(239, 68, 68, 0.18);
+          color: #7f1d1d;
+          font-size: 14px;
+          line-height: 1.45;
+          word-break: break-word;
+        }
+
+        .lwOverviewMuted {
+          color: #6b7280;
+          font-size: 14px;
+        }
+
+        .lwOverviewAlertsList {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: grid;
+          gap: 10px;
+        }
+
+        .lwOverviewAlertItem {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 12px 14px;
+          border-radius: 16px;
+          background: rgba(248, 250, 252, 0.9);
+          border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .lwOverviewAlertMain {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .lwOverviewAlertId {
+          font-weight: 900;
+          color: #1f2937;
+          letter-spacing: 0.01em;
+          white-space: nowrap;
+        }
+
+        .lwOverviewAlertName {
+          color: #6b7280;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .lwStatusBadge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 74px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+          border: 1px solid transparent;
+        }
+
+        .lwStatusBadge.good {
+          background: rgba(34, 197, 94, 0.14);
+          color: #15803d;
+          border-color: rgba(34, 197, 94, 0.24);
+        }
+
+        .lwStatusBadge.warn {
+          background: rgba(245, 158, 11, 0.14);
+          color: #b45309;
+          border-color: rgba(245, 158, 11, 0.24);
+        }
+
+        .lwStatusBadge.bad {
+          background: rgba(239, 68, 68, 0.14);
+          color: #b91c1c;
+          border-color: rgba(239, 68, 68, 0.24);
+        }
+
+        .lwStatusBadge.neutral {
+          background: rgba(148, 163, 184, 0.14);
+          color: #475569;
+          border-color: rgba(148, 163, 184, 0.24);
+        }
+
+        .lwOverviewInfoGrid {
+          display: grid;
+          gap: 10px;
+        }
+
+        .lwFieldRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 10px 12px;
+          border-radius: 14px;
+          background: rgba(248, 250, 252, 0.95);
+          border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .lwFieldLabel {
+          font-weight: 800;
+          color: #334155;
+          min-width: 0;
+        }
+
+        .lwFieldValue {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          text-align: right;
+          padding: 5px 10px;
+          border-radius: 999px;
+          font-weight: 900;
+          font-size: 13px;
+          letter-spacing: 0.01em;
+          white-space: nowrap;
+          border: 1px solid transparent;
+        }
+
+        .lwTone-good {
+          background: rgba(34, 197, 94, 0.14);
+          color: #166534;
+          border-color: rgba(34, 197, 94, 0.22);
+        }
+
+        .lwTone-warn {
+          background: rgba(245, 158, 11, 0.14);
+          color: #b45309;
+          border-color: rgba(245, 158, 11, 0.22);
+        }
+
+        .lwTone-bad {
+          background: rgba(239, 68, 68, 0.14);
+          color: #b91c1c;
+          border-color: rgba(239, 68, 68, 0.22);
+        }
+
+        .lwTone-neutral {
+          background: rgba(148, 163, 184, 0.14);
+          color: #475569;
+          border-color: rgba(148, 163, 184, 0.22);
+        }
+
+        .lwOverviewKpiWrap {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .lwOverviewKpiIcon {
+          width: 52px;
+          height: 52px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 16px;
+          background: rgba(248, 250, 252, 0.9);
+          font-size: 24px;
+          box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.9);
+        }
+
+        .lwOverviewKpiText {
+          min-width: 0;
+        }
+
+        .lwOverviewKpiLabel {
+          color: #475569;
+          font-size: 13px;
+          font-weight: 800;
+          margin-bottom: 4px;
+        }
+
+        .lwOverviewKpiValue {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .lwOverviewKpiNumber {
+          font-size: 34px;
+          line-height: 1;
+          font-weight: 900;
+          color: #0f172a;
+          letter-spacing: -0.03em;
+        }
+
+        .lwOverviewKpiNote {
+          color: #6b7280;
+          font-size: 14px;
+          margin-top: 8px;
+          line-height: 1.35;
+        }
+
+        .lwSelectedTopMeta {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 12px;
+          align-items: start;
+          margin-bottom: 12px;
+        }
+
+        .lwSelectedMainTitle {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .lwSelectedId {
+          font-size: 28px;
+          line-height: 1;
+          font-weight: 900;
+          color: #0f172a;
+          letter-spacing: -0.03em;
+        }
+
+        .lwSelectedName {
+          color: #64748b;
+          font-weight: 800;
+          font-size: 15px;
+        }
+
+        .lwSelectedGrid {
+          display: grid;
+          gap: 10px;
+        }
+
+        .lwOverviewMapHint {
+          margin-top: 10px;
+          color: #6b7280;
+          font-size: 13px;
+          text-align: center;
+        }
+
+        .lwOverviewOperationsMeta {
+          display: grid;
+          gap: 10px;
+          margin-top: 12px;
+        }
+
+        .lwOverviewOperationsMetaRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 10px 12px;
+          border-radius: 14px;
+          background: rgba(248, 250, 252, 0.95);
+          border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .lwOverviewOperationsMetaLabel {
+          font-weight: 800;
+          color: #334155;
+        }
+
+        .lwOverviewOperationsMetaValue {
+          font-weight: 900;
+          color: #0f172a;
+        }
+
+        .lwBottomGrid .lwPoleMeta {
+          width: 100%;
+        }
+
+        @media (max-width: 900px) {
+          .lwSelectedTopMeta {
+            grid-template-columns: 1fr;
+          }
+
+          .lwFieldRow,
+          .lwOverviewOperationsMetaRow,
+          .lwOverviewAlertItem {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+
+          .lwFieldValue,
+          .lwStatusBadge {
+            white-space: normal;
+          }
+        }
+      `}</style>
+
+      <Layout title="Overview" subtitle="System health, alerts, and a quick view of the network.">
+        {error && <div className="lwErrorBanner">{error}</div>}
+
+        <div className="lwKpiGrid">
+          {kpis.map(({ icon, label, value, note, tone }) => (
+            <div
+              key={label}
+              style={{
+                borderRadius: 22,
+                background: "rgba(255,255,255,0.72)",
+                padding: 18,
+              }}
+            >
+              <div className="lwOverviewKpiWrap">
+                <div className="lwOverviewKpiIcon">{icon}</div>
+                <div className="lwOverviewKpiText">
+                  <div className="lwOverviewKpiLabel">{label}</div>
+                  <div className="lwOverviewKpiValue">
+                    <div className="lwOverviewKpiNumber">{value}</div>
+                    <span className={`lwStatusBadge ${tone}`}>{value}</span>
+                  </div>
+                  <div className="lwOverviewKpiNote">{note}</div>
+                </div>
+              </div>
             </div>
-          )}
+          ))}
+        </div>
 
-          {telemetryLoading && !lightTrend.length ? (
-            <div className="lwPlaceholder">Loading telemetry…</div>
-          ) : (
-            <MiniLineChart values={lightTrend} height={120} />
-          )}
-        </Panel>
+        <div className="lwPanelGrid">
+          <Panel title="Recent Alerts">
+            {!stats.alerts.length ? (
+              <div className="lwPlaceholder lwOverviewPlaceholder">No alerts (or no data)</div>
+            ) : (
+              <ul className="lwOverviewAlertsList">
+                {stats.alerts.map((s) => (
+                  <li key={s.streetlight_id} className="lwOverviewAlertItem">
+                    <div className="lwOverviewAlertMain">
+                      <span className="lwOverviewAlertId">{s.streetlight_id}</span>
+                      <span className="lwOverviewAlertName">{s.name || "Unnamed"}</span>
+                    </div>
+                    <span className={`lwStatusBadge ${statusTone(s.health)}`}>{s.health || "N/A"}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
 
-        <Panel title="Operations">
-          <PillRow
-            pills={[
-              { label: `OK: ${stats.ok}`, color: "green" },
-              { label: `DEGRADED: ${stats.degraded}`, color: "orange" },
-              { label: `CRITICAL: ${stats.critical}`, color: "red" },
-            ]}
-          />
-          <div className="lwSmallText" style={{ marginTop: 10 }}>
-            Latest pole: <b>{selectedId}</b>
-          </div>
-          <div className="lwSmallText" style={{ marginTop: 6, opacity: 0.85 }}>
-            WS status: <b>{wsStatus}</b>
-          </div>
-        </Panel>
-      </div>
-
-      <div className="lwBottomGrid">
-        <Card title="Selected Lightpole">
-          <div className="lwPoleRow">
-            {/* removed lwPoleAvatar */}
-            <div className="lwPoleMeta">
-              <div>
-                <b>ID:</b> {selectedId}
-              </div>
-              <div>
-                <b>Tenant:</b> {selected?.tenant_id ?? "N/A"}
-              </div>
-              <div>
-                <b>Name:</b> {selected?.name ?? "N/A"}
-              </div>
-              <div>
-                <b>Health:</b> {selected?.health ?? "N/A"}
-              </div>
-              <div>
-                <b>Lat:</b> {selected?.lat ?? "N/A"}
-              </div>
-              <div>
-                <b>Lng:</b> {selected?.lng ?? "N/A"}
-              </div>
-              <div>
-                <b>Motion:</b> {selectedMotion}
-              </div>
-              <div>
-                <b>Last seen:</b> {formatTimestamp(selected?.last_seen)}
-              </div>
-
-              <div>
-                <b>Ambient Primary:</b> {okFail(selected?.ambient_primary_ok)}
-              </div>
-              <div>
-                <b>Ambient Secondary:</b> {okFail(selected?.ambient_secondary_ok)}
-              </div>
-              <div>
-                <b>Temp/Humidity:</b> {okFail(selected?.th_ok)}
-              </div>
-              <div>
-                <b>Motion Primary:</b> {okFail(selected?.motion_primary_ok)}
-              </div>
-              <div>
-                <b>Motion Secondary:</b> {okFail(selected?.motion_secondary_ok)}
-              </div>
-
-              {/* removed Tip line */}
+          <Panel title="Energy Trend">
+            <div className="lwOverviewSectionText">
+              This is a <b>brightness trend</b> from telemetry (<code>data.light_level</code>) — not metered kWh.
             </div>
-          </div>
-        </Card>
 
-        <Card title="Map">
-          <MapEmbed title="Selected pole pin" height={300} lat={lat} lng={lng} zoom={17} />
-        </Card>
+            {telemetryError && (
+              <div className="lwOverviewErrorBox">
+                <b>Telemetry:</b> {telemetryError}
+              </div>
+            )}
 
-        <Legend />
-      </div>
-    </Layout>
+            <div style={{ marginTop: 12 }}>
+              {telemetryLoading && !lightTrend.length ? (
+                <div className="lwPlaceholder lwOverviewPlaceholder">Loading telemetry…</div>
+              ) : (
+                <MiniLineChart values={lightTrend} height={120} />
+              )}
+            </div>
+          </Panel>
+
+          <Panel title="Operations">
+            <PillRow
+              pills={[
+                { label: `OK: ${stats.ok}`, color: "green" },
+                { label: `DEGRADED: ${stats.degraded}`, color: "orange" },
+                { label: `CRITICAL: ${stats.critical}`, color: "red" },
+              ]}
+            />
+
+            <div className="lwOverviewOperationsMeta">
+              <div className="lwOverviewOperationsMetaRow">
+                <span className="lwOverviewOperationsMetaLabel">Latest pole</span>
+                <span className="lwOverviewOperationsMetaValue">{selectedId}</span>
+              </div>
+
+              <div className="lwOverviewOperationsMetaRow">
+                <span className="lwOverviewOperationsMetaLabel">WS status</span>
+                <span className={`lwStatusBadge ${statusTone(wsStatus)}`}>{wsStatus}</span>
+              </div>
+            </div>
+          </Panel>
+        </div>
+
+        <div className="lwBottomGrid">
+          <Card title="Selected Lightpole">
+            <div className="lwPoleRow">
+              <div className="lwPoleMeta">
+                <div className="lwSelectedTopMeta">
+                  <div className="lwSelectedMainTitle">
+                    <div className="lwSelectedId">{selectedId}</div>
+                    <div className="lwSelectedName">{mergedSelected?.name ?? "N/A"}</div>
+                  </div>
+                  <div>
+                    <span className={`lwStatusBadge ${statusTone(mergedSelected?.health)}`}>
+                      {mergedSelected?.health ?? "N/A"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="lwSelectedGrid">
+                  <FieldRow label="Latitude" value={mergedSelected?.lat ?? "N/A"} tone="neutral" />
+                  <FieldRow label="Longitude" value={mergedSelected?.lng ?? "N/A"} tone="neutral" />
+                  <FieldRow
+                    label="Motion"
+                    value={selectedMotion}
+                    tone={statusTone(selectedMotion)}
+                  />
+                  <FieldRow
+                    label="Last seen"
+                    value={formatTimestamp(mergedSelected?.last_seen)}
+                    tone="neutral"
+                  />
+                  <FieldRow
+                    label="Ambient Primary"
+                    value={okFail(mergedSelected?.ambient_primary_ok)}
+                    tone={boolTone(mergedSelected?.ambient_primary_ok)}
+                  />
+                  <FieldRow
+                    label="Ambient Secondary"
+                    value={okFail(mergedSelected?.ambient_secondary_ok)}
+                    tone={boolTone(mergedSelected?.ambient_secondary_ok)}
+                  />
+                  <FieldRow
+                    label="Temp / Humidity"
+                    value={okFail(mergedSelected?.th_ok)}
+                    tone={boolTone(mergedSelected?.th_ok)}
+                  />
+                  <FieldRow
+                    label="Motion Primary"
+                    value={okFail(mergedSelected?.motion_primary_ok)}
+                    tone={boolTone(mergedSelected?.motion_primary_ok)}
+                  />
+                  <FieldRow
+                    label="Motion Secondary"
+                    value={okFail(mergedSelected?.motion_secondary_ok)}
+                    tone={boolTone(mergedSelected?.motion_secondary_ok)}
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card title="Map">
+            <MapEmbed title="Selected pole pin" height={300} lat={lat} lng={lng} zoom={17} />
+            <div className="lwOverviewMapHint">
+              Selected pole location preview
+            </div>
+          </Card>
+
+          <Legend />
+        </div>
+      </Layout>
+    </>
   );
 }
