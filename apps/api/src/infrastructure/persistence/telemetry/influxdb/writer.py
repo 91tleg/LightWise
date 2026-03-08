@@ -27,7 +27,7 @@ class InfluxTelemetryWriter(TelemetryWriter):
             .field("humidity_pct", int(event.humidity))
             .field("motion", int(event.motion))
             .field("light_level_pct", int(event.light_level))
-            .time(event.timestamp, WritePrecision.SECONDS)
+            .time(int(event.timestamp.timestamp()), WritePrecision.S)
         )
         try:
             self._write_api.write(bucket=self.bucket, record=point)

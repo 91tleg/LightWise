@@ -1,8 +1,8 @@
-import json
 from datetime import datetime
 
 from application.telemetry.query_telemetry import get_query_telemetry
 from libs.logging import logger
+from libs.response import success, error
 
 
 _service = get_query_telemetry()
@@ -21,10 +21,7 @@ def handler(event, context):
     ).get("id")
 
     if not streetlight_id:
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "streetlight_id is required"}),
-        }
+        return error(400, "streetlight_id is required")
 
     params = event.get("queryStringParameters") or {}
     from_str = params.get("from")
@@ -32,37 +29,19 @@ def handler(event, context):
     interval = params.get("interval", "5m")
 
     if not from_str or not to_str:
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "from and to are required"}),
-        }
+        return error(400, "from and to are required")
 
     if interval not in _ALLOWED_INTERVALS:
-        return {
-            "statusCode": 400,
-            "body": json.dumps({
-                "error": f"interval must be one of {_ALLOWED_INTERVALS}"
-            }),
-        }
+        return error(400, f"interval must be one of {_ALLOWED_INTERVALS}")
 
     try:
         from_dt = datetime.fromisoformat(from_str)
         to_dt = datetime.fromisoformat(to_str)
     except ValueError:
-        return {
-            "statusCode": 400,
-            "body": json.dumps(
-                {
-                    "error": "from and to must be ISO 8601 format"
-                }
-            ),
-        }
+        return error(400, "from and to must be ISO 8601 format")
 
     if from_dt >= to_dt:
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "from must be before to"}),
-        }
+        return error(400, "from must be before to")
 
     try:
         data = _service.execute(
@@ -71,20 +50,9 @@ def handler(event, context):
             to_dt=to_dt,
             interval=interval,
         )
-        return {
-            "statusCode": 200,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(
-                {
-                    "streetlight_id": streetlight_id, "data": data
-                }
-            ),
-        }
+        return success({"streetlight_id": streetlight_id, "data": data})
     except Exception:
         logger.exception(
             "Failed to get telemetry for streetlight=%s", streetlight_id
         )
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": "Internal server error"}),
-        }
+        return error(500, "Internal server error")

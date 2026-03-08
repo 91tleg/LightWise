@@ -27,7 +27,7 @@ class InfluxTelemetryReader(TelemetryReader):
             from(bucket: "{self.bucket}")
               |> range(start: {from_str}, stop: {to_str})
               |> filter(fn: (r) => r._measurement == "streetlight_metrics")
-              |> filter(fn: (r) => r.streetlight_id == params.streetlight_id)
+              |> filter(fn: (r) => r.streetlight_id == "{streetlight_id}")
               |> filter(fn: (r) =>
                     r._field == "lux"             or
                     r._field == "temperature_c"   or
@@ -52,10 +52,7 @@ class InfluxTelemetryReader(TelemetryReader):
         """
 
         try:
-            tables = self._query_api.query(
-                flux,
-                params={"streetlight_id": streetlight_id},
-            )
+            tables = self._query_api.query(flux)
         except Exception as e:
             raise PersistenceError(f"InfluxDB query failed: {e}") from e
 
