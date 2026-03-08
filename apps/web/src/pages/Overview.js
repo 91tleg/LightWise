@@ -80,13 +80,25 @@ function MiniLineChart({ values = [], height = 120 }) {
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(" ");
-  }, [values, w, h]);
+  }, [values, h]);
 
-  if (!pts) return <div className="lwPlaceholder lwOverviewPlaceholder">Waiting for telemetry to plot…</div>;
+  if (!pts) {
+    return (
+      <div className="lwPlaceholder lwOverviewPlaceholder">
+        Waiting for telemetry to plot…
+      </div>
+    );
+  }
 
   return (
     <svg width="100%" viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
-      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="3" opacity="0.9" />
+      <polyline
+        points={pts}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        opacity="0.9"
+      />
     </svg>
   );
 }
@@ -224,14 +236,13 @@ function FieldRow({ label, value, tone = "neutral" }) {
 }
 
 export default function Overview() {
-  const WS_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
+  const WS_URL =
+    process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
 
   const [streetlights, setStreetlights] = useState(() =>
     readCache(CACHE_KEYS.STREETLIGHTS, [])
   );
-  const [error, setError] = useState("");
 
-  const [telemetryError, setTelemetryError] = useState("");
   const [telemetryLoading, setTelemetryLoading] = useState(false);
 
   const [snapshotMap, setSnapshotMap] = useState(() =>
@@ -258,23 +269,16 @@ export default function Overview() {
   }, [trendMap]);
 
   const refreshStreetlights = async () => {
-    setError("");
-
     try {
       const rows = await listStreetlights();
       if (Array.isArray(rows) && rows.length > 0) {
         setStreetlights(rows);
-      } else {
-        setError("Using cached streetlight data (latest fetch returned empty).");
       }
-    } catch (e) {
-      setError(`Using cached streetlight data. ${e?.message || String(e)}`);
-    }
+    } catch {}
   };
 
   useEffect(() => {
     refreshStreetlights();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stats = useMemo(() => {
@@ -306,10 +310,6 @@ export default function Overview() {
   }, [trendMap, selectedStreetlightId]);
 
   useEffect(() => {
-    setTelemetryError("");
-  }, [selectedStreetlightId]);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function fetchTelemetryOnce() {
@@ -326,7 +326,6 @@ export default function Overview() {
     async function hydrateFromHttp() {
       if (!selectedStreetlightId) return;
 
-      setTelemetryError("");
       setTelemetryLoading(true);
 
       try {
@@ -366,9 +365,7 @@ export default function Overview() {
             },
           }));
         }
-      } catch (e) {
-        if (cancelled) return;
-        setTelemetryError(e?.message || String(e));
+      } catch {
       } finally {
         if (!cancelled) setTelemetryLoading(false);
       }
@@ -477,14 +474,14 @@ export default function Overview() {
       icon: "♻️",
       label: "Energy Trend",
       value: energyTrendState,
-      note: "Brightness proxy from telemetry light_level",
+      note: "",
       tone: statusTone(energyTrendState),
     },
     {
       icon: "📡",
       label: "Total Poles",
       value: String(stats.total || "0"),
-      note: "From /streetlights",
+      note: "",
       tone: stats.total > 0 ? "good" : "neutral",
     },
   ];
@@ -524,30 +521,6 @@ export default function Overview() {
           font-weight: 800;
           letter-spacing: 0.01em;
           border: 1px dashed rgba(148, 163, 184, 0.28);
-        }
-
-        .lwOverviewSectionText {
-          color: #4b5563;
-          line-height: 1.45;
-          font-size: 15px;
-        }
-
-        .lwOverviewErrorBox {
-          margin-top: 12px;
-          margin-bottom: 12px;
-          padding: 12px 14px;
-          border-radius: 14px;
-          background: rgba(255, 243, 243, 0.9);
-          border: 1px solid rgba(239, 68, 68, 0.18);
-          color: #7f1d1d;
-          font-size: 14px;
-          line-height: 1.45;
-          word-break: break-word;
-        }
-
-        .lwOverviewMuted {
-          color: #6b7280;
-          font-size: 14px;
         }
 
         .lwOverviewAlertsList {
@@ -627,11 +600,6 @@ export default function Overview() {
           background: rgba(148, 163, 184, 0.14);
           color: #475569;
           border-color: rgba(148, 163, 184, 0.24);
-        }
-
-        .lwOverviewInfoGrid {
-          display: grid;
-          gap: 10px;
         }
 
         .lwFieldRow {
@@ -739,6 +707,7 @@ export default function Overview() {
           font-size: 14px;
           margin-top: 8px;
           line-height: 1.35;
+          min-height: 19px;
         }
 
         .lwSelectedTopMeta {
@@ -832,8 +801,6 @@ export default function Overview() {
       `}</style>
 
       <Layout title="Overview" subtitle="System health, alerts, and a quick view of the network.">
-        {error && <div className="lwErrorBanner">{error}</div>}
-
         <div className="lwKpiGrid">
           {kpis.map(({ icon, label, value, note, tone }) => (
             <div
@@ -862,7 +829,7 @@ export default function Overview() {
         <div className="lwPanelGrid">
           <Panel title="Recent Alerts">
             {!stats.alerts.length ? (
-              <div className="lwPlaceholder lwOverviewPlaceholder">No alerts (or no data)</div>
+              <div className="lwPlaceholder lwOverviewPlaceholder">No alerts</div>
             ) : (
               <ul className="lwOverviewAlertsList">
                 {stats.alerts.map((s) => (
@@ -871,7 +838,9 @@ export default function Overview() {
                       <span className="lwOverviewAlertId">{s.streetlight_id}</span>
                       <span className="lwOverviewAlertName">{s.name || "Unnamed"}</span>
                     </div>
-                    <span className={`lwStatusBadge ${statusTone(s.health)}`}>{s.health || "N/A"}</span>
+                    <span className={`lwStatusBadge ${statusTone(s.health)}`}>
+                      {s.health || "N/A"}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -879,16 +848,6 @@ export default function Overview() {
           </Panel>
 
           <Panel title="Energy Trend">
-            <div className="lwOverviewSectionText">
-              This is a <b>brightness trend</b> from telemetry (<code>data.light_level</code>) — not metered kWh.
-            </div>
-
-            {telemetryError && (
-              <div className="lwOverviewErrorBox">
-                <b>Telemetry:</b> {telemetryError}
-              </div>
-            )}
-
             <div style={{ marginTop: 12 }}>
               {telemetryLoading && !lightTrend.length ? (
                 <div className="lwPlaceholder lwOverviewPlaceholder">Loading telemetry…</div>
@@ -982,9 +941,7 @@ export default function Overview() {
 
           <Card title="Map">
             <MapEmbed title="Selected pole pin" height={300} lat={lat} lng={lng} zoom={17} />
-            <div className="lwOverviewMapHint">
-              Selected pole location preview
-            </div>
+            <div className="lwOverviewMapHint">Selected pole location preview</div>
           </Card>
 
           <Legend />

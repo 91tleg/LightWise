@@ -1,5 +1,3 @@
-// apps/web/src/pages/Admin.js
-
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import ActivityFeed from "../components/ActivityFeed";
@@ -9,14 +7,19 @@ import MapEmbed from "../components/MapEmbed";
 
 import { useLightWiseWS } from "../services/useLightWiseWS";
 import { listStreetlights, updateStreetlightMetadata } from "../services/api";
-import { loadPoleMetaMap, upsertPoleMeta, clearPoleMeta } from "../services/poleStorage";
+import {
+  loadPoleMetaMap,
+  upsertPoleMeta,
+  clearPoleMeta,
+} from "../services/poleStorage";
 
 import "../styles/lightwise.css";
 import "../styles/admin.css";
 
 import adminBg from "../assets/background/adminBackground1.jpeg";
 
-const WS_URL = process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
+const WS_URL =
+  process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
 
 function clampPct(x) {
   const n = Number(x);
@@ -30,7 +33,6 @@ function asNumberOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-// readable timestamp (text-only change; no layout change)
 function formatTimestamp(ts) {
   if (!ts) return "—";
   const d = new Date(ts);
@@ -44,15 +46,11 @@ function formatTimestamp(ts) {
   });
 }
 
-// ✅ Max request: validate lat/lng ranges on frontend
 function validateLatLng(latStr, lngStr) {
   const latEmpty = !latStr || latStr.trim() === "";
   const lngEmpty = !lngStr || lngStr.trim() === "";
 
-  // allow both empty (means: no coords)
   if (latEmpty && lngEmpty) return null;
-
-  // one missing
   if (latEmpty || lngEmpty) return "Enter both latitude and longitude.";
 
   const lat = Number(latStr);
@@ -103,9 +101,7 @@ export default function Admin() {
 
   const [streetlights, setStreetlights] = useState([]);
   const [selectedId, setSelectedId] = useState("LW-00042");
-  const [apiError, setApiError] = useState("");
 
-  // Local metadata overrides so coords/pins work even if backend returns null
   const [metaMap, setMetaMap] = useState(() => loadPoleMetaMap());
 
   const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
@@ -123,11 +119,10 @@ export default function Admin() {
   const [lngInput, setLngInput] = useState(
     selectedMeta.lng === 0 || selectedMeta.lng ? String(selectedMeta.lng) : ""
   );
-  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
+  const [saveState, setSaveState] = useState("idle");
   const [saveMsg, setSaveMsg] = useState("");
   const [coordError, setCoordError] = useState("");
 
-  // Load streetlights once (Admin still needs list for dropdown + last_seen display)
   useEffect(() => {
     listStreetlights()
       .then((rows) => {
@@ -139,11 +134,9 @@ export default function Admin() {
           if (!hasSelected) setSelectedId(list[0]?.streetlight_id || "LW-00042");
         }
       })
-      .catch((e) => setApiError(e?.message || String(e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      .catch(() => {});
+  }, [selectedId]);
 
-  // When selection changes, load inputs from local meta
   useEffect(() => {
     const meta = metaMap[selectedId] || {};
     setNameInput(meta.name || "");
@@ -154,14 +147,12 @@ export default function Admin() {
     setCoordError("");
   }, [selectedId, metaMap]);
 
-  // Auto-subscribe on connect + whenever selected changes
   useEffect(() => {
     if (wsStatus !== "connected") return;
     if (!selectedId) return;
     subscribe(selectedId);
   }, [wsStatus, selectedId, subscribe]);
 
-  // Convert WS messages into feed events
   useEffect(() => {
     if (!lastMessage) return;
     const evt = normalizeFeedEvent(lastMessage);
@@ -213,7 +204,6 @@ export default function Admin() {
       ? clampPct(selected.light_level_pct)
       : 0;
 
-  // Map uses current input so pin updates as you type
   const mapLat = asNumberOrNull(latInput);
   const mapLng = asNumberOrNull(lngInput);
 
@@ -237,12 +227,10 @@ export default function Admin() {
       ...(latStr && lngStr ? { lat: Number(latStr), lng: Number(lngStr) } : {}),
     };
 
-    // Local update first (instant pin + name in UI)
     if (Object.keys(patch).length > 0) {
       upsertPoleMeta(selectedId, patch);
       setMetaMap(loadPoleMetaMap());
 
-      // also reflect locally in streetlights list WITHOUT GET (Max request)
       setStreetlights((prev) =>
         (Array.isArray(prev) ? prev : []).map((s) =>
           s.streetlight_id === selectedId ? { ...s, ...patch } : s
@@ -252,7 +240,7 @@ export default function Admin() {
 
     try {
       if (Object.keys(patch).length > 0) {
-        await updateStreetlightMetadata(selectedId, patch); // ✅ PUT only
+        await updateStreetlightMetadata(selectedId, patch);
       }
       setSaveState("saved");
       setSaveMsg("Saved");
@@ -262,7 +250,7 @@ export default function Admin() {
       }, 1200);
     } catch (e) {
       setSaveState("error");
-      setSaveMsg(e?.message || "Save failed (backend not ready)");
+      setSaveMsg(e?.message || "Save failed");
     }
   }
 
@@ -276,7 +264,6 @@ export default function Admin() {
     setLatInput("");
     setLngInput("");
 
-    // also reflect locally in streetlights list WITHOUT GET
     setStreetlights((prev) =>
       (Array.isArray(prev) ? prev : []).map((s) =>
         s.streetlight_id === selectedId ? { ...s, lat: null, lng: null } : s
@@ -284,7 +271,7 @@ export default function Admin() {
     );
 
     try {
-      await updateStreetlightMetadata(selectedId, { lat: null, lng: null }); // ✅ PUT only
+      await updateStreetlightMetadata(selectedId, { lat: null, lng: null });
       setSaveState("saved");
       setSaveMsg("Cleared");
       setTimeout(() => {
@@ -293,15 +280,13 @@ export default function Admin() {
       }, 1200);
     } catch {
       setSaveState("idle");
-      setSaveMsg("Cleared locally");
+      setSaveMsg("Cleared");
       setTimeout(() => setSaveMsg(""), 1200);
     }
   }
 
   return (
     <Layout title="Admin" subtitle="System controls & configuration.">
-      {apiError && <div className="lwErrorBanner">API Error: {apiError}</div>}
-
       <div
         className="lwAdminHero"
         style={{
@@ -311,13 +296,12 @@ export default function Admin() {
         <AdminWsControls
           wsStatus={wsStatus}
           motionState="idle"
-          onSimulateMotion={() => true} // UI-only
+          onSimulateMotion={() => true}
           onSubscribeDemo={(id) => subscribe(id)}
         />
       </div>
 
       <div className="lwAdminGrid">
-        {/* Rules Engine */}
         <BubbleCard icon="🧠" title="Rules Engine" subtitle="Dimming + safety thresholds">
           <div className="lwRuleRow">
             <span className="lwPill">Auto</span>
@@ -327,8 +311,15 @@ export default function Admin() {
 
           <div style={{ marginTop: 12 }}>
             <label className="lwLabel">Streetlight</label>
-            <select className="lwInput" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-              {(streetlights.length ? streetlights : [{ streetlight_id: "LW-00042", name: null }]).map((s) => (
+            <select
+              className="lwInput"
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+            >
+              {(streetlights.length
+                ? streetlights
+                : [{ streetlight_id: "LW-00042", name: null }]
+              ).map((s) => (
                 <option key={s.streetlight_id} value={s.streetlight_id}>
                   {s.streetlight_id} — ({s.name || "fallback"})
                 </option>
@@ -336,7 +327,6 @@ export default function Admin() {
             </select>
           </div>
 
-          {/* Metadata editor */}
           <div style={{ marginTop: 14 }}>
             <label className="lwLabel">Display name</label>
             <input
@@ -346,7 +336,14 @@ export default function Admin() {
               placeholder="e.g. Main Street 5th Ave"
             />
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+                marginTop: 10,
+              }}
+            >
               <div>
                 <label className="lwLabel">Latitude</label>
                 <input
@@ -367,29 +364,44 @@ export default function Admin() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center" }}>
-              <button className="lwBtn" onClick={handleSaveMetadata} disabled={saveState === "saving"}>
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                marginTop: 12,
+                alignItems: "center",
+              }}
+            >
+              <button
+                className="lwBtn"
+                onClick={handleSaveMetadata}
+                disabled={saveState === "saving"}
+              >
                 {saveState === "saving" ? "Saving..." : "Save"}
               </button>
 
-              <button className="lwBtn" onClick={handleClearCoords} disabled={saveState === "saving"}>
+              <button
+                className="lwBtn"
+                onClick={handleClearCoords}
+                disabled={saveState === "saving"}
+              >
                 Clear coordinates
               </button>
 
-              {(coordError || saveMsg) ? (
-                <span style={{ fontWeight: 700, opacity: 0.9 }}>{coordError || saveMsg}</span>
+              {coordError || saveMsg ? (
+                <span style={{ fontWeight: 700, opacity: 0.9 }}>
+                  {coordError || saveMsg}
+                </span>
               ) : null}
-            </div>
-
-            <div className="lwSmallText" style={{ marginTop: 8, opacity: 0.85 }}>
-              Pin appears on map when lat/lng are set. Valid ranges: latitude [-90, 90], longitude [-180, 180]. Clearing
-              removes the pin instantly.
             </div>
           </div>
         </BubbleCard>
 
-        {/* Live Light State */}
-        <BubbleCard icon="💡" title="Live Light State" subtitle={`WS: ${wsStatus} • Health: ${healthText}`}>
+        <BubbleCard
+          icon="💡"
+          title="Live Light State"
+          subtitle={`WS: ${wsStatus} • Health: ${healthText}`}
+        >
           <div className="lwKeyValue">
             <div>
               <b>Streetlight:</b> {selectedId}
@@ -398,7 +410,7 @@ export default function Admin() {
               <b>Motion:</b> {motionText}
             </div>
             <div>
-              <b>Brightness (light_level):</b> {lightPct}% (backend/state)
+              <b>Brightness:</b> {lightPct}%
             </div>
           </div>
 
@@ -409,8 +421,11 @@ export default function Admin() {
           </div>
         </BubbleCard>
 
-        {/* Live Sensor Readings */}
-        <BubbleCard icon="📡" title="Live Sensor Readings" subtitle={live ? "Receiving telemetry" : "Waiting for telemetry..."}>
+        <BubbleCard
+          icon="📡"
+          title="Live Sensor Readings"
+          subtitle={live ? "Receiving telemetry" : "Waiting for telemetry..."}
+        >
           <div className="lwKeyValue">
             <div>
               <b>tenant:</b> {tenantId}
@@ -433,12 +448,16 @@ export default function Admin() {
           </div>
 
           <div style={{ marginTop: 12 }}>
-            <label className="lwLabel">Map pin for selected pole</label>
-            <MapEmbed title="Selected pole pin" height={240} lat={mapLat} lng={mapLng} zoom={17} />
+            <MapEmbed
+              title="Selected pole pin"
+              height={240}
+              lat={mapLat}
+              lng={mapLng}
+              zoom={17}
+            />
           </div>
         </BubbleCard>
 
-        {/* Live Events */}
         <BubbleCard icon="⚡" title={`Live Events (${wsStatus})`} subtitle="Latest WS updates">
           <ActivityFeed items={events} />
         </BubbleCard>
