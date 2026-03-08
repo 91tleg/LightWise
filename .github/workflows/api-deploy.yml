@@ -36,6 +36,7 @@ jobs:
       - name: Deploy
         run: |
           sam deploy \
+            --no-config-file \
             --stack-name lightwise-api \
             --s3-bucket ${{ secrets.SAM_DEPLOY_BUCKET }} \
             --no-confirm-changeset \
