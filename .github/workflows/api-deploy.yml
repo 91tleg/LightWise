@@ -35,12 +35,15 @@ jobs:
 
       - name: Deploy
         run: |
-            --stack-name lightwise-api-prod \
+          sam deploy \
+            --stack-name lightwise-api \
             --s3-bucket ${{ secrets.SAM_DEPLOY_BUCKET }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --capabilities CAPABILITY_IAM \
             --parameter-overrides \
               Env=prod \
-              CognitoUserPoolId=${{ secrets.COGNITO_USER_POOL_ID }} \
-              CognitoClientId=${{ secrets.COGNITO_CLIENT_ID }}
+              InfluxUrl=${{ secrets.INFLUX_URL }} \
+              InfluxToken=${{ secrets.INFLUX_TOKEN }} \
+              InfluxOrg=${{ secrets.INFLUX_ORG }} \
+              WsEndpoint=${{ secrets.WS_ENDPOINT }}
