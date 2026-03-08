@@ -2,10 +2,22 @@ Parameters:
   Env:
     Type: String
     Default: local
-  CognitoUserPoolId:
+  WsEndpoint:
     Type: String
-  CognitoClientId:
+    Default: ""
+  DynamoEndpoint:
     Type: String
+    Default: ""
+  InfluxUrl:
+    Type: String
+    Default: ""
+  InfluxToken:
+    Type: String
+    Default: ""
+    NoEcho: true
+  InfluxOrg:
+    Type: String
+    Default: ""
 
 Globals:
   Api:
@@ -21,20 +33,20 @@ Globals:
     Environment:
       Variables:
         ENV: !Ref Env
-        AWS_REGION: us-west-2
         AUTH_ENABLED: false
-        DYNAMO_ENDPOINT: http://dynamodb:8000
-        COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
-        COGNITO_CLIENT_ID: !Ref CognitoClientId
+        WS_ENDPOINT: !Ref WsEndpoint
+        DYNAMO_ENDPOINT: !Ref DynamoEndpoint
         DDB_TABLE_STREETLIGHTS: !Ref Streetlights
         DDB_TABLE_STREETLIGHT_METADATA: !Ref StreetlightMetadata
         DDB_TABLE_USERS_AND_TENANTS: !Ref UsersAndTenants
         DDB_TABLE_WS_CONNECTIONS: !Ref WebSocketConnections
-        TS_DATABASE: ""
-        TS_TABLE: ""
+        TELEMETRY_BACKEND: influxdb
+        INFLUX_URL: !Ref InfluxUrl
+        INFLUX_TOKEN: !Ref InfluxToken
+        INFLUX_ORG: !Ref InfluxOrg
+        INFLUX_BUCKET: streetlight-telemetry
 
 Resources:
-  # Functions
   TelemetryIngestFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -43,13 +55,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref Streetlights
         - DynamoDBReadPolicy:
-            TableName: !Ref UsersAndTenants
-        - Statement:
-            - Effect: Allow
-              Action:
-                - timestream:WriteRecords
-                - timestream:DescribeEndpoints
-              Resource: "*"
+            TableName: !Ref StreetlightMetadata
 
   WebSocketConnectFunction:
     Type: AWS::Serverless::Function
@@ -116,13 +122,6 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref Streetlights
-        - Statement:
-            - Effect: Allow
-              Action:
-                - timestream:Select
-                - timestream:DescribeTable
-                - timestream:ListMeasures
-              Resource: "*"
       Events:
         GetStreetlightTelemetry:
           Type: Api
@@ -144,7 +143,6 @@ Resources:
             Path: /streetlights/{id}/metadata
             Method: put
 
-  # Tables
   Streetlights:
     Type: AWS::DynamoDB::Table
     Properties:
