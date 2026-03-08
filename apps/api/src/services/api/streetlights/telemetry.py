@@ -32,7 +32,7 @@ def handler(event, context):
         return error(400, "from and to are required")
 
     if interval not in _ALLOWED_INTERVALS:
-       return error(400, f"interval must be one of {_ALLOWED_INTERVALS}")
+        return error(400, f"interval must be one of {_ALLOWED_INTERVALS}")
 
     try:
         from_dt = datetime.fromisoformat(from_str)
