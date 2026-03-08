@@ -353,7 +353,7 @@ export default function Admin() {
                   className="lwInput"
                   value={latInput}
                   onChange={(e) => setLatInput(e.target.value)}
-                  placeholder="e.g. 47.6101"
+                  placeholder="ex: 47.610"
                 />
               </div>
               <div>
@@ -362,7 +362,7 @@ export default function Admin() {
                   className="lwInput"
                   value={lngInput}
                   onChange={(e) => setLngInput(e.target.value)}
-                  placeholder="e.g. -122.2015"
+                  placeholder="ex: -122.2012"
                 />
               </div>
             </div>
