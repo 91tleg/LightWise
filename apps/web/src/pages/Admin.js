@@ -1,30 +1,22 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Layout from "../components/Layout";
 import ActivityFeed from "../components/ActivityFeed";
 import BubbleCard from "../components/BubbleCard";
 import AdminWsControls from "../components/AdminWsControls";
 import MapEmbed from "../components/MapEmbed";
-
+import UiIcon from "../components/UiIcon";
 import { useLightWiseWS } from "../services/useLightWiseWS";
 import { listStreetlights, updateStreetlightMetadata } from "../services/api";
-import {
-  loadPoleMetaMap,
-  upsertPoleMeta,
-  clearPoleMeta,
-} from "../services/poleStorage";
-
+import { loadPoleMetaMap, upsertPoleMeta } from "../services/poleStorage";
 import "../styles/lightwise.css";
 import "../styles/admin.css";
 
-import adminBg from "../assets/background/adminBackground1.jpeg";
-
-const WS_URL =
-  process.env.REACT_APP_WS_URL || process.env.REACT_APP_LIGHTWISE_WS_URL || "";
+const DEFAULT_POLE_ID = "LW-00042";
 
 function clampPct(x) {
   const n = Number(x);
   if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(100, n));
+  return Math.max(0, Math.min(100, Math.round(n)));
 }
 
 function asNumberOrNull(v) {
@@ -34,11 +26,10 @@ function asNumberOrNull(v) {
 }
 
 function formatTimestamp(ts) {
-  if (!ts) return "—";
+  if (!ts) return "Waiting for data";
   const d = new Date(ts);
   if (!Number.isFinite(d.getTime())) return String(ts);
   return d.toLocaleString(undefined, {
-    year: "numeric",
     month: "short",
     day: "2-digit",
     hour: "numeric",
@@ -46,421 +37,625 @@ function formatTimestamp(ts) {
   });
 }
 
-function validateLatLng(latStr, lngStr) {
-  const latEmpty = !latStr || latStr.trim() === "";
-  const lngEmpty = !lngStr || lngStr.trim() === "";
-
-  if (latEmpty && lngEmpty) return null;
-  if (latEmpty || lngEmpty) return "Enter both latitude and longitude.";
-
-  const lat = Number(latStr);
-  const lng = Number(lngStr);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return "Latitude and longitude must be valid numbers.";
-  }
-  if (lat < -90 || lat > 90) {
+function validateCoordinate(value, type) {
+  if (!value.trim()) return "";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return `${type} must be a valid number.`;
+  if (type === "Latitude" && (num < -90 || num > 90)) {
     return "Latitude must be between -90 and 90.";
   }
-  if (lng < -180 || lng > 180) {
+  if (type === "Longitude" && (num < -180 || num > 180)) {
     return "Longitude must be between -180 and 180.";
   }
-  return null;
+  return "";
 }
 
-function normalizeFeedEvent(msg) {
-  if (!msg || typeof msg !== "object") return null;
-  const id = msg.streetlight_id || msg.streetlightId;
-  const ts = msg.timestamp || new Date().toISOString();
+function SkeletonValue({ active, value }) {
+  if (active) return <span className="lwSkeletonLine" aria-hidden="true" />;
+  return <span className="lwSensorValue">{value}</span>;
+}
 
-  if (typeof msg?.data?.motion === "boolean") {
-    return {
-      type: "telemetry",
-      streetlightId: id || "—",
-      timestamp: ts,
-      label: msg.data.motion ? "Motion detected" : "No motion",
-      value: msg.data.motion ? "true" : "false",
-    };
-  }
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj || {}, key);
+}
 
-  if (msg.data) {
-    return {
-      type: "telemetry",
-      streetlightId: id || "—",
-      timestamp: ts,
-      label: "Telemetry update",
-      value: "—",
-    };
-  }
+function normalizePole(pole, index = 0) {
+  const id =
+    pole?.streetlight_id ||
+    pole?.id ||
+    pole?.pole_id ||
+    pole?.device_id ||
+    pole?.streetlightId ||
+    `LW-${String(index + 1).padStart(5, "0")}`;
 
-  return null;
+  return {
+    streetlight_id: id,
+    name: pole?.name || pole?.label || pole?.display_name || null,
+    health: pole?.health || pole?.status || "OK",
+    lat:
+      pole?.lat ??
+      pole?.latitude ??
+      pole?.location?.lat ??
+      pole?.location?.latitude ??
+      null,
+    lng:
+      pole?.lng ??
+      pole?.lon ??
+      pole?.longitude ??
+      pole?.location?.lng ??
+      pole?.location?.lon ??
+      pole?.location?.longitude ??
+      null,
+    motion_detected:
+      typeof pole?.motion_detected === "boolean"
+        ? pole.motion_detected
+        : typeof pole?.motion === "boolean"
+        ? pole.motion
+        : null,
+    light_level:
+      typeof pole?.light_level === "number"
+        ? pole.light_level
+        : typeof pole?.brightness === "number"
+        ? pole.brightness
+        : null,
+    last_seen:
+      pole?.last_seen ||
+      pole?.timestamp ||
+      pole?.updated_at ||
+      pole?.lastSeen ||
+      null,
+    temp_c: pole?.temp_c ?? null,
+    humidity: pole?.humidity ?? null,
+  };
+}
+
+function mergeLocalMeta(pole, localMeta) {
+  const local = localMeta[pole.streetlight_id] || {};
+  return {
+    ...pole,
+    name: hasOwn(local, "name") ? local.name : pole.name,
+    lat: hasOwn(local, "lat") ? local.lat : pole.lat,
+    lng: hasOwn(local, "lng") ? local.lng : pole.lng,
+  };
+}
+
+function buildFallbackPole(id = DEFAULT_POLE_ID, localMeta = {}) {
+  const local = localMeta[id] || {};
+  return {
+    streetlight_id: id,
+    name: hasOwn(local, "name") ? local.name : null,
+    health: "OK",
+    lat: hasOwn(local, "lat") ? local.lat : 47.6101,
+    lng: hasOwn(local, "lng") ? local.lng : -122.2015,
+    motion_detected: false,
+    light_level: 0,
+    last_seen: null,
+    temp_c: null,
+    humidity: null,
+  };
+}
+
+function getFormValuesForPole(pole, metaMap) {
+  const local = metaMap[pole?.streetlight_id] || {};
+
+  return {
+    name: hasOwn(local, "name") ? local.name || "" : pole?.name || "",
+    lat: hasOwn(local, "lat")
+      ? local.lat == null
+        ? ""
+        : String(local.lat)
+      : pole?.lat != null
+      ? String(pole.lat)
+      : "",
+    lng: hasOwn(local, "lng")
+      ? local.lng == null
+        ? ""
+        : String(local.lng)
+      : pole?.lng != null
+      ? String(pole.lng)
+      : "",
+  };
 }
 
 export default function Admin() {
   const tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001";
+  const WS_URL =
+    process.env.REACT_APP_WS_URL ||
+    process.env.REACT_APP_LIGHTWISE_WS_URL ||
+    "";
 
   const [streetlights, setStreetlights] = useState([]);
-  const [selectedId, setSelectedId] = useState("LW-00042");
-
+  const [selectedId, setSelectedId] = useState(DEFAULT_POLE_ID);
   const [metaMap, setMetaMap] = useState(() => loadPoleMetaMap());
+  const [events, setEvents] = useState([]);
+
+  const [nameInput, setNameInput] = useState("");
+  const [latInput, setLatInput] = useState("");
+  const [lngInput, setLngInput] = useState("");
+
+  const [isEditing, setIsEditing] = useState(false);
+  const selectedIdRef = useRef(DEFAULT_POLE_ID);
+
+  const [saveState, setSaveState] = useState("idle");
+  const [saveMsg, setSaveMsg] = useState("");
 
   const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
     tenantId,
     debug: false,
   });
 
-  const [events, setEvents] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
 
-  const selectedMeta = metaMap[selectedId] || {};
-  const [nameInput, setNameInput] = useState(selectedMeta.name || "");
-  const [latInput, setLatInput] = useState(
-    selectedMeta.lat === 0 || selectedMeta.lat ? String(selectedMeta.lat) : ""
-  );
-  const [lngInput, setLngInput] = useState(
-    selectedMeta.lng === 0 || selectedMeta.lng ? String(selectedMeta.lng) : ""
-  );
-  const [saveState, setSaveState] = useState("idle");
-  const [saveMsg, setSaveMsg] = useState("");
-  const [coordError, setCoordError] = useState("");
+    async function load() {
+      try {
+        const raw = await listStreetlights();
+        const rows = (Array.isArray(raw) ? raw : []).map(normalizePole);
+
+        if (cancelled) return;
+
+        const local = loadPoleMetaMap();
+        setMetaMap(local);
+
+        if (rows.length) {
+          const merged = rows.map((pole) => mergeLocalMeta(pole, local));
+          setStreetlights(merged);
+
+          if (!merged.some((row) => row.streetlight_id === selectedIdRef.current)) {
+            setSelectedId(merged[0]?.streetlight_id || DEFAULT_POLE_ID);
+          }
+        } else {
+          setStreetlights([buildFallbackPole(selectedIdRef.current, local)]);
+        }
+      } catch {
+        if (!cancelled) {
+          const local = loadPoleMetaMap();
+          setMetaMap(local);
+          setStreetlights((prev) =>
+            prev.length ? prev : [buildFallbackPole(selectedIdRef.current, local)]
+          );
+        }
+      }
+    }
+
+    load();
+    const timer = setInterval(load, 15000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
-    listStreetlights()
-      .then((rows) => {
-        const list = Array.isArray(rows) ? rows : [];
-        setStreetlights(list);
-
-        if (list.length > 0) {
-          const hasSelected = list.some((s) => s.streetlight_id === selectedId);
-          if (!hasSelected) setSelectedId(list[0]?.streetlight_id || "LW-00042");
-        }
-      })
-      .catch(() => {});
+    selectedIdRef.current = selectedId;
   }, [selectedId]);
 
-  useEffect(() => {
-    const meta = metaMap[selectedId] || {};
-    setNameInput(meta.name || "");
-    setLatInput(meta.lat === 0 || meta.lat ? String(meta.lat) : "");
-    setLngInput(meta.lng === 0 || meta.lng ? String(meta.lng) : "");
-    setSaveState("idle");
-    setSaveMsg("");
-    setCoordError("");
-  }, [selectedId, metaMap]);
+  const mapPoles = useMemo(() => {
+    const base = streetlights.length
+      ? streetlights
+      : [buildFallbackPole(selectedId, metaMap)];
+
+    return base.map((pole) => mergeLocalMeta(pole, metaMap));
+  }, [streetlights, selectedId, metaMap]);
+
+  const selectedBase = useMemo(() => {
+    return (
+      mapPoles.find((pole) => pole.streetlight_id === selectedId) ||
+      mapPoles[0] ||
+      buildFallbackPole(selectedId, metaMap)
+    );
+  }, [mapPoles, selectedId, metaMap]);
 
   useEffect(() => {
-    if (wsStatus !== "connected") return;
-    if (!selectedId) return;
-    subscribe(selectedId);
+    if (!selectedBase) return;
+
+    const formValues = getFormValuesForPole(selectedBase, metaMap);
+    setNameInput(formValues.name);
+    setLatInput(formValues.lat);
+    setLngInput(formValues.lng);
+    setIsEditing(false);
+  }, [selectedBase, metaMap]);
+
+  useEffect(() => {
+    if (wsStatus === "connected" && selectedId) {
+      subscribe(selectedId);
+    }
   }, [wsStatus, selectedId, subscribe]);
 
-  useEffect(() => {
-    if (!lastMessage) return;
-    const evt = normalizeFeedEvent(lastMessage);
-    if (!evt) return;
-    setEvents((prev) => [evt, ...prev].slice(0, 50));
-  }, [lastMessage]);
-
-  const selected = useMemo(
-    () => streetlights.find((s) => s.streetlight_id === selectedId) || null,
-    [streetlights, selectedId]
-  );
-
   const live = useMemo(() => {
-    const msg = lastMessage;
-    if (!msg || typeof msg !== "object") return null;
-    if (!msg.streetlight_id || !msg.data) return null;
-    if (msg.streetlight_id !== selectedId) return null;
+    if (!lastMessage || lastMessage.streetlight_id !== selectedId) return null;
 
     return {
-      streetlightId: msg.streetlight_id,
-      health: msg.health,
-      timestamp: msg.timestamp,
-      lux: msg.data?.lux,
-      tempC: msg.data?.temp_c,
-      humidity: msg.data?.humidity,
-      motion: msg.data?.motion,
-      lightLevel: msg.data?.light_level,
-      diagnostics: msg.diagnostics,
+      motion:
+        typeof lastMessage?.data?.motion === "boolean"
+          ? lastMessage.data.motion
+          : typeof lastMessage?.motion === "boolean"
+          ? lastMessage.motion
+          : null,
+      lightPct: clampPct(
+        lastMessage?.data?.light_level ?? lastMessage?.light_level ?? 0
+      ),
+      lux: lastMessage?.data?.lux ?? lastMessage?.lux ?? null,
+      tempC: lastMessage?.data?.temp_c ?? lastMessage?.temp_c ?? null,
+      humidity: lastMessage?.data?.humidity ?? lastMessage?.humidity ?? null,
+      health: lastMessage?.health || selectedBase?.health || "OK",
+      timestamp: lastMessage?.timestamp || new Date().toISOString(),
     };
-  }, [lastMessage, selectedId]);
+  }, [lastMessage, selectedId, selectedBase]);
 
-  const healthText = live?.health || selected?.health || "—";
+  useEffect(() => {
+    if (!lastMessage || lastMessage.streetlight_id !== selectedId) return;
 
-  const motionText =
-    typeof live?.motion === "boolean"
-      ? live.motion
-        ? "MOTION DETECTED"
-        : "no motion"
-      : typeof selected?.motion_detected === "boolean"
-      ? selected.motion_detected
-        ? "MOTION DETECTED"
-        : "no motion"
-      : "—";
+    const item = {
+      id: `${selectedId}-${lastMessage.timestamp || Date.now()}`,
+      type: "update",
+      label:
+        typeof live?.motion === "boolean"
+          ? live.motion
+            ? "Motion detected"
+            : "Motion cleared"
+          : "Sensor update",
+      streetlightId: selectedId,
+      timestamp: lastMessage.timestamp || new Date().toISOString(),
+      value:
+        typeof live?.lightPct === "number" ? `${live.lightPct}%` : "Updated",
+      note: live?.health ? `Health ${live.health}` : undefined,
+    };
 
-  const lightPct =
-    typeof live?.lightLevel === "number"
-      ? clampPct(live.lightLevel)
-      : typeof selected?.light_level_pct === "number"
-      ? clampPct(selected.light_level_pct)
-      : 0;
+    setEvents((prev) => [item, ...prev].slice(0, 15));
+  }, [lastMessage, selectedId, live]);
 
-  const mapLat = asNumberOrNull(latInput);
-  const mapLng = asNumberOrNull(lngInput);
+  const latError = validateCoordinate(latInput, "Latitude");
+  const lngError = validateCoordinate(lngInput, "Longitude");
+  const formValid = !latError && !lngError;
 
   async function handleSaveMetadata() {
+    if (!selectedId || !formValid) return;
+
     setSaveState("saving");
     setSaveMsg("");
-    setCoordError("");
-
-    const latStr = latInput?.trim() || "";
-    const lngStr = lngInput?.trim() || "";
-
-    const err = validateLatLng(latStr, lngStr);
-    if (err) {
-      setSaveState("idle");
-      setCoordError(err);
-      return;
-    }
 
     const patch = {
-      ...(nameInput.trim() ? { name: nameInput.trim() } : {}),
-      ...(latStr && lngStr ? { lat: Number(latStr), lng: Number(lngStr) } : {}),
+      name: nameInput.trim() || null,
+      lat: latInput.trim() ? Number(latInput) : null,
+      lng: lngInput.trim() ? Number(lngInput) : null,
     };
 
-    if (Object.keys(patch).length > 0) {
-      upsertPoleMeta(selectedId, patch);
-      setMetaMap(loadPoleMetaMap());
+    upsertPoleMeta(selectedId, patch);
+    const nextMeta = loadPoleMetaMap();
+    setMetaMap(nextMeta);
 
-      setStreetlights((prev) =>
-        (Array.isArray(prev) ? prev : []).map((s) =>
-          s.streetlight_id === selectedId ? { ...s, ...patch } : s
-        )
+    setStreetlights((prev) => {
+      const exists = prev.some((pole) => pole.streetlight_id === selectedId);
+
+      if (!exists) {
+        return [{ ...buildFallbackPole(selectedId, nextMeta), ...patch }, ...prev];
+      }
+
+      return prev.map((pole) =>
+        pole.streetlight_id === selectedId ? { ...pole, ...patch } : pole
       );
-    }
+    });
 
     try {
-      if (Object.keys(patch).length > 0) {
-        await updateStreetlightMetadata(selectedId, patch);
-      }
+      await updateStreetlightMetadata(selectedId, patch);
       setSaveState("saved");
-      setSaveMsg("Saved");
-      setTimeout(() => {
-        setSaveState("idle");
-        setSaveMsg("");
-      }, 1200);
-    } catch (e) {
-      setSaveState("error");
-      setSaveMsg(e?.message || "Save failed");
+      setSaveMsg("Changes saved");
+    } catch {
+      setSaveState("saved");
+      setSaveMsg("Saved locally · server sync unavailable");
     }
+
+    setIsEditing(false);
+
+    setTimeout(() => {
+      setSaveState("idle");
+      setSaveMsg("");
+    }, 1600);
   }
 
   async function handleClearCoords() {
+    if (!selectedId) return;
+
     setSaveState("saving");
     setSaveMsg("");
-    setCoordError("");
 
-    clearPoleMeta(selectedId);
-    setMetaMap(loadPoleMetaMap());
+    const existing = metaMap[selectedId] || {};
+    const patch = {
+      name: hasOwn(existing, "name")
+        ? existing.name
+        : selectedBase?.name || null,
+      lat: null,
+      lng: null,
+    };
+
+    upsertPoleMeta(selectedId, patch);
+    const nextMeta = loadPoleMetaMap();
+    setMetaMap(nextMeta);
+
     setLatInput("");
     setLngInput("");
+    setIsEditing(false);
 
     setStreetlights((prev) =>
-      (Array.isArray(prev) ? prev : []).map((s) =>
-        s.streetlight_id === selectedId ? { ...s, lat: null, lng: null } : s
+      prev.map((pole) =>
+        pole.streetlight_id === selectedId
+          ? { ...pole, lat: null, lng: null }
+          : pole
       )
     );
 
     try {
       await updateStreetlightMetadata(selectedId, { lat: null, lng: null });
       setSaveState("saved");
-      setSaveMsg("Cleared");
-      setTimeout(() => {
-        setSaveState("idle");
-        setSaveMsg("");
-      }, 1200);
+      setSaveMsg("Coordinates cleared");
     } catch {
-      setSaveState("idle");
-      setSaveMsg("Cleared");
-      setTimeout(() => setSaveMsg(""), 1200);
+      setSaveState("saved");
+      setSaveMsg("Coordinates cleared locally");
     }
+
+    setTimeout(() => {
+      setSaveState("idle");
+      setSaveMsg("");
+    }, 1600);
   }
 
+  const mapLat = isEditing
+    ? asNumberOrNull(latInput) ?? selectedBase?.lat ?? 47.6101
+    : selectedBase?.lat ?? 47.6101;
+
+  const mapLng = isEditing
+    ? asNumberOrNull(lngInput) ?? selectedBase?.lng ?? -122.2015
+    : selectedBase?.lng ?? -122.2015;
+
+  const lightPct = live?.lightPct ?? selectedBase?.light_level ?? 0;
+  const healthText = live?.health || selectedBase?.health || "OK";
+
+  const motionText =
+    typeof live?.motion === "boolean"
+      ? live.motion
+        ? "Detected"
+        : "Clear"
+      : typeof selectedBase?.motion_detected === "boolean"
+      ? selectedBase.motion_detected
+        ? "Detected"
+        : "Clear"
+      : "Clear";
+
+  const loadingSensors = !live;
+
+  const mapHeight = 640;
+  const mapKey = `${selectedId}-${mapLat}-${mapLng}`;
+
   return (
-    <Layout title="Admin" subtitle="System controls & configuration.">
-      <div
-        className="lwAdminHero"
-        style={{
-          backgroundImage: `url(${adminBg})`,
-        }}
-      >
-        <AdminWsControls
-          wsStatus={wsStatus}
-          motionState="idle"
-          onSimulateMotion={() => true}
-          onSubscribeDemo={(id) => subscribe(id)}
-        />
-      </div>
+    <Layout title="Admin" subtitle="Configuration and rules for active devices.">
+      <div className="lwAdminPageClean">
+        <div className="lwAdminHeroClean">
+          <AdminWsControls
+            wsStatus={wsStatus}
+            motionState="idle"
+            onSimulateMotion={() => true}
+            onSubscribeDemo={(id) => subscribe(id)}
+            selectedStreetlightId={selectedId}
+          />
+        </div>
 
-      <div className="lwAdminGrid">
-        <BubbleCard icon="🧠" title="Rules Engine" subtitle="Dimming + safety thresholds">
-          <div className="lwRuleRow">
-            <span className="lwPill">Auto</span>
-            <span className="lwPill">Night</span>
-            <span className="lwPill">Motion</span>
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <label className="lwLabel">Streetlight</label>
-            <select
-              className="lwInput"
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(360px, 0.95fr) minmax(520px, 1.45fr)",
+            gap: "16px",
+            alignItems: "start",
+          }}
+        >
+          <div style={{ display: "grid", gap: "16px", minWidth: 0 }}>
+            <BubbleCard
+              icon={<UiIcon name="settings" size={22} />}
+              title="Rules Engine"
+              sub="Configuration and validation"
             >
-              {(streetlights.length
-                ? streetlights
-                : [{ streetlight_id: "LW-00042", name: null }]
-              ).map((s) => (
-                <option key={s.streetlight_id} value={s.streetlight_id}>
-                  {s.streetlight_id} — ({s.name || "fallback"})
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className="lwRuleRow lwRuleRowClean">
+                <span className="lwPill green">Auto</span>
+                <span className="lwPill orange">Night</span>
+                <span className="lwPill red">Motion</span>
+              </div>
 
-          <div style={{ marginTop: 14 }}>
-            <label className="lwLabel">Display name</label>
-            <input
-              className="lwInput"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="e.g. Main Street 5th Ave"
-            />
+              <div className="lwAdminFormSection">
+                <label className="lwLabel">Streetlight</label>
+                <select
+                  className="lwInput lwAdminInput"
+                  value={selectedId}
+                  onChange={(e) => setSelectedId(e.target.value)}
+                >
+                  {mapPoles.map((pole) => (
+                    <option key={pole.streetlight_id} value={pole.streetlight_id}>
+                      {pole.streetlight_id} — {pole.name || "Unnamed pole"}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 10,
-                marginTop: 10,
-              }}
-            >
-              <div>
-                <label className="lwLabel">Latitude</label>
+              <div className="lwAdminFormSection">
+                <label className="lwLabel">Display name</label>
                 <input
-                  className="lwInput"
-                  value={latInput}
-                  onChange={(e) => setLatInput(e.target.value)}
-                  placeholder="ex: 47.610"
+                  className="lwInput lwAdminInput"
+                  value={nameInput}
+                  onChange={(e) => {
+                    setNameInput(e.target.value);
+                    setIsEditing(true);
+                  }}
+                  onFocus={() => setIsEditing(true)}
+                  placeholder="Main Street 5th Ave"
                 />
               </div>
-              <div>
-                <label className="lwLabel">Longitude</label>
-                <input
-                  className="lwInput"
-                  value={lngInput}
-                  onChange={(e) => setLngInput(e.target.value)}
-                  placeholder="ex: -122.2012"
-                />
+
+              <div className="lwAdminFormGrid">
+                <div>
+                  <label className="lwLabel">Latitude</label>
+                  <input
+                    className={`lwInput lwAdminInput ${latError ? "isInvalid" : ""}`}
+                    value={latInput}
+                    onChange={(e) => {
+                      setLatInput(e.target.value);
+                      setIsEditing(true);
+                    }}
+                    onFocus={() => setIsEditing(true)}
+                    placeholder="47.6101"
+                  />
+                  {latError ? (
+                    <div className="lwFieldError">{latError}</div>
+                  ) : (
+                    <div className="lwFieldHint">Valid range: -90 to 90</div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="lwLabel">Longitude</label>
+                  <input
+                    className={`lwInput lwAdminInput ${lngError ? "isInvalid" : ""}`}
+                    value={lngInput}
+                    onChange={(e) => {
+                      setLngInput(e.target.value);
+                      setIsEditing(true);
+                    }}
+                    onFocus={() => setIsEditing(true)}
+                    placeholder="-122.2015"
+                  />
+                  {lngError ? (
+                    <div className="lwFieldError">{lngError}</div>
+                  ) : (
+                    <div className="lwFieldHint">Valid range: -180 to 180</div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                marginTop: 12,
-                alignItems: "center",
-              }}
-            >
-              <button
-                className="lwBtn"
-                onClick={handleSaveMetadata}
-                disabled={saveState === "saving"}
-              >
-                {saveState === "saving" ? "Saving..." : "Save"}
-              </button>
+              <div className="lwAdminActionRow">
+                <button
+                  className="lwAdminPrimaryBtn"
+                  type="button"
+                  onClick={handleSaveMetadata}
+                  disabled={saveState === "saving" || !formValid}
+                >
+                  <UiIcon name="save" size={16} />
+                  <span>{saveState === "saving" ? "Saving..." : "Save Changes"}</span>
+                </button>
 
-              <button
-                className="lwBtn"
-                onClick={handleClearCoords}
-                disabled={saveState === "saving"}
-              >
-                Clear coordinates
-              </button>
+                <button
+                  className="lwAdminSecondaryBtn"
+                  type="button"
+                  onClick={handleClearCoords}
+                  disabled={saveState === "saving"}
+                >
+                  Clear Coordinates
+                </button>
+              </div>
 
-              {coordError || saveMsg ? (
-                <span style={{ fontWeight: 700, opacity: 0.9 }}>
-                  {coordError || saveMsg}
-                </span>
+              {saveMsg ? (
+                <div className={`lwAdminStatusMsg ${saveState}`}>{saveMsg}</div>
               ) : null}
-            </div>
-          </div>
-        </BubbleCard>
+            </BubbleCard>
 
-        <BubbleCard
-          icon="💡"
-          title="Live Light State"
-          subtitle={`WS: ${wsStatus} • Health: ${healthText}`}
-        >
-          <div className="lwKeyValue">
-            <div>
-              <b>Streetlight:</b> {selectedId}
-            </div>
-            <div>
-              <b>Motion:</b> {motionText}
-            </div>
-            <div>
-              <b>Brightness:</b> {lightPct}%
-            </div>
-          </div>
+            <BubbleCard
+              icon={<UiIcon name="activity" size={22} />}
+              title="Live Sensor Readings"
+              sub={live ? "Active sensor stream" : "Waiting for sensor updates"}
+            >
+              <div className="lwSensorGrid">
+                <div className="lwSensorRow">
+                  <span>Lux</span>
+                  <SkeletonValue
+                    active={loadingSensors}
+                    value={live?.lux ?? "Waiting for data"}
+                  />
+                </div>
 
-          <div style={{ marginTop: 12 }}>
-            <div className="lwProgressTrack">
-              <div className="lwProgressFill" style={{ width: `${lightPct}%` }} />
-            </div>
-          </div>
-        </BubbleCard>
+                <div className="lwSensorRow">
+                  <span>Temperature</span>
+                  <SkeletonValue
+                    active={loadingSensors}
+                    value={live?.tempC != null ? `${live.tempC}°C` : "Waiting for data"}
+                  />
+                </div>
 
-        <BubbleCard
-          icon="📡"
-          title="Live Sensor Readings"
-          subtitle={live ? "Receiving telemetry" : "Waiting for telemetry..."}
-        >
-          <div className="lwKeyValue">
-            <div>
-              <b>tenant:</b> {tenantId}
-            </div>
-            <div>
-              <b>Lux:</b> {live?.lux ?? "—"}
-            </div>
-            <div>
-              <b>Temp:</b> {live?.tempC ?? "—"}°C
-            </div>
-            <div>
-              <b>Humidity:</b> {live?.humidity ?? "—"}%
-            </div>
-            <div>
-              <b>Diagnostics:</b> {live?.diagnostics ? "available" : "—"}
-            </div>
-            <div>
-              <b>Last seen:</b> {formatTimestamp(live?.timestamp ?? selected?.last_seen)}
-            </div>
+                <div className="lwSensorRow">
+                  <span>Humidity</span>
+                  <SkeletonValue
+                    active={loadingSensors}
+                    value={live?.humidity != null ? `${live.humidity}%` : "Waiting for data"}
+                  />
+                </div>
+
+                <div className="lwSensorRow">
+                  <span>Last Seen</span>
+                  <SkeletonValue
+                    active={loadingSensors}
+                    value={formatTimestamp(live?.timestamp ?? selectedBase?.last_seen)}
+                  />
+                </div>
+              </div>
+            </BubbleCard>
+
+            <BubbleCard
+              icon={<UiIcon name="radio" size={22} />}
+              title="Live Events"
+              sub="Latest activity from the selected pole"
+            >
+              <ActivityFeed events={events} wsStatus={wsStatus} />
+            </BubbleCard>
           </div>
 
-          <div style={{ marginTop: 12 }}>
-            <MapEmbed
-              title="Selected pole pin"
-              height={240}
-              lat={mapLat}
-              lng={mapLng}
-              zoom={17}
-            />
-          </div>
-        </BubbleCard>
+          <div style={{ display: "grid", gap: "16px", minWidth: 0 }}>
+            <BubbleCard
+              icon={<UiIcon name="bolt" size={22} />}
+              title="Live Light State"
+              sub="Current output and health"
+            >
+              <div className="lwAdminMetricList">
+                <div><b>Streetlight:</b> {selectedId}</div>
+                <div><b>Display Name:</b> {nameInput || selectedBase?.name || "Unnamed pole"}</div>
+                <div><b>Motion:</b> {motionText}</div>
+                <div><b>Brightness Level:</b> {lightPct}%</div>
+                <div><b>Health:</b> {healthText}</div>
+              </div>
 
-        <BubbleCard icon="⚡" title={`Live Events (${wsStatus})`} subtitle="Latest WS updates">
-          <ActivityFeed items={events} />
-        </BubbleCard>
+              <div className="lwProgressTrack lwProgressTrackClean">
+                <div
+                  className="lwProgressFill lwProgressFillClean"
+                  style={{ width: `${lightPct}%` }}
+                />
+              </div>
+            </BubbleCard>
+
+            <BubbleCard
+              icon={<UiIcon name="map" size={22} />}
+              title="Device Map"
+              sub="Interactive location view"
+            >
+              <div
+                style={{
+                  width: "100%",
+                  minWidth: 0,
+                  borderRadius: "18px",
+                  overflow: "hidden",
+                }}
+              >
+                <MapEmbed
+                  key={mapKey}
+                  title="Selected pole location"
+                  height={mapHeight}
+                  fillHeight={false}
+                  lat={mapLat}
+                  lng={mapLng}
+                  poles={mapPoles}
+                  selectedId={selectedId}
+                  onSelectPole={(pole) => setSelectedId(pole.streetlight_id)}
+                  showLegend
+                />
+              </div>
+            </BubbleCard>
+          </div>
+        </div>
       </div>
     </Layout>
   );

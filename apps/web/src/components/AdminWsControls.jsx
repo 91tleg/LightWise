@@ -1,5 +1,5 @@
-// apps/web/src/components/AdminWsControls.jsx
 import React, { useMemo, useState } from "react";
+import UiIcon from "./UiIcon";
 import "../styles/admin.css";
 
 export default function AdminWsControls({
@@ -7,10 +7,11 @@ export default function AdminWsControls({
   onSimulateMotion,
   onSubscribeDemo,
   motionState,
+  selectedStreetlightId,
 }) {
   const [flash, setFlash] = useState("idle");
   const [streetlightId, setStreetlightId] = useState(
-    process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042"
+    selectedStreetlightId || process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042"
   );
 
   const isConnected = wsStatus === "connected";
@@ -49,59 +50,43 @@ export default function AdminWsControls({
     return "lwBtn";
   }, [state]);
 
-  const simulateDisabled = !isConnected || isBusy;
-  const subscribeDisabled = !isConnected || isBusy || !String(streetlightId || "").trim();
-
-  const subscribeTitle = `Sends: {"action":"subscribe","streetlight_id":"${streetlightId}"}`;
-
   return (
-    <div className="lwAdminTop">
+    <div className="lwAdminControlBar">
       <button
         className={`${btnClass} lwAdminSimBtn`}
         onClick={handleSimulateClick}
-        disabled={simulateDisabled}
-        title={
-          !isConnected
-            ? "Connect WS first"
-            : "UI-only demo (Kirat confirmed WS supports only 'subscribe' route right now)"
-        }
+        disabled={!isConnected || isBusy}
+        type="button"
       >
-        Simulate Motion
-        <br />
-        (UI only)
+        <UiIcon name="spark" size={16} />
+        <span>Test Motion Trigger</span>
       </button>
 
-      <div style={{ marginLeft: 12, display: "flex", flexDirection: "column" }}>
-        <input
-          value={streetlightId}
-          onChange={(e) => setStreetlightId(e.target.value)}
-          placeholder="Streetlight ID (e.g. LW-00042)"
-          style={{
-            padding: "8px 10px",
-            borderRadius: 8,
-            border: "1px solid #ddd",
-            marginBottom: 8,
-            width: 190,
-          }}
-        />
-
-        <button
-          className="lwBtn"
-          style={{ marginLeft: 0 }}
-          onClick={handleSubscribeClick}
-          disabled={subscribeDisabled}
-          title={subscribeTitle}
-        >
-          Subscribe
-          <br />
-          {streetlightId || "LW-00042"}
-        </button>
+      <div className="lwAdminSubscribeBox">
+        <label className="lwAdminMiniLabel">Device Subscription</label>
+        <div className="lwAdminSubscribeRow">
+          <input
+            className="lwAdminCompactInput"
+            value={streetlightId}
+            onChange={(e) => setStreetlightId(e.target.value)}
+            placeholder="LW-00042"
+          />
+          <button
+            className="lwBtn lwAdminSubscribeBtn"
+            onClick={handleSubscribeClick}
+            disabled={!isConnected || !streetlightId.trim() || isBusy}
+            type="button"
+          >
+            Subscribe
+          </button>
+        </div>
       </div>
 
-      <div className="lwWsStatus" style={{ marginLeft: 12 }}>
-        WebSocket status: <b>{wsStatus}</b>
-        <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>
-          WS routes: $connect / $default / $disconnect / <b>subscribe</b>
+      <div className="lwAdminConnectionChip">
+        <span className={`lwStatusDot ${isConnected ? "connected" : "idle"}`} />
+        <div>
+          <div className="lwAdminMiniLabel">Connection Status</div>
+          <div className="lwAdminConnectionValue">{wsStatus || "idle"}</div>
         </div>
       </div>
     </div>
