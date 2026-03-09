@@ -57,7 +57,7 @@ namespace lorawan
          * @param region Target region (EU868, US915, CN470)
          * @return true if region set successfully, false otherwise
          */
-        bool setRegion( Region region );
+        bool setRegion( Region region ) override;
 
         /**
          * @brief Set Application EUI (Join EUI) for OTAA
@@ -105,7 +105,7 @@ namespace lorawan
          * @param classType Class A or Class C
          * @return true if set successfully, false otherwise
          */
-        bool setClass( DeviceClass classType );
+        bool setClass( DeviceClass classType ) override;
 
         /**
          * @brief Set LoRa data rate (Spreading Factor)
@@ -113,7 +113,7 @@ namespace lorawan
          * @param dataRate Data rate value (region-dependent, typically 0-15)
          * @return true if set successfully, false otherwise
          */
-        bool setDatarate( uint8_t dataRate );
+        bool setDatarate( uint8_t dataRate ) override;
 
         /**
          * @brief Set Equivalent Isotropic Radiated Power (EIRP)
@@ -121,7 +121,7 @@ namespace lorawan
          * @param eirp Transmission power in dBm
          * @return true if set successfully, false otherwise
          */
-        bool setEirp( uint8_t eirp );
+        bool setEirp( uint8_t eirp ) override;
 
         /**
          * @brief Set sub-band for regional support (US915/CN470 only)
@@ -129,7 +129,7 @@ namespace lorawan
          * @param subBand Sub-band index (1-8 for US915)
          * @return true if set successfully, false otherwise
          */
-        bool setSubband( uint8_t subBand );
+        bool setSubband( uint8_t subBand ) override;
 
         /**
          * @brief Enable or disable Adaptive Data Rate
@@ -137,7 +137,7 @@ namespace lorawan
          * @param adr true to enable ADR, false to disable
          * @return true if set successfully, false otherwise
          */
-        bool enableAdr( bool adr );
+        bool enableAdr( bool adr ) override;
 
         /**
          * @brief Set uplink transmission type (confirmed or unconfirmed)
@@ -145,7 +145,7 @@ namespace lorawan
          * @param type Packet type (confirmed or unconfirmed)
          * @return true if set successfully, false otherwise
          */
-        bool setPacketType( PacketType type );
+        bool setPacketType( PacketType type ) override;
 
         /** @} */
 
@@ -174,21 +174,21 @@ namespace lorawan
          * 
          * @return true if initialization successful, false otherwise
          */
-        bool begin();
+        bool begin() override;
 
         /**
          * @brief Request network join (OTAA or ABP)
          * 
          * @return true if join request sent successfully, false otherwise
          */
-        bool join();
+        bool join() override;
 
         /**
          * @brief Query current network join status
          * 
          * @return true if device is currently joined to network, false otherwise
          */
-        bool isJoined();
+        bool isJoined() override;
 
         /** @} */
 
