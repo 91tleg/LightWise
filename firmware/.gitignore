@@ -9,3 +9,5 @@ build
 *.old
 *.ctu-info
 *.dump
+secrets/
+nvs/
