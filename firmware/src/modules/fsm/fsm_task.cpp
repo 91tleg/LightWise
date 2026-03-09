@@ -13,7 +13,6 @@ namespace fsm
     namespace
     {
         constexpr char kTag[] = "FsmTask";
-        constexpr uint8_t kDimLevel = 5U;
         constexpr TickType_t kLightTimeoutMs = 3UL * 1000UL;
         constexpr TickType_t kAmbientSamplePeriodMs = 60UL * 1000UL;
     } /* anaonymous namespace */
@@ -37,24 +36,27 @@ namespace fsm
         TickType_t ambientPollTick = xTaskGetTickCount();
         TickType_t lastMotionTick = 0UL;
 
-        bool isDimmed = false;
+        bool isDimmed = true;
+        bool motionEverCleared = false;
 
         for( ;; )
         {
             /* Wait for motion notification */
             ulTaskNotifyTake( pdTRUE, pdMS_TO_TICKS( 1000U ) );
 
-            const bool motionDetected = ( xQueueReceive( params->mmwaveRxQueue,
-                                                         &inputs.mmwave,
-                                                         static_cast<TickType_t>( 0U ) ) == pdTRUE );
-            if( motionDetected )
+            const bool received = ( xQueueReceive( params->mmwaveRxQueue,
+                                                   &inputs.mmwave,
+                                                   static_cast<TickType_t>( 0U ) ) == pdTRUE );
+            if( received && inputs.mmwave.motionDetected )
             {
                 isDimmed = false;
-                lastMotionTick = xTaskGetTickCount();
+                motionEverCleared = false;
+
+                outputs = mgr.update( inputs );
 
                 /* Set light level */
                 const BaseType_t notifyResult = xTaskNotify( params->lightTaskHandle,
-                                                             outputs.lightLevel,
+                                                             static_cast<uint32_t>( outputs.lightLevel ),
                                                              eSetValueWithOverwrite );
                 LOGI( kTag, "Setting light level to %u: %s",
                       outputs.lightLevel, notifyResult == pdPASS ? "success" : "failed" );
@@ -77,6 +79,15 @@ namespace fsm
                 LOGI( kTag, "Sending uplink data: %s",
                       uplinkResult == pdPASS ? "success" : "failed" );
             }
+            else if( received && !inputs.mmwave.motionDetected )
+            {
+                lastMotionTick = xTaskGetTickCount();
+                motionEverCleared = true;
+            }
+            else
+            {
+                /* Received error */
+            }
 
             const TickType_t now = xTaskGetTickCount();
             if( ( now - ambientPollTick ) >= pdMS_TO_TICKS( kAmbientSamplePeriodMs ) )
@@ -91,15 +102,18 @@ namespace fsm
                 }
             }
 
-            if( !isDimmed && 
+            if( !isDimmed && motionEverCleared &&
                 ( ( now - lastMotionTick ) >= pdMS_TO_TICKS( kLightTimeoutMs  ) ) )
             {
+                inputs.mmwave.motionDetected = false;
+                motionEverCleared = false;
+                outputs = mgr.update( inputs );
                 /* Dim */
                 const BaseType_t dimResult = xTaskNotify( params->lightTaskHandle,
-                                                          kDimLevel,
+                                                          static_cast<uint32_t>( outputs.lightLevel ),
                                                           eSetValueWithOverwrite );
                 LOGI( kTag, "Dimming light to %u: %s",
-                      kDimLevel, dimResult == pdPASS ? "success" : "failed" );
+                      outputs.lightLevel, dimResult == pdPASS ? "success" : "failed" );
                 isDimmed = true;
             }
 
