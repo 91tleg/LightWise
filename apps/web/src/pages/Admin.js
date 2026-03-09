@@ -38,7 +38,7 @@ function formatTimestamp(ts) {
 }
 
 function validateCoordinate(value, type) {
-  if (!value.trim()) return "";
+  if (!String(value || "").trim()) return "";
   const num = Number(value);
   if (!Number.isFinite(num)) return `${type} must be a valid number.`;
   if (type === "Latitude" && (num < -90 || num > 90)) {
@@ -137,7 +137,6 @@ function buildFallbackPole(id = DEFAULT_POLE_ID, localMeta = {}) {
 
 function getFormValuesForPole(pole, metaMap) {
   const local = metaMap[pole?.streetlight_id] || {};
-
   return {
     name: hasOwn(local, "name") ? local.name || "" : pole?.name || "",
     lat: hasOwn(local, "lat")
@@ -174,15 +173,20 @@ export default function Admin() {
   const [lngInput, setLngInput] = useState("");
 
   const [isEditing, setIsEditing] = useState(false);
-  const selectedIdRef = useRef(DEFAULT_POLE_ID);
-
   const [saveState, setSaveState] = useState("idle");
   const [saveMsg, setSaveMsg] = useState("");
+
+  const selectedIdRef = useRef(DEFAULT_POLE_ID);
+  const lastLoadedPoleIdRef = useRef(null);
 
   const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
     tenantId,
     debug: false,
   });
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,13 +212,12 @@ export default function Admin() {
           setStreetlights([buildFallbackPole(selectedIdRef.current, local)]);
         }
       } catch {
-        if (!cancelled) {
-          const local = loadPoleMetaMap();
-          setMetaMap(local);
-          setStreetlights((prev) =>
-            prev.length ? prev : [buildFallbackPole(selectedIdRef.current, local)]
-          );
-        }
+        if (cancelled) return;
+        const local = loadPoleMetaMap();
+        setMetaMap(local);
+        setStreetlights((prev) =>
+          prev.length ? prev : [buildFallbackPole(selectedIdRef.current, local)]
+        );
       }
     }
 
@@ -226,10 +229,6 @@ export default function Admin() {
       clearInterval(timer);
     };
   }, []);
-
-  useEffect(() => {
-    selectedIdRef.current = selectedId;
-  }, [selectedId]);
 
   const mapPoles = useMemo(() => {
     const base = streetlights.length
@@ -250,12 +249,18 @@ export default function Admin() {
   useEffect(() => {
     if (!selectedBase) return;
 
-    const formValues = getFormValuesForPole(selectedBase, metaMap);
-    setNameInput(formValues.name);
-    setLatInput(formValues.lat);
-    setLngInput(formValues.lng);
-    setIsEditing(false);
-  }, [selectedBase, metaMap]);
+    const selectedPoleId = selectedBase.streetlight_id;
+    const poleChanged = lastLoadedPoleIdRef.current !== selectedPoleId;
+
+    if (poleChanged || !isEditing) {
+      const formValues = getFormValuesForPole(selectedBase, metaMap);
+      setNameInput(formValues.name);
+      setLatInput(formValues.lat);
+      setLngInput(formValues.lng);
+      lastLoadedPoleIdRef.current = selectedPoleId;
+      setIsEditing(false);
+    }
+  }, [selectedBase?.streetlight_id, metaMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (wsStatus === "connected" && selectedId) {
@@ -282,7 +287,7 @@ export default function Admin() {
       health: lastMessage?.health || selectedBase?.health || "OK",
       timestamp: lastMessage?.timestamp || new Date().toISOString(),
     };
-  }, [lastMessage, selectedId, selectedBase]);
+  }, [lastMessage, selectedId, selectedBase?.health]);
 
   useEffect(() => {
     if (!lastMessage || lastMessage.streetlight_id !== selectedId) return;
@@ -424,7 +429,6 @@ export default function Admin() {
       : "Clear";
 
   const loadingSensors = !live;
-
   const mapHeight = 640;
   const mapKey = `${selectedId}-${mapLat}-${mapLng}`;
 
@@ -466,7 +470,10 @@ export default function Admin() {
                 <select
                   className="lwInput lwAdminInput"
                   value={selectedId}
-                  onChange={(e) => setSelectedId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedId(e.target.value);
+                    setIsEditing(false);
+                  }}
                 >
                   {mapPoles.map((pole) => (
                     <option key={pole.streetlight_id} value={pole.streetlight_id}>
@@ -485,8 +492,8 @@ export default function Admin() {
                     setNameInput(e.target.value);
                     setIsEditing(true);
                   }}
-                  onFocus={() => setIsEditing(true)}
                   placeholder="Main Street 5th Ave"
+                  autoComplete="off"
                 />
               </div>
 
@@ -500,8 +507,8 @@ export default function Admin() {
                       setLatInput(e.target.value);
                       setIsEditing(true);
                     }}
-                    onFocus={() => setIsEditing(true)}
                     placeholder="47.6101"
+                    autoComplete="off"
                   />
                   {latError ? (
                     <div className="lwFieldError">{latError}</div>
@@ -519,8 +526,8 @@ export default function Admin() {
                       setLngInput(e.target.value);
                       setIsEditing(true);
                     }}
-                    onFocus={() => setIsEditing(true)}
                     placeholder="-122.2015"
+                    autoComplete="off"
                   />
                   {lngError ? (
                     <div className="lwFieldError">{lngError}</div>
