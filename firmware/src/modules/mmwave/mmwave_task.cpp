@@ -33,13 +33,14 @@ namespace mmwave
         for( ;; )
         {
             ok = mgr.update(data);
-            LOGI( kTag, "Update: %s", ok ? "success" : "failed" );
+            LOGD( kTag, "Update: %s", ok ? "success" : "failed" );
 
             const bool risingEdge = data.motionDetected && !prevMotion;
+            const bool fallingEdge = !data.motionDetected && prevMotion;
 
-            if( risingEdge )
+            if( risingEdge || fallingEdge )
             {
-                LOGI( kTag, "Motion detected" );
+                LOGI( kTag, "Motion %s", risingEdge ? "detected" : "gone" );
                 const BaseType_t notifyResult = xTaskNotifyGive( params->fsmTaskHandle );
                 LOGI( kTag, "Notify task: %s", notifyResult == pdPASS
                                                ? "success"
