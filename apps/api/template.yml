@@ -63,7 +63,7 @@ Resources:
         - DynamoDBReadPolicy:
             TableName: !Ref StreetlightMetadata
         - DynamoDBReadPolicy:
-          TableName: !Ref WebSocketConnections
+            TableName: !Ref WebSocketConnections
 
   WebSocketConnectFunction:
     Type: AWS::Serverless::Function
