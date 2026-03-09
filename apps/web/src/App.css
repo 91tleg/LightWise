@@ -9,3 +9,293 @@ body {
 }
 
 * { box-sizing: border-box; }
+.page-shell {
+  padding: 20px;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+.page-header p {
+  margin-top: 4px;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.status-banner {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.status-banner.success {
+  background: rgba(40, 167, 69, 0.12);
+  color: #1f7a35;
+  border: 1px solid rgba(40, 167, 69, 0.25);
+}
+
+.status-banner.error {
+  background: rgba(220, 53, 69, 0.12);
+  color: #b42318;
+  border: 1px solid rgba(220, 53, 69, 0.25);
+}
+
+.admin-toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.toolbar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolbar-field label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.toolbar-inline {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-left,
+.admin-right {
+  display: grid;
+  gap: 18px;
+}
+
+.overview-main-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 18px;
+  align-items: stretch;
+}
+
+.overview-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.compact-stat {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.stat-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.stat-sub {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.dashboard-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.card-header h2 {
+  margin: 0;
+}
+
+.card-header p {
+  margin-top: 4px;
+  margin-bottom: 12px;
+  opacity: 0.78;
+}
+
+.pill-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pill.green {
+  background: #d3f9d8;
+  color: #2b8a3e;
+}
+
+.pill.amber {
+  background: #fff3bf;
+  color: #e67700;
+}
+
+.pill.red {
+  background: #ffe3e3;
+  color: #c92a2a;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field-full {
+  grid-column: 1 / -1;
+}
+
+.form-field label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form-field small {
+  opacity: 0.75;
+  font-size: 11px;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  padding: 0 12px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.btn-primary,
+.btn-secondary {
+  height: 42px;
+  border-radius: 10px;
+  padding: 0 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-primary {
+  border: none;
+}
+
+.btn-secondary {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+}
+
+.info-list {
+  display: grid;
+  gap: 10px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.info-row span {
+  opacity: 0.85;
+}
+
+.info-row strong {
+  text-align: right;
+}
+
+.map-card-fill {
+  min-height: 460px;
+  height: 100%;
+}
+
+.map-body-fill {
+  flex: 1;
+  min-height: 320px;
+  display: flex;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.device-map-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  border: 0;
+  display: block;
+}
+
+.map-empty-state {
+  width: 100%;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+@media (max-width: 1100px) {
+  .admin-grid,
+  .overview-main-grid,
+  .overview-stats-grid,
+  .admin-toolbar,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

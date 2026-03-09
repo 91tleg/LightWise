@@ -1,43 +1,50 @@
-// apps/web/src/components/ActivityFeed.jsx
-
 import React, { useMemo } from "react";
+import UiIcon from "./UiIcon";
 
-/**
- * Presentational ActivityFeed
- *
- * Props:
- *  - events: array of normalized events
- *    shape example: { id, type, timestamp, streetlightId, value, note? }
- *  - wsStatus?: string
- *  - maxItems?: number
- */
-export default function ActivityFeed({ events = [], wsStatus, maxItems = 20 }) {
-  const header = useMemo(() => {
-    if (wsStatus === "connected") return "Live Events (connected)";
-    if (wsStatus === "connecting") return "Live Events (connecting...)";
-    if (wsStatus === "error") return "Live Events (error)";
-    if (wsStatus === "disconnected") return "Live Events (disconnected)";
-    return "Live Events";
-  }, [wsStatus]);
+function formatTime(ts) {
+  if (!ts) return "Now";
+  try {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return String(ts);
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return String(ts);
+  }
+}
 
-  const rows = useMemo(() => {
-    return Array.isArray(events) ? events.slice(0, maxItems) : [];
-  }, [events, maxItems]);
+export default function ActivityFeed({ events = [], wsStatus, maxItems = 12 }) {
+  const rows = useMemo(
+    () => (Array.isArray(events) ? events.slice(0, maxItems) : []),
+    [events, maxItems]
+  );
+  const connected = wsStatus === "connected";
 
   return (
     <div className="lwActivityFeed">
-      <div className="lwActivityHeader">{header}</div>
+      <div className="lwActivityHeader lwActivityHeaderClean">
+        <div className="lwActivityHeaderTitle">Live Events</div>
+        <span className={`lwStatusDot ${connected ? "connected" : "idle"}`} aria-hidden="true" />
+      </div>
 
       {!rows.length ? (
-        <div className="lwActivityEmpty">
-          No events yet. (If WS is connected but nothing arrives, it usually means no telemetry is being published.)
-        </div>
+        <div className="lwActivityEmpty">No recent activity.</div>
       ) : (
         <div className="lwActivityList">
           {rows.map((e, idx) => (
-            <div key={e.id ?? `${e.type}-${e.timestamp}-${idx}`} className="lwActivityItem">
+            <div
+              key={e.id ?? `${e.type}-${e.timestamp}-${idx}`}
+              className="lwActivityItem lwActivityItemClean"
+            >
               <div className="lwActivityTop">
-                <span className="lwActivityType">{e.type}</span>
+                <span className="lwActivityTag">
+                  <UiIcon name="activity" size={14} />
+                  <span>{e.label || e.type || "Update"}</span>
+                </span>
                 <span className="lwActivityTime">{formatTime(e.timestamp)}</span>
               </div>
 
@@ -53,14 +60,4 @@ export default function ActivityFeed({ events = [], wsStatus, maxItems = 20 }) {
       )}
     </div>
   );
-}
-
-function formatTime(ts) {
-  try {
-    const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) return String(ts);
-    return d.toLocaleString();
-  } catch {
-    return String(ts);
-  }
 }

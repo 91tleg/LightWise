@@ -156,7 +156,12 @@ body{
 }
 
 .lwKpiCard{display:flex;align-items:center;gap:12px;padding:14px;}
-.lwKpiCard,.lwPanel,.lwCard,.lwLegendCard,.lwBubbleCard{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);}
+.lwKpiCard,.lwPanel,.lwCard,.lwLegendCard,.lwBubbleCard{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:18px;
+  box-shadow:var(--shadow);
+}
 
 .lwKpiIcon{
   width:44px;height:44px;border-radius:14px;
@@ -401,3 +406,213 @@ body{
   .lwKpiGrid{grid-template-columns:1fr;}
 }
 
+
+/* ================= CLEAN OPERATOR UI ================= */
+.lwPageTitle{font-size:28px;line-height:1.05;}
+.lwPageSubtitle{font-size:14px;}
+.lwPageHeader{margin-bottom:12px;}
+.lwPage{padding:14px;}
+
+.lwTopbarClean{padding:10px 18px;}
+.lwTopbarBrandClean{gap:12px;}
+.lwTopbarLogoShell{
+  width:56px;height:56px;border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  background:transparent;
+}
+.lwTopbarLogoClean{width:40px;height:40px;object-fit:contain;display:block;}
+.lwTopbarBrandText{display:flex;flex-direction:column;gap:2px;color:#fff;}
+.lwTopbarBrandTitle{font-size:20px;font-weight:1000;line-height:1;}
+.lwTopbarBrandSub{font-size:12px;font-weight:700;opacity:.88;}
+.lwTopbarActionsClean{gap:12px;}
+.lwTopbarIconBtnClean{
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.18);
+}
+.lwTopbarProfileChip{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.16);color:#fff;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:16px;padding:8px 12px;
+}
+.lwTopbarProfileAvatar{
+  width:34px;height:34px;border-radius:999px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.2);
+}
+.lwTopbarProfileMeta{display:flex;flex-direction:column;line-height:1.05;}
+.lwTopbarProfileMeta strong{font-size:13px;}
+.lwTopbarProfileMeta small{font-size:11px;opacity:.82;}
+.lwTopbarSignOutBtn{
+  border:0;border-radius:14px;padding:10px 14px;
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  background:rgba(255,255,255,.95);color:#0d73a8;font-weight:900;
+}
+
+.lwOverviewPage{display:grid;gap:14px;}
+.lwSummaryGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.lwSummaryCard{padding:14px;min-height:116px;}
+.lwSummaryCardTop{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.lwSummaryCardIcon{
+  width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  background:rgba(11,99,166,.08);color:#0b63a6;
+}
+.lwSummaryCardIcon.healthy{background:rgba(34,197,94,.12);color:#15803d;}
+.lwSummaryCardIcon.warning{background:rgba(245,158,11,.14);color:#b45309;}
+.lwSummaryCardIcon.critical{background:rgba(239,68,68,.14);color:#b91c1c;}
+.lwSummaryCardLabel{font-size:13px;font-weight:850;color:#475569;}
+.lwSummaryCardValue{font-size:28px;font-weight:1000;line-height:1.05;color:#0f172a;}
+.lwSummaryCardNote{margin-top:8px;font-size:13px;color:#64748b;line-height:1.35;}
+
+.lwOverviewMainGrid{
+  display:grid;
+  grid-template-columns:minmax(0,1.7fr) minmax(320px,.95fr);
+  gap:14px;
+  align-items:start;
+}
+.lwMapCardShell{padding:12px;}
+.lwOverviewSideStack{display:grid;gap:14px;}
+.lwOperatorCard{padding:12px;}
+.lwSelectedHeaderCompact{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;
+}
+.lwSelectedPoleId{font-size:24px;font-weight:1000;line-height:1.05;color:#0f172a;}
+.lwSelectedPoleName{font-size:14px;font-weight:750;color:#64748b;margin-top:4px;}
+.lwSelectedTrendWrap{
+  padding:12px;border-radius:16px;background:rgba(248,250,252,.85);
+  border:1px solid rgba(226,232,240,.95);margin-bottom:12px;
+}
+.lwSelectedTrendHead{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;
+  font-size:13px;font-weight:850;color:#475569;
+}
+.lwMiniTrend{width:100%;height:56px;color:#0b63a6;display:block;}
+.lwTrendEmpty{
+  padding:18px 14px;border-radius:14px;background:rgba(248,250,252,.82);
+  border:1px dashed rgba(148,163,184,.35);color:#64748b;font-weight:800;text-align:center;
+}
+.lwMetricGridCompact{display:grid;gap:8px;}
+.lwMetricRow{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 12px;border-radius:14px;background:rgba(248,250,252,.92);
+  border:1px solid rgba(226,232,240,.95);font-size:13px;font-weight:800;color:#334155;
+}
+.lwMetricBadge{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:5px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.22);
+  background:rgba(148,163,184,.14);color:#475569;font-size:12px;font-weight:900;white-space:nowrap;
+}
+.lwMetricBadge.healthy{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.22);color:#166534;}
+.lwMetricBadge.warning{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.22);color:#b45309;}
+.lwMetricBadge.critical{background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.22);color:#b91c1c;}
+.lwPoleList{display:grid;gap:8px;max-height:208px;overflow:auto;padding-right:4px;}
+.lwPoleListItem{
+  width:100%;text-align:left;border:1px solid rgba(226,232,240,.95);background:rgba(248,250,252,.92);
+  border-radius:14px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;
+}
+.lwPoleListItem strong{display:block;color:#0f172a;font-size:13px;}
+.lwPoleListItem small{display:block;margin-top:3px;color:#64748b;font-size:12px;font-weight:700;}
+.lwPoleListItem.isSelected{
+  border-color:rgba(11,99,166,.28);
+  box-shadow:inset 0 0 0 1px rgba(11,99,166,.12);
+}
+
+.lwInteractiveMap{position:relative;border-radius:18px;overflow:hidden;background:#dde7ef;}
+.lwMapFrameMuted{opacity:.78;pointer-events:none;filter:saturate(.85) contrast(.95);}
+.lwMapMarkerLayer{position:absolute;inset:0;pointer-events:none;}
+.lwMapMarker{
+  position:absolute;transform:translate(-50%,-100%);pointer-events:auto;
+  border:0;background:transparent;padding:0;cursor:pointer;
+}
+.lwMapMarkerCore{
+  display:block;width:18px;height:18px;border-radius:999px;border:3px solid #fff;
+  box-shadow:0 8px 14px rgba(15,23,42,.22);
+}
+.lwMapMarkerLabel{
+  margin-top:6px;display:block;padding:3px 8px;border-radius:999px;
+  background:rgba(15,23,42,.76);color:#fff;font-size:11px;font-weight:900;
+}
+.lwMapMarker-healthy .lwMapMarkerCore{background:#22c55e;}
+.lwMapMarker-warning .lwMapMarkerCore{background:#f59e0b;}
+.lwMapMarker-critical .lwMapMarkerCore{background:#ef4444;}
+.lwMapMarker-motion .lwMapMarkerCore{background:#2563eb;animation:lwPulse 1.6s infinite;}
+.lwMapMarker.isSelected .lwMapMarkerLabel{background:#0b63a6;}
+.lwMapInfoWindow{
+  position:absolute;top:14px;left:14px;display:flex;flex-direction:column;gap:2px;
+  padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.94);
+  border:1px solid rgba(226,232,240,.95);box-shadow:0 10px 18px rgba(15,23,42,.08);
+}
+.lwMapInfoWindow strong{font-size:13px;color:#0f172a;}
+.lwMapInfoWindow span,.lwMapInfoWindow small{color:#64748b;font-weight:800;font-size:12px;}
+.lwMapLegendOverlay{position:absolute;right:12px;bottom:12px;max-width:180px;}
+.lwLegendCompact{background:rgba(255,255,255,.92);box-shadow:0 10px 18px rgba(15,23,42,.08);}
+.lwLegendTitle{font-size:13px;}
+.lwLegendRow{font-size:12px;font-weight:800;color:#334155;}
+.lwDot.amber{background:#f59e0b;}
+.lwDot.blue{background:#2563eb;}
+.lwDot.pulse{box-shadow:0 0 0 0 rgba(37,99,235,.32);animation:lwPulse 1.6s infinite;}
+
+.lwActivityHeaderClean{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;
+}
+.lwActivityHeaderTitle{font-weight:1000;color:#0f172a;}
+.lwStatusDot{display:inline-block;width:10px;height:10px;border-radius:999px;background:#94a3b8;}
+.lwStatusDot.connected{background:#22c55e;box-shadow:0 0 0 6px rgba(34,197,94,.12);}
+.lwStatusDot.idle{background:#94a3b8;}
+.lwActivityItemClean{
+  border-radius:14px;background:rgba(248,250,252,.92);border:1px solid rgba(226,232,240,.95);padding:10px 12px;
+}
+.lwActivityTag{
+  display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:900;color:#0b63a6;
+}
+.lwActivityTime{font-size:11px;color:#64748b;font-weight:800;}
+
+@keyframes lwPulse{
+  0%{box-shadow:0 0 0 0 rgba(37,99,235,.28);}
+  70%{box-shadow:0 0 0 10px rgba(37,99,235,0);}
+  100%{box-shadow:0 0 0 0 rgba(37,99,235,0);}
+}
+
+@media (max-width: 1200px){
+  .lwSummaryGrid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .lwOverviewMainGrid{grid-template-columns:1fr;}
+}
+
+@media (max-width: 760px){
+  .lwSummaryGrid{grid-template-columns:1fr;}
+  .lwTopbarBrandSub,.lwTopbarProfileChip{display:none;}
+  .lwTopbarSignOutBtn span{display:none;}
+}
+
+.lwMapCardShell {
+  height: 100%;
+  min-height: 560px;
+}
+
+.lwOverviewSideStack {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.lwOverviewMainGrid {
+  align-items: stretch;
+}
+
+.lwMapBox.lwInteractiveMap {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+.lwMapFrame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+@media (max-width: 1200px) {
+  .lwMapCardShell {
+    min-height: 440px;
+  }
+}

@@ -136,3 +136,79 @@ It keeps the dashboard readable.
 
   background: rgba(255, 255, 255, 0.85);
 }
+
+/* ================= CLEAN ADMIN PAGE ================= */
+.lwAdminPageClean{display:grid;gap:14px;}
+.lwAdminHeroClean{
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:18px;
+  box-shadow:0 10px 22px rgba(0,0,0,.08);
+  padding:14px;
+}
+.lwAdminControlBar{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:end;}
+.lwAdminSubscribeBox,.lwAdminConnectionChip{
+  background:rgba(248,250,252,.92);border:1px solid rgba(226,232,240,.95);
+  border-radius:16px;padding:10px 12px;
+}
+.lwAdminMiniLabel{display:block;font-size:12px;font-weight:900;color:#64748b;margin-bottom:6px;}
+.lwAdminSubscribeRow{display:flex;gap:10px;align-items:center;}
+.lwAdminCompactInput{
+  width:180px;padding:10px 12px;border-radius:12px;border:1px solid rgba(203,213,225,.95);
+  font-size:14px;font-weight:800;background:#fff;
+}
+.lwAdminSubscribeBtn{margin:0 !important;min-width:auto !important;padding:10px 14px !important;border-radius:12px !important;}
+.lwAdminConnectionChip{display:flex;align-items:center;gap:12px;min-width:190px;}
+.lwAdminConnectionValue{font-size:14px;font-weight:1000;color:#0f172a;text-transform:capitalize;}
+
+.lwAdminGridClean{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start;}
+.lwAdminGridClean .lwBubbleCard{min-height:100%;}
+.lwAdminGridClean .lwBubbleIcon svg{display:block;}
+.lwRuleRowClean{margin-top:4px;}
+.lwAdminFormSection{margin-top:14px;position:relative;z-index:1;}
+.lwAdminFormGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;position:relative;z-index:1;}
+.lwAdminInput{border-radius:16px !important;padding:12px 14px !important;font-size:15px !important;}
+.lwAdminInput.isInvalid{border-color:#ef4444 !important;box-shadow:0 0 0 3px rgba(239,68,68,.08);}
+.lwFieldError{margin-top:6px;font-size:12px;font-weight:900;color:#b91c1c;}
+.lwFieldHint{margin-top:6px;font-size:12px;font-weight:800;color:#64748b;}
+.lwAdminActionRow{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;position:relative;z-index:1;}
+.lwAdminPrimaryBtn,
+.lwAdminSecondaryBtn{
+  border:0;border-radius:14px;padding:11px 16px;font-weight:1000;cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+}
+.lwAdminPrimaryBtn{background:#0b63a6;color:#fff;box-shadow:0 10px 18px rgba(11,99,166,.24);}
+.lwAdminPrimaryBtn:disabled{opacity:.6;cursor:not-allowed;}
+.lwAdminSecondaryBtn{background:rgba(255,255,255,.92);color:#0b63a6;border:1px solid rgba(13,115,168,.18);}
+.lwAdminStatusMsg{margin-top:12px;font-size:13px;font-weight:900;position:relative;z-index:1;}
+.lwAdminStatusMsg.saved{color:#15803d;}
+.lwAdminStatusMsg.error{color:#b91c1c;}
+.lwAdminStatusMsg.saving{color:#0b63a6;}
+
+.lwAdminMetricList{display:grid;gap:10px;position:relative;z-index:1;font-size:14px;font-weight:800;color:#1f2937;}
+.lwProgressTrackClean{height:14px;border-radius:999px;background:rgba(226,232,240,.92);margin-top:14px;overflow:hidden;}
+.lwProgressFillClean{height:100%;border-radius:999px;background:linear-gradient(90deg,#1bb0a3,#2bd46f);}
+
+.lwSensorGrid{display:grid;gap:10px;position:relative;z-index:1;}
+.lwSensorRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:14px;background:rgba(248,250,252,.92);border:1px solid rgba(226,232,240,.95);font-weight:850;color:#334155;}
+.lwSensorValue{font-weight:1000;color:#0f172a;}
+.lwSkeletonLine{
+  display:inline-block;width:92px;height:12px;border-radius:999px;
+  background:linear-gradient(90deg, rgba(226,232,240,.95), rgba(203,213,225,.82), rgba(226,232,240,.95));
+  background-size:200% 100%;animation:lwShimmer 1.2s linear infinite;
+}
+
+@keyframes lwShimmer{
+  0%{background-position:200% 0;}
+  100%{background-position:-200% 0;}
+}
+
+@media (max-width: 1180px){
+  .lwAdminControlBar{grid-template-columns:1fr;align-items:stretch;}
+  .lwAdminGridClean{grid-template-columns:1fr;}
+}
+
+@media (max-width: 760px){
+  .lwAdminFormGrid{grid-template-columns:1fr;}
+  .lwAdminSubscribeRow{flex-direction:column;align-items:stretch;}
+  .lwAdminCompactInput{width:100%;}
+}
