@@ -3,7 +3,6 @@
 #include "fsm_manager.hpp"
 #include "types/ambient_data.hpp"
 #include "types/th_data.hpp"
-#include "types/light_data.hpp"
 #include "types/lorawan_data.hpp"
 #include "types/mmwave_data.hpp"
 #include "types/sensor_health.hpp"
