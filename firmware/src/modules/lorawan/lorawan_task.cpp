@@ -14,6 +14,8 @@ namespace lorawan
     namespace
     {
         constexpr char kTag[] = "LoRaWANTask";
+        constexpr uint8_t kMaxRetries = 3U;
+        constexpr TickType_t kRetryDelayMs = pdMS_TO_TICKS( 500U );
     } /* anonymous namespace */
 
     void task( void * pvParameters )
@@ -28,7 +30,7 @@ namespace lorawan
         Manager mgr( *params->primary, *params->payload );
 
         bool ok = mgr.setup();
-        LOGI( kTag, "NVS key load: %d", static_cast<int>( ok ) );
+        LOGI( kTag, "NVS key load: %s", ok ? "success" : "failed" );
 
         UplinkData data{};
 
@@ -39,15 +41,36 @@ namespace lorawan
                                                           portMAX_DELAY );
             if( queueResult == pdTRUE )
             {
-                LOGD( kTag, "Queue recieved" );
+                LOGD( kTag, "Queue received" );
+
+                for( uint8_t attempt = 0U; attempt < kMaxRetries; ++attempt )
+                {
+                    ok = mgr.sendUplink( data );
+                    if( ok )
+                    {
+                        LOGI( kTag, "Send uplink: success (attempt %d)",
+                              attempt + 1 );
+                        break;
+                    }
+
+                    LOGW( kTag, "Send uplink failed (attempt %d/%d)",
+                          attempt + 1, kMaxRetries );
+
+                    if( attempt < ( kMaxRetries - 1U ) )
+                    {
+                        vTaskDelay( kRetryDelayMs );
+                    }
+                }
+
+                if( !ok )
+                {
+                    LOGE( kTag, "Send uplink failed. Dropping packet" );
+                }
             }
             else
             {
-                LOGW( kTag, "Failed to recieve queue" );
+                LOGW( kTag, "Failed to receive queue" );
             }
-
-            ok = mgr.sendUplink( data );
-            LOGI( kTag, "Send uplink: %d", static_cast<int>( ok ) ); 
         }
     }
 } /* namespace lorawan */

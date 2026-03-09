@@ -4,6 +4,7 @@
 #include "utils/num_fmt.h"
 #include "utils/str_ext.h"
 #include "hal/lwnode.h"
+#include "utils/log.h"
 
 namespace lorawan
 {
@@ -53,22 +54,22 @@ namespace lorawan
         /* AppEUI */
         constexpr char kAppEuiPrefix[]      = "AT+JOINEUI=";
         constexpr size_t kAppEuiPrefixLen   = sizeof( kAppEuiPrefix ) - 1U;
-        constexpr size_t kAppEuiCmdLen      = kAppEuiPrefixLen + LorawanSensor::kAppEuiHexChars;
+        constexpr size_t kAppEuiCmdLen      = kAppEuiPrefixLen + LorawanSensor::kAppEuiHexChars + 1U;
 
         /* AppKey */
         constexpr char kAppKeyPrefix[]     = "AT+APPKEY=";
         constexpr size_t kAppKeyPrefixLen  = sizeof( kAppKeyPrefix ) - 1U;
-        constexpr size_t kAppKeyCmdLen     = kAppKeyPrefixLen + LorawanSensor::kAppKeyHexChars;
+        constexpr size_t kAppKeyCmdLen     = kAppKeyPrefixLen + LorawanSensor::kAppKeyHexChars + 1U;
 
         /* NwkSKey */
         constexpr char kNwkSKeyPrefix[]    = "AT+NWKSKEY=";
         constexpr size_t kNwkSKeyPrefixLen = sizeof( kNwkSKeyPrefix ) - 1U;
-        constexpr size_t kNwkSKeyCmdLen    = kNwkSKeyPrefixLen + LorawanSensor::kNwkSKeyHexChars;
+        constexpr size_t kNwkSKeyCmdLen    = kNwkSKeyPrefixLen + LorawanSensor::kNwkSKeyHexChars + 1U;
 
         /* AppSKey */
         constexpr char kAppSKeyPrefix[]    = "AT+APPSKEY=";
         constexpr size_t kAppSKeyPrefixLen = sizeof( kAppSKeyPrefix ) - 1U;
-        constexpr size_t kAppSKeyCmdLen    = kAppSKeyPrefixLen + LorawanSensor::kAppSKeyHexChars;
+        constexpr size_t kAppSKeyCmdLen    = kAppSKeyPrefixLen + LorawanSensor::kAppSKeyHexChars + 1U;
 
         /* RECV */
         constexpr char kRecvPrefix[]       = "+RECV=";
@@ -78,31 +79,31 @@ namespace lorawan
         constexpr char kDevAddrPrefix[]    = "AT+DEVADDR=";
         constexpr size_t kDevAddrPrefixLen = sizeof( kDevAddrPrefix ) - 1U;
         constexpr size_t kDevAddrHexLen    = 8U;
-        constexpr size_t kDevAddrCmdLen    = kDevAddrPrefixLen + kDevAddrHexLen;
+        constexpr size_t kDevAddrCmdLen    = kDevAddrPrefixLen + kDevAddrHexLen + 1U;
 
         /* DataRate */
         constexpr char kDataRatePrefix[]      = "AT+DATARATE=";
         constexpr size_t kDataRatePrefixLen   = sizeof( kDataRatePrefix ) - 1U;
         constexpr size_t kDataRateMaxDecChars = 3U;  /* 0-255 */
-        constexpr size_t kDataRateCmdLen      = kDataRatePrefixLen + kDataRateMaxDecChars;
+        constexpr size_t kDataRateCmdLen      = kDataRatePrefixLen + kDataRateMaxDecChars + 1U;
 
         /* EIRP */
         constexpr char kEirpPrefix[]          = "AT+EIRP=";
         constexpr size_t kEirpPrefixLen       = sizeof( kEirpPrefix ) - 1U;
         constexpr size_t kEirpMaxDecChars     = 3U;
-        constexpr size_t kEirpCmdLen          = kEirpPrefixLen + kEirpMaxDecChars;
+        constexpr size_t kEirpCmdLen          = kEirpPrefixLen + kEirpMaxDecChars + 1U;
 
         /* SubBand */
         constexpr char kSubbandPrefix[]       = "AT+SUBBAND=";
         constexpr size_t kSubbandPrefixLen    = sizeof( kSubbandPrefix ) - 1U;
         constexpr size_t kSubbandMaxDecChars  = 3U;
-        constexpr size_t kSubbandCmdLen       = kSubbandPrefixLen + kSubbandMaxDecChars;
+        constexpr size_t kSubbandCmdLen       = kSubbandPrefixLen + kSubbandMaxDecChars + 1U;
 
         /* ADR */
         constexpr char kAdrPrefix[]           = "AT+ADR=";
         constexpr size_t kAdrPrefixLen        = sizeof( kAdrPrefix ) - 1U;
         constexpr size_t kAdrValLen           = 1U;
-        constexpr size_t kAdrCmdLen           = kAdrPrefixLen + kAdrValLen;
+        constexpr size_t kAdrCmdLen           = kAdrPrefixLen + kAdrValLen + 1U;
 
         /* SEND */
         constexpr char kSendPrefix[]          = "AT+SEND=";
@@ -729,7 +730,7 @@ namespace lorawan
         if( isInitialized_ )
         {
             char ack[ kAtAckMaxLen ]{};
-            if( sendAtCmd( "AT+JOIN=1", ack, sizeof( ack ) ))
+            if( sendAtCmd( "AT+JOIN=1", ack, sizeof( ack ) ) )
             {
                 if( ackEquals( ack, "+JOIN=OK\r\n") )
                 {
@@ -785,6 +786,7 @@ namespace lorawan
 
                     if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
                     {
+                        LOGI("lwnode", "ACK received: %s", ack);
                         if( ackEquals( ack, "+SEND=OK\r\n" ) || 
                             ackEquals( ack, "AT+SEND=OK\r\n" ) ||
                             ackEquals( ack, "+SEND=QUEUE\r\n" ) /* Success?? */ )
