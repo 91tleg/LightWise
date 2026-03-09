@@ -58,10 +58,20 @@ namespace lorawan
         virtual ~LorawanSensor() = default;
 
         virtual bool init() = 0;
+        virtual bool begin() = 0;
+        virtual bool join() = 0;
+        virtual bool isJoined() = 0;
+        virtual bool setRegion( Region region ) = 0;
         virtual bool setAppEui( const char * appEui ) = 0;
         virtual bool setAppKey( const char * appKey ) = 0;
         virtual bool setNwkSkey( const char * nwkSkey ) = 0;
         virtual bool setAppSkey( const char * appSkey ) = 0;
+        virtual bool setClass( DeviceClass classType ) = 0;
+        virtual bool setDatarate( uint8_t dataRate ) = 0;
+        virtual bool setEirp( uint8_t eirp ) = 0;
+        virtual bool setSubband( uint8_t subBand ) = 0;
+        virtual bool enableAdr( bool adr ) = 0;
+        virtual bool setPacketType( PacketType type ) = 0;
         virtual bool sendPacket( const uint8_t * data, uint8_t len ) = 0;
     };
 } /* namespace lorawan */
