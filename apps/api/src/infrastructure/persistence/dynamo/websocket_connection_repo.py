@@ -3,6 +3,7 @@ from functools import lru_cache
 from datetime import datetime
 
 import boto3
+from boto3.dynamodb.conditions import Key
 
 from infrastructure.persistence.error import PersistenceError
 from domain.websocket.models import WebSocketConnection
@@ -41,12 +42,9 @@ class WebSocketConnectionRepo:
             response = self._table.query(
                 IndexName="StreetlightIndex",
                 KeyConditionExpression=(
-                    "streetlight_id = :sl AND tenant_id = :t"
-                ),
-                ExpressionAttributeValues={
-                    ":sl": streetlight_id,
-                    ":t": tenant_id,
-                }
+                    Key("streetlight_id").eq(streetlight_id) &
+                    Key("tenant_id").eq(tenant_id)
+                )
             )
 
             return [
