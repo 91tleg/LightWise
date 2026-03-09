@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import UiIcon from "./UiIcon";
 import "../styles/admin.css";
 
@@ -10,9 +10,11 @@ export default function AdminWsControls({
   selectedStreetlightId,
 }) {
   const [flash, setFlash] = useState("idle");
-  const [streetlightId, setStreetlightId] = useState(
-    selectedStreetlightId || process.env.REACT_APP_DEFAULT_STREETLIGHT_ID || "LW-00042"
-  );
+  const [streetlightId, setStreetlightId] = useState(selectedStreetlightId || "");
+
+  useEffect(() => {
+    setStreetlightId(selectedStreetlightId || "");
+  }, [selectedStreetlightId]);
 
   const isConnected = wsStatus === "connected";
   const isBusy = flash === "sending" || motionState === "simulating";
@@ -69,7 +71,7 @@ export default function AdminWsControls({
             className="lwAdminCompactInput"
             value={streetlightId}
             onChange={(e) => setStreetlightId(e.target.value)}
-            placeholder="LW-00042"
+            placeholder="Enter streetlight ID"
           />
           <button
             className="lwBtn lwAdminSubscribeBtn"

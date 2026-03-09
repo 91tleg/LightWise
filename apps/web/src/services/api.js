@@ -1,19 +1,32 @@
-// apps/web/src/services/api.js
-
 import { loadPoleMetaMap } from "./poleStorage";
 
 function env() {
   return {
     USE_MOCK: String(process.env.REACT_APP_USE_MOCK || "false").toLowerCase() === "true",
     API_BASE: (process.env.REACT_APP_API_BASE || "").trim(),
-    API_KEY: (process.env.REACT_APP_API_KEY || "").trim(), // optional
+    API_KEY: (process.env.REACT_APP_API_KEY || "").trim(),
     TENANT_ID: (process.env.REACT_APP_TENANT_ID || "tenant-001").trim(),
   };
 }
 
+const ALLOWED_INTERVALS = new Set([
+  "1m",
+  "5m",
+  "10m",
+  "15m",
+  "30m",
+  "1h",
+  "6h",
+  "12h",
+  "1d",
+  "7d",
+  "30d",
+]);
+
 async function parseJsonSafely(res) {
   const text = await res.text();
   if (!text) return null;
+
   try {
     return JSON.parse(text);
   } catch {
@@ -25,12 +38,16 @@ function buildUrl(path, API_BASE, TENANT_ID, extraQuery = {}) {
   const base = (API_BASE || "").replace(/\/$/, "");
   if (!base) return null;
 
-  const url = new URL(`${base}${path.startsWith("/") ? path : `/${path}`}`);
-  if (TENANT_ID) url.searchParams.set("tenant_id", TENANT_ID);
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const url = new URL(`${base}${cleanPath}`);
 
-  Object.entries(extraQuery).forEach(([k, v]) => {
-    if (v === undefined || v === null || v === "") return;
-    url.searchParams.set(k, String(v));
+  if (TENANT_ID) {
+    url.searchParams.set("tenant_id", TENANT_ID);
+  }
+
+  Object.entries(extraQuery).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    url.searchParams.set(key, String(value));
   });
 
   return url.toString();
@@ -40,7 +57,9 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
   const { API_BASE, API_KEY, TENANT_ID } = env();
 
   const url = buildUrl(path, API_BASE, TENANT_ID, query || {});
-  if (!url) throw new Error("Missing REACT_APP_API_BASE in .env.local");
+  if (!url) {
+    throw new Error("Missing REACT_APP_API_BASE in .env");
+  }
 
   const finalHeaders = {
     ...(headers || {}),
@@ -48,7 +67,9 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
   };
 
   const hasBody = body !== undefined && body !== null;
-  if (hasBody) finalHeaders["Content-Type"] = "application/json";
+  if (hasBody) {
+    finalHeaders["Content-Type"] = "application/json";
+  }
 
   console.log("🌐 HTTP", method, url);
 
@@ -59,9 +80,9 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
       headers: finalHeaders,
       body: hasBody ? JSON.stringify(body) : undefined,
     });
-  } catch (e) {
-    const err = new Error(`Failed to fetch (${method} ${url}). Check CORS / URL / network.`);
-    err.cause = e;
+  } catch (cause) {
+    const err = new Error(`Failed to fetch (${method} ${url}). Check API URL, backend, or CORS.`);
+    err.cause = cause;
     throw err;
   }
 
@@ -78,33 +99,93 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
   return data;
 }
 
-// Merge helper: backend list + local meta overrides (so map shows everywhere)
+function normalizeStreetlight(row, index = 0) {
+  const id =
+    row?.streetlight_id ||
+    row?.id ||
+    row?.pole_id ||
+    row?.device_id ||
+    row?.streetlightId ||
+    `LW-${String(index + 1).padStart(5, "0")}`;
+
+  return {
+    ...row,
+    streetlight_id: id,
+    tenant_id: row?.tenant_id || null,
+    health: row?.health || row?.status || "OK",
+    lat:
+      row?.lat ??
+      row?.latitude ??
+      row?.location?.lat ??
+      row?.location?.latitude ??
+      null,
+    lng:
+      row?.lng ??
+      row?.longitude ??
+      row?.location?.lng ??
+      row?.location?.longitude ??
+      null,
+    name: row?.name || row?.display_name || row?.label || null,
+    last_seen: row?.last_seen || row?.timestamp || row?.updated_at || null,
+    motion_detected:
+      typeof row?.motion_detected === "boolean"
+        ? row.motion_detected
+        : typeof row?.motion === "boolean"
+        ? row.motion
+        : false,
+    ambient_primary_ok:
+      typeof row?.ambient_primary_ok === "boolean" ? row.ambient_primary_ok : true,
+    ambient_secondary_ok:
+      typeof row?.ambient_secondary_ok === "boolean" ? row.ambient_secondary_ok : true,
+    th_ok: typeof row?.th_ok === "boolean" ? row.th_ok : true,
+    motion_primary_ok:
+      typeof row?.motion_primary_ok === "boolean" ? row.motion_primary_ok : true,
+    motion_secondary_ok:
+      typeof row?.motion_secondary_ok === "boolean" ? row.motion_secondary_ok : true,
+  };
+}
+
 function mergeLocalMeta(streetlights) {
   const list = Array.isArray(streetlights) ? streetlights : [];
-  const metaMap = loadPoleMetaMap();
+  const metaMap = loadPoleMetaMap() || {};
 
-  // metaMap shape: { [streetlight_id]: { name?, lat?, lng? } }
-  return list.map((s) => {
-    const id = s?.streetlight_id;
-    const m = (id && metaMap && metaMap[id]) ? metaMap[id] : null;
-    if (!m) return s;
+  return list.map((raw, index) => {
+    const row = normalizeStreetlight(raw, index);
+    const id = row?.streetlight_id;
+    const meta = id ? metaMap[id] : null;
 
-    // If backend has null coords but local has coords, use local.
-    // If local has empty/undefined, keep backend.
-    const merged = {
-      ...s,
-      ...(typeof m?.name === "string" && m.name.trim() ? { name: m.name.trim() } : {}),
-      ...(typeof m?.lat === "number" && Number.isFinite(m.lat) ? { lat: m.lat } : {}),
-      ...(typeof m?.lng === "number" && Number.isFinite(m.lng) ? { lng: m.lng } : {}),
+    if (!meta) return row;
+
+    return {
+      ...row,
+      ...(typeof meta?.name === "string" && meta.name.trim()
+        ? { name: meta.name.trim() }
+        : {}),
+      ...(typeof meta?.lat === "number" && Number.isFinite(meta.lat)
+        ? { lat: meta.lat }
+        : {}),
+      ...(typeof meta?.lng === "number" && Number.isFinite(meta.lng)
+        ? { lng: meta.lng }
+        : {}),
     };
-
-    return merged;
   });
 }
 
-// ---------------------------------------------------------------------------
-// Max Contract Endpoints
-// ---------------------------------------------------------------------------
+function normalizeStreetlightListResponse(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.streetlights)) return data.streetlights;
+  return [];
+}
+
+function normalizeTelemetryResponse(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.telemetry)) return data.telemetry;
+  return [];
+}
 
 export async function listStreetlights() {
   const { USE_MOCK, TENANT_ID } = env();
@@ -114,38 +195,57 @@ export async function listStreetlights() {
       {
         streetlight_id: "LW-00042",
         tenant_id: TENANT_ID,
-        health: "DEGRADED",
-        lat: 37.7749,
-        lng: -122.4194,
-        name: "Main Street 5th Ave",
+        health: "OK",
+        lat: 47.6101,
+        lng: -122.2015,
+        name: "main",
         last_seen: new Date().toISOString(),
         motion_detected: true,
         ambient_primary_ok: true,
-        ambient_secondary_ok: false,
+        ambient_secondary_ok: true,
+        th_ok: true,
+        motion_primary_ok: true,
+        motion_secondary_ok: true,
+      },
+      {
+        streetlight_id: "LW-00043",
+        tenant_id: TENANT_ID,
+        health: "OK",
+        lat: 47.6112,
+        lng: -122.2025,
+        name: "secondary",
+        last_seen: new Date().toISOString(),
+        motion_detected: false,
+        ambient_primary_ok: true,
+        ambient_secondary_ok: true,
         th_ok: true,
         motion_primary_ok: true,
         motion_secondary_ok: true,
       },
     ];
+
     return mergeLocalMeta(mock);
   }
 
-  // GET /streetlights?tenant_id=...
-  const rows = await request("/streetlights", { method: "GET" });
+  const data = await request("/streetlights", { method: "GET" });
+  const rows = normalizeStreetlightListResponse(data);
   return mergeLocalMeta(rows);
 }
 
 export async function getStreetlight(id) {
   const { USE_MOCK, TENANT_ID } = env();
-  if (!id) throw new Error("streetlight id is required");
+
+  if (!id) {
+    throw new Error("streetlight id is required");
+  }
 
   if (USE_MOCK) {
     const mock = {
       streetlight_id: id,
       tenant_id: TENANT_ID,
       health: "OK",
-      lat: 37.7749,
-      lng: -122.4194,
+      lat: 47.6101,
+      lng: -122.2015,
       name: `Streetlight ${id}`,
       last_seen: new Date().toISOString(),
       motion_detected: false,
@@ -155,44 +255,104 @@ export async function getStreetlight(id) {
       motion_primary_ok: true,
       motion_secondary_ok: true,
     };
+
     return mergeLocalMeta([mock])[0];
   }
 
-  // GET /streetlights/{id}?tenant_id=...
-  const row = await request(`/streetlights/${encodeURIComponent(id)}`, { method: "GET" });
-  return mergeLocalMeta([row])[0];
+  const data = await request(`/streetlights/${encodeURIComponent(id)}`, {
+    method: "GET",
+  });
+
+  return mergeLocalMeta([data])[0];
 }
 
 export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } = {}) {
   const { USE_MOCK } = env();
-  if (!id) throw new Error("streetlight id is required");
-  if (!from || !to) throw new Error("from and to are required");
 
-  if (USE_MOCK) {
-    return { streetlight_id: id, data: [] };
+  if (!id) {
+    throw new Error("streetlight id is required");
   }
 
-  // GET /streetlights/{id}/telemetry?tenant_id=...&from=...&to=...&interval=...
-  return request(`/streetlights/${encodeURIComponent(id)}/telemetry`, {
+  if (!from || !to) {
+    throw new Error("from and to are required");
+  }
+
+  if (!ALLOWED_INTERVALS.has(interval)) {
+    throw new Error(
+      `interval must be one of: ${Array.from(ALLOWED_INTERVALS).join(", ")}`
+    );
+  }
+
+  if (USE_MOCK) {
+    const start = new Date(from).getTime();
+    const end = new Date(to).getTime();
+    const step = Math.max(Math.floor((end - start) / 20), 60 * 1000);
+
+    const data = [];
+    for (let ts = start; ts <= end; ts += step) {
+      data.push({
+        timestamp: new Date(ts).toISOString(),
+        data: {
+          lux: Math.floor(20 + Math.random() * 80),
+          temp_c: Math.floor(15 + Math.random() * 12),
+          humidity: Math.floor(45 + Math.random() * 30),
+          motion: Math.random() > 0.7,
+          light_level: Math.floor(10 + Math.random() * 90),
+        },
+      });
+    }
+
+    return {
+      streetlight_id: id,
+      items: data,
+    };
+  }
+
+  const data = await request(`/streetlights/${encodeURIComponent(id)}/telemetry`, {
     method: "GET",
-    query: { from, to, interval },
+    query: {
+      from: new Date(from).toISOString(),
+      to: new Date(to).toISOString(),
+      interval,
+    },
   });
+
+  return {
+    streetlight_id: id,
+    items: normalizeTelemetryResponse(data),
+  };
 }
 
-// Max request: validation is done in Admin before calling this.
-// Still keep API thin and focused.
 export async function updateStreetlightMetadata(id, body) {
   const { USE_MOCK } = env();
-  if (!id) throw new Error("streetlight id is required");
-  if (!body || typeof body !== "object") throw new Error("body is required");
 
-  if (USE_MOCK) {
-    return { message: "updated (mock)" };
+  if (!id) {
+    throw new Error("streetlight id is required");
   }
 
-  // PUT /streetlights/{id}/metadata?tenant_id=...
+  if (!body || typeof body !== "object") {
+    throw new Error("body is required");
+  }
+
+  if (USE_MOCK) {
+    return {
+      message: "updated (mock)",
+      streetlight_id: id,
+      metadata: body,
+    };
+  }
+
   return request(`/streetlights/${encodeURIComponent(id)}/metadata`, {
     method: "PUT",
     body,
   });
 }
+
+const api = {
+  listStreetlights,
+  getStreetlight,
+  getStreetlightTelemetry,
+  updateStreetlightMetadata,
+};
+
+export default api;
