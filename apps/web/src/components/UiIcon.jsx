@@ -9,23 +9,101 @@ const paths = {
       <rect x="14" y="14" width="7" height="7" rx="2" />
     </>
   ),
+  analytics: (
+    <>
+      <path
+        d="M4 18h16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M6 15.5 10 11l3 2.5 5-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="6" cy="15.5" r="1.3" />
+      <circle cx="10" cy="11" r="1.3" />
+      <circle cx="13" cy="13.5" r="1.3" />
+      <circle cx="18" cy="7.5" r="1.3" />
+    </>
+  ),
+  chart: (
+    <>
+      <path
+        d="M4 18h16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M6 15.5 10 11l3 2.5 5-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="6" cy="15.5" r="1.3" />
+      <circle cx="10" cy="11" r="1.3" />
+      <circle cx="13" cy="13.5" r="1.3" />
+      <circle cx="18" cy="7.5" r="1.3" />
+    </>
+  ),
   map: (
     <>
-      <path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M9 3v15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M15 6v15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9 3v15"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M15 6v15"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </>
   ),
   settings: (
     <>
       <circle cx="12" cy="12" r="3.2" />
-      <path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.2a1 1 0 0 0-.7-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.2a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2h.1a1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.2a1 1 0 0 0 .7.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1v.1a1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.2a1 1 0 0 0-.9.7Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.2a1 1 0 0 0-.7-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.2a1 1 0 0 0 .9-.7 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2h.1a1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.2a1 1 0 0 0 .7.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1v.1a1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.2a1 1 0 0 0-.9.7Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </>
   ),
   bell: (
     <>
       <path d="M15 17H9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M18 17H6l1.2-1.4c.5-.6.8-1.4.8-2.2v-2.1a4 4 0 1 1 8 0v2.1c0 .8.3 1.6.8 2.2L18 17Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M18 17H6l1.2-1.4c.5-.6.8-1.4.8-2.2v-2.1a4 4 0 1 1 8 0v2.1c0 .8.3 1.6.8 2.2L18 17Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       <path d="M10 20a2 2 0 0 0 4 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </>
   ),

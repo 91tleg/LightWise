@@ -1,5 +1,6 @@
 const POLES_KEY = "lightwise_poles";
 const META_KEY = "lightwise_pole_meta_map";
+const TELEMETRY_KEY = "lightwise_telemetry_cache";
 
 /* ----------------------------- */
 /* basic safe localStorage utils */
@@ -37,6 +38,8 @@ export function savePoles(poles) {
 /* ----------------------------- */
 /* pole meta map API            */
 /* used by Admin / Map_View     */
+/* contract-aligned local keys: */
+/* streetlight_id, name, lat,lng*/
 /* ----------------------------- */
 export function loadPoleMetaMap() {
   const value = safeRead(META_KEY, {});
@@ -50,6 +53,7 @@ export function savePoleMetaMap(metaMap) {
 export function getPoleMeta(streetlightId) {
   const id = String(streetlightId || "").trim();
   if (!id) return null;
+
   const map = loadPoleMetaMap();
   return map[id] || null;
 }
@@ -64,6 +68,7 @@ export function upsertPoleMeta(streetlightId, patch = {}) {
     streetlight_id: id,
     ...(patch || {}),
   };
+
   savePoleMetaMap(map);
 }
 
@@ -85,8 +90,8 @@ export function clearPoleMeta(streetlightId) {
 
   map[id] = {
     ...(map[id] || {}),
-    latitude: null,
-    longitude: null,
+    lat: null,
+    lng: null,
   };
 
   savePoleMetaMap(map);
@@ -97,10 +102,7 @@ export function clearAllPoleMeta() {
 }
 
 export function mergePoleWithLocalMeta(pole = {}) {
-  const id = String(
-    pole?.streetlight_id || pole?.id || pole?.streetlightId || ""
-  ).trim();
-
+  const id = String(pole?.streetlight_id || "").trim();
   if (!id) return pole;
 
   const local = getPoleMeta(id);
@@ -108,26 +110,9 @@ export function mergePoleWithLocalMeta(pole = {}) {
 
   return {
     ...pole,
-    display_name:
-      local.display_name ??
-      pole.display_name ??
-      pole.name ??
-      pole.displayName ??
-      "Unnamed pole",
-    latitude:
-      local.latitude ??
-      pole.latitude ??
-      pole.lat ??
-      pole.coordinates?.latitude ??
-      pole.coordinates?.lat ??
-      null,
-    longitude:
-      local.longitude ??
-      pole.longitude ??
-      pole.lng ??
-      pole.coordinates?.longitude ??
-      pole.coordinates?.lng ??
-      null,
+    name: local.name ?? pole.name ?? null,
+    lat: local.lat ?? pole.lat ?? null,
+    lng: local.lng ?? pole.lng ?? null,
   };
 }
 
@@ -137,7 +122,10 @@ export function mergePoleWithLocalMeta(pole = {}) {
 /* ----------------------------- */
 
 export function savePoleCoords(streetlightId, latitude, longitude) {
-  upsertPoleMeta(streetlightId, { latitude, longitude });
+  upsertPoleMeta(streetlightId, {
+    lat: latitude,
+    lng: longitude,
+  });
 }
 
 export function clearPoleCoords(streetlightId) {
@@ -150,8 +138,8 @@ export function readCoordsCache() {
 
   Object.keys(map).forEach((id) => {
     coords[id] = {
-      latitude: map[id]?.latitude ?? null,
-      longitude: map[id]?.longitude ?? null,
+      latitude: map[id]?.lat ?? null,
+      longitude: map[id]?.lng ?? null,
     };
   });
 
@@ -166,8 +154,8 @@ export function writeCoordsCache(value) {
     map[id] = {
       ...(map[id] || {}),
       streetlight_id: id,
-      latitude: input[id]?.latitude ?? null,
-      longitude: input[id]?.longitude ?? null,
+      lat: input[id]?.latitude ?? null,
+      lng: input[id]?.longitude ?? null,
     };
   });
 
@@ -181,8 +169,6 @@ export function mergeCoordsWithBackend(streetlights = []) {
 }
 
 /* telemetry compatibility no-op store */
-const TELEMETRY_KEY = "lightwise_telemetry_cache";
-
 export function readTelemetryCache() {
   const value = safeRead(TELEMETRY_KEY, {});
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -219,9 +205,7 @@ export function mergeTelemetryWithBackend(streetlights = []) {
   const telemetry = readTelemetryCache();
 
   return (Array.isArray(streetlights) ? streetlights : []).map((pole) => {
-    const id = String(
-      pole?.streetlight_id || pole?.id || pole?.streetlightId || ""
-    ).trim();
+    const id = String(pole?.streetlight_id || "").trim();
 
     if (!id || !telemetry[id]) return pole;
 
@@ -238,20 +222,9 @@ export function mergeTelemetryWithBackend(streetlights = []) {
         ...(pole.diagnostics || {}),
         ...(local.diagnostics || {}),
       },
-      last_seen:
-        local.last_seen ??
-        local.lastSeen ??
-        local.timestamp ??
-        pole.last_seen ??
-        pole.lastSeen ??
-        pole.timestamp ??
-        null,
+      last_seen: local.last_seen ?? local.timestamp ?? pole.last_seen ?? null,
       motion:
-        local.motion ??
-        local.data?.motion ??
-        pole.motion ??
-        pole.data?.motion ??
-        null,
+        local.motion ?? local.data?.motion ?? pole.motion ?? pole.data?.motion ?? null,
       brightness_level:
         local.brightness_level ??
         local.data?.light_level ??
