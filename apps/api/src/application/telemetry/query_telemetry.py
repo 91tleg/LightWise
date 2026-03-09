@@ -43,7 +43,7 @@ class QueryTelemetry:
         from_dt: datetime,
         to_dt: datetime,
         interval: str = "1h",
-    ) -> tuple[list[dict], str]:
+    ) -> list[dict]:
         interval = resolve_interval(from_dt, to_dt, interval)
         data = self.reader.get_telemetry(
             streetlight_id=streetlight_id,
@@ -51,7 +51,7 @@ class QueryTelemetry:
             to_dt=to_dt,
             interval=interval,
         )
-        return data, interval
+        return data
 
 
 @lru_cache(maxsize=1)
