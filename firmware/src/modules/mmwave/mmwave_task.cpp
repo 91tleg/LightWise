@@ -11,7 +11,6 @@ namespace mmwave
     {
         constexpr char kTag[] = "MmwaveTask";
         constexpr TickType_t kTaskDelayMs = 100UL;
-        constexpr uint8_t kFailureNotifyThreshold = 3U;
     } /* anaonymous namespace */
 
     void task( void * pvParameters )
@@ -26,28 +25,32 @@ namespace mmwave
                      params->secondary );
 
         Data data{};
-        uint8_t consecutiveFailures = 0U;
+        bool prevMotion = false;
 
-        const bool setupOk = mgr.setup();
-        LOGI( kTag, "Setting up mmWave manager: %s", setupOk ? "success" : "failed" );
+        bool ok = mgr.setup();
+        LOGI( kTag, "Setup: %s", ok ? "success" : "failed" );
 
         for( ;; )
         {
-            LOGI( kTag, "Updating mmWave manager" );
-            const bool ok = mgr.update(data);
-            LOGI( kTag, "Updating mmWave manager: %s", ok ? "success" : "failed" );
+            ok = mgr.update(data);
+            LOGI( kTag, "Update: %s", ok ? "success" : "failed" );
 
-            if( data.motionDetected )
+            const bool risingEdge = data.motionDetected && !prevMotion;
+
+            if( risingEdge )
             {
                 LOGI( kTag, "Motion detected" );
-                LOGI( kTag, "Notifying FSM task" );
                 const BaseType_t notifyResult = xTaskNotifyGive( params->fsmTaskHandle );
-                LOGI( kTag, "Notifying FSM task: %s", notifyResult == pdPASS ? "success" : "failed" );
+                LOGI( kTag, "Notify task: %s", notifyResult == pdPASS
+                                               ? "success"
+                                               : "failed" );
                 
-                LOGI( kTag, "Sending data to queue" );
                 const BaseType_t queueResult = xQueueOverwrite( params->queue, &data );
-                LOGI( kTag, "Sending data to queue: %s", queueResult == pdPASS ? "success" : "failed" );
+                LOGI( kTag, "Send queue: %s", queueResult == pdPASS
+                                              ? "success"
+                                              : "failed" );
             }
+            prevMotion = data.motionDetected;
 
             vTaskDelay( pdMS_TO_TICKS( kTaskDelayMs ) );
         }
