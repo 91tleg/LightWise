@@ -15,11 +15,11 @@ namespace lorawan
         enum class StatusFlag : uint8_t
         {
             MotionPresent = ( 1U << 0 ),
-            AlsPrimaryOk = ( 1U << 1 ),
-            AlsSecondaryOk = ( 1U << 2 ),
-            DhtOk = ( 1U << 3 ),
-            C4001PrimaryOk = ( 1U << 4 ),
-            C4001SecondaryOk = ( 1U << 5 ),
+            AmbientPrimaryOk = ( 1U << 1 ),
+            AmbientSecondaryOk = ( 1U << 2 ),
+            ThOk = ( 1U << 3 ),
+            MotionPrimaryOk = ( 1U << 4 ),
+            MotionSecondaryOk = ( 1U << 5 ),
             SystemDegraded = ( 1U << 6 ),
             OverallOk = ( 1U << 7 )
         };
