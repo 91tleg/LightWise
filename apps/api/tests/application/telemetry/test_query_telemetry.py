@@ -98,9 +98,7 @@ class TestQueryTelemetryExecute:
         rows = [{"time": "2026-01-01T00:00:00Z", "lux": 134.2}]
         mock_reader.get_telemetry.return_value = rows
 
-        data, interval = service.execute(
-            "LW-00001", dt(hours_ago=1), dt(), "1m"
-        )
+        data = service.execute("LW-00001", dt(hours_ago=1), dt(), "1m")
 
         assert data == rows
 
@@ -109,9 +107,7 @@ class TestQueryTelemetryExecute:
     ):
         mock_reader.get_telemetry.return_value = []
 
-        data, interval = service.execute(
-            "LW-00001", dt(days_ago=30), dt(), "1m"
-        )
+        service.execute("LW-00001", dt(days_ago=30), dt(), "1m")
 
         call_kwargs = mock_reader.get_telemetry.call_args.kwargs
         assert call_kwargs["interval"] == "1d"
@@ -125,14 +121,3 @@ class TestQueryTelemetryExecute:
 
         call_kwargs = mock_reader.get_telemetry.call_args.kwargs
         assert call_kwargs["interval"] == "1h"
-
-    def test_returns_tuple_with_resolved_interval(
-        self, service, mock_reader
-    ):
-        mock_reader.get_telemetry.return_value = []
-
-        result, resolved = service.execute(
-            "LW-00001", dt(days_ago=30), dt(), "1m"
-        )
-
-        assert resolved == "1d"
