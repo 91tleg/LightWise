@@ -35,11 +35,11 @@ namespace ambient
                   updated ? "success" : "failed", data.lux );
 
             const BaseType_t queueResult  = xQueueOverwrite( params->queue, &data );
-            LOGI( kTag, "Data queue send %s", queueResult == pdTRUE ? : "success" : "failed" );
+            LOGI( kTag, "Data queue send %s", queueResult == pdTRUE ? "success" : "failed" );
 
             const BaseType_t delayResult = xTaskDelayUntil( &lastWakeTime,
                                                             pdMS_TO_TICKS( kSamplePeriodMs ) );
-            LOGI( kTag, "Task delay %s", delayResult == pdTRUE ? "success", "failed" );
+            LOGI( kTag, "Task delay %s", delayResult == pdTRUE ? "success" : "failed" );
         }
     }
 } /* namespace ambient */
