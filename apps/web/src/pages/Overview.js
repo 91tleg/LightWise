@@ -1,18 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import MapEmbed from "../components/MapEmbed";
 import Card from "../components/Card";
 import ActivityFeed from "../components/ActivityFeed";
 import UiIcon from "../components/UiIcon";
+import { LightWiseContext } from "../context/LightWiseProvider";
 import { listStreetlights, getStreetlightTelemetry } from "../services/api";
-import { useLightWiseWS } from "../services/useLightWiseWS";
 import { loadPoleMetaMap } from "../services/poleStorage";
+import { formatTimestamp } from "../utils/formatters";
 import "../styles/lightwise.css";
+import { getCombinedSensorHealth } from "./overview.helpers";
 
 const CACHE_KEYS = {
   STREETLIGHTS: "lightwise_overview_streetlights_cache_v5",
   SNAPSHOTS: "lightwise_overview_snapshots_cache_v5",
-  TRENDS: "lightwise_overview_trends_cache_v5",
   EVENTS: "lightwise_overview_events_cache_v5",
   SELECTED: "lightwise_overview_selected_v5",
 };
@@ -44,18 +45,6 @@ function clampPct(x) {
   const n = Number(x);
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-function formatTimestamp(ts) {
-  if (!ts) return "Waiting for data";
-  const d = new Date(ts);
-  if (!Number.isFinite(d.getTime())) return String(ts);
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function toBoolOrNull(value) {
@@ -197,8 +186,7 @@ function isVisiblePole(pole) {
 }
 
 function buildFallbackPoles(localMeta) {
-  const ids = Object.keys(localMeta || {})
-    .filter((id) => !HIDDEN_POLE_IDS.has(id));
+  const ids = Object.keys(localMeta || {}).filter((id) => !HIDDEN_POLE_IDS.has(id));
 
   if (!ids.length) {
     return [
@@ -267,50 +255,8 @@ function MetricRow({ label, value, tone = "neutral" }) {
   );
 }
 
-function MiniTrend({ values = [] }) {
-  const cleaned = values.filter((v) => Number.isFinite(Number(v))).map(Number);
-
-  if (cleaned.length < 2) {
-    return <div className="lwTrendEmpty">Waiting for brightness history…</div>;
-  }
-
-  const width = 240;
-  const height = 56;
-  const min = Math.min(...cleaned);
-  const max = Math.max(...cleaned);
-  const span = max - min || 1;
-
-  const points = cleaned
-    .map((value, index) => {
-      const x = (index / (cleaned.length - 1)) * (width - 6) + 3;
-      const y = height - 3 - ((value - min) / span) * (height - 6);
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  return (
-    <svg
-      className="lwMiniTrend"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-    >
-      <polyline
-        points={points}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export default function Overview() {
-  const WS_URL =
-    process.env.REACT_APP_WS_URL ||
-    process.env.REACT_APP_LIGHTWISE_WS_URL ||
-    "";
+  const { wsStatus, lastMessage, subscribe } = useContext(LightWiseContext);
 
   const initialLocalMeta = loadPoleMetaMap();
 
@@ -320,31 +266,19 @@ export default function Overview() {
       isVisiblePole
     )
   );
-  const [snapshotMap, setSnapshotMap] = useState(() =>
-    readCache(CACHE_KEYS.SNAPSHOTS, {})
-  );
-  const [trendMap, setTrendMap] = useState(() =>
-    readCache(CACHE_KEYS.TRENDS, {})
-  );
-  const [events, setEvents] = useState(() =>
-    readCache(CACHE_KEYS.EVENTS, [])
-  );
+  const [snapshotMap, setSnapshotMap] = useState(() => readCache(CACHE_KEYS.SNAPSHOTS, {}));
+  const [events, setEvents] = useState(() => readCache(CACHE_KEYS.EVENTS, []));
   const [selectedId, setSelectedId] = useState(() => {
     const cached = readCache(CACHE_KEYS.SELECTED, DEFAULT_POLE_ID);
     return HIDDEN_POLE_IDS.has(cached) ? DEFAULT_POLE_ID : cached;
   });
   const [telemetryLoading, setTelemetryLoading] = useState(false);
 
-  const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
-    debug: false,
-  });
-
   useEffect(() => {
     writeCache(CACHE_KEYS.STREETLIGHTS, streetlights.filter(isVisiblePole));
   }, [streetlights]);
 
   useEffect(() => writeCache(CACHE_KEYS.SNAPSHOTS, snapshotMap), [snapshotMap]);
-  useEffect(() => writeCache(CACHE_KEYS.TRENDS, trendMap), [trendMap]);
   useEffect(() => writeCache(CACHE_KEYS.EVENTS, events), [events]);
   useEffect(() => writeCache(CACHE_KEYS.SELECTED, selectedId), [selectedId]);
 
@@ -459,13 +393,6 @@ export default function Overview() {
     );
   }, [mergedPoles, selectedId]);
 
-  const selectedTrend = useMemo(() => {
-    if (!selectedPole?.streetlight_id) return [];
-    return Array.isArray(trendMap[selectedPole.streetlight_id])
-      ? trendMap[selectedPole.streetlight_id]
-      : [];
-  }, [trendMap, selectedPole?.streetlight_id]);
-
   useEffect(() => {
     if (wsStatus === "connected" && selectedPole?.streetlight_id) {
       subscribe(selectedPole.streetlight_id);
@@ -494,7 +421,14 @@ export default function Overview() {
 
         if (cancelled) return;
 
-        const rows = Array.isArray(points) ? points : [];
+        const rows = Array.isArray(points)
+          ? points
+          : Array.isArray(points?.items)
+          ? points.items
+          : Array.isArray(points?.data)
+          ? points.data
+          : [];
+
         if (!rows.length) return;
 
         const snapshots = rows.map(snapshotFromPoint).filter(Boolean);
@@ -507,17 +441,6 @@ export default function Overview() {
               ...(prev[selectedPole.streetlight_id] || {}),
               ...latest,
             },
-          }));
-        }
-
-        const levels = snapshots
-          .map((p) => p.light_level)
-          .filter((v) => Number.isFinite(Number(v)));
-
-        if (levels.length) {
-          setTrendMap((prev) => ({
-            ...prev,
-            [selectedPole.streetlight_id]: levels.slice(-24),
           }));
         }
       } catch {
@@ -551,16 +474,6 @@ export default function Overview() {
           ...snapshot,
         },
       }));
-
-      if (typeof snapshot.light_level === "number") {
-        setTrendMap((prev) => {
-          const current = Array.isArray(prev[poleId]) ? prev[poleId] : [];
-          return {
-            ...prev,
-            [poleId]: [...current, snapshot.light_level].slice(-24),
-          };
-        });
-      }
     }
 
     const nextEvent = {
@@ -664,6 +577,8 @@ export default function Overview() {
     },
   ];
 
+  const combinedSensorHealth = getCombinedSensorHealth(selectedPole);
+
   return (
     <Layout title="Overview" subtitle="Clean network summary for operators.">
       <div className="lwOverviewPage">
@@ -676,7 +591,8 @@ export default function Overview() {
         <div
           className="lwOverviewMainGrid"
           style={{
-            gridTemplateColumns: "minmax(360px, 0.9fr) minmax(0, 1.9fr)",
+            gridTemplateColumns: "minmax(340px, 0.85fr) minmax(0, 1.95fr)",
+            alignItems: "stretch",
           }}
         >
           <div className="lwOverviewSideStack">
@@ -695,21 +611,10 @@ export default function Overview() {
                     </span>
                   </div>
 
-                  <div className="lwSelectedTrendWrap">
-                    <div className="lwSelectedTrendHead">
-                      <span>Brightness Level</span>
-                      <strong>
-                        {selectedPole.light_level != null
-                          ? `${selectedPole.light_level}%`
-                          : telemetryLoading
-                          ? "Loading"
-                          : "0%"}
-                      </strong>
-                    </div>
-                    <MiniTrend values={selectedTrend} />
-                  </div>
-
-                  <div className="lwMetricGridCompact">
+                  <div
+                    className="lwMetricGridCompact"
+                    style={{ marginTop: 12, gap: 10 }}
+                  >
                     <MetricRow
                       label="Motion"
                       value={
@@ -720,6 +625,17 @@ export default function Overview() {
                           : "Clear"
                       }
                       tone={selectedPole.motion_detected ? "warning" : "healthy"}
+                    />
+                    <MetricRow
+                      label="Brightness"
+                      value={
+                        selectedPole.light_level != null
+                          ? `${selectedPole.light_level}%`
+                          : telemetryLoading
+                          ? "Loading"
+                          : "0%"
+                      }
+                      tone="healthy"
                     />
                     <MetricRow
                       label="Temperature"
@@ -738,6 +654,10 @@ export default function Overview() {
                       }
                     />
                     <MetricRow
+                      label="Lux"
+                      value={selectedPole.lux != null ? `${Math.round(selectedPole.lux)}` : "Waiting for data"}
+                    />
+                    <MetricRow
                       label="Latitude"
                       value={cleanDisplay(selectedPole.lat, "Waiting for coordinate")}
                     />
@@ -750,55 +670,9 @@ export default function Overview() {
                       value={formatTimestamp(selectedPole.last_seen)}
                     />
                     <MetricRow
-                      label="Ambient Primary"
-                      value={
-                        selectedPole.ambient_primary_ok == null
-                          ? "Waiting for data"
-                          : selectedPole.ambient_primary_ok
-                          ? "OK"
-                          : "Fault"
-                      }
-                      tone={
-                        selectedPole.ambient_primary_ok == null
-                          ? "neutral"
-                          : selectedPole.ambient_primary_ok
-                          ? "healthy"
-                          : "critical"
-                      }
-                    />
-                    <MetricRow
-                      label="Ambient Secondary"
-                      value={
-                        selectedPole.ambient_secondary_ok == null
-                          ? "Waiting for data"
-                          : selectedPole.ambient_secondary_ok
-                          ? "OK"
-                          : "Fault"
-                      }
-                      tone={
-                        selectedPole.ambient_secondary_ok == null
-                          ? "neutral"
-                          : selectedPole.ambient_secondary_ok
-                          ? "healthy"
-                          : "critical"
-                      }
-                    />
-                    <MetricRow
-                      label="Temperature / Humidity Sensor"
-                      value={
-                        selectedPole.th_ok == null
-                          ? "Waiting for data"
-                          : selectedPole.th_ok
-                          ? "OK"
-                          : "Fault"
-                      }
-                      tone={
-                        selectedPole.th_ok == null
-                          ? "neutral"
-                          : selectedPole.th_ok
-                          ? "healthy"
-                          : "critical"
-                      }
+                      label="Sensor Health"
+                      value={combinedSensorHealth.label}
+                      tone={combinedSensorHealth.tone}
                     />
                   </div>
                 </>

@@ -2,6 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import Card from "../components/Card";
 import { listStreetlights, getStreetlightTelemetry } from "../services/api";
+import {
+  formatDateTimeLocal,
+  formatTableTimestamp,
+  roundValue,
+  safeNum,
+} from "../utils/formatters";
+import { normalizeTelemetryRows } from "./analytics.helpers";
 import "../styles/lightwise.css";
 import "../styles/analytics.css";
 
@@ -19,13 +26,6 @@ const ALLOWED_INTERVALS = [
   "30d",
 ];
 
-function formatDateTimeLocal(date) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
-    date.getHours()
-  )}:${pad(date.getMinutes())}`;
-}
-
 function getPresetRange(preset) {
   const now = new Date();
   const from = new Date(now);
@@ -41,45 +41,6 @@ function getPresetRange(preset) {
   };
 }
 
-function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function normalizeTelemetryRows(payload) {
-  const rows = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.items)
-    ? payload.items
-    : Array.isArray(payload?.data)
-    ? payload.data
-    : [];
-
-  return rows.map((item, idx) => {
-    const timestamp =
-      item?.timestamp ||
-      item?.time ||
-      item?.ts ||
-      item?.measure_time ||
-      item?.created_at ||
-      `row-${idx}`;
-
-    const data = item?.data || item;
-
-    return {
-      timestamp,
-      lux: safeNum(data?.lux),
-      temp_c: safeNum(data?.temp_c),
-      humidity: safeNum(data?.humidity),
-      motion:
-        typeof data?.motion === "boolean"
-          ? data.motion
-          : String(data?.motion).toLowerCase() === "true",
-      light_level: safeNum(data?.light_level),
-      health: item?.health || data?.health || "OK",
-    };
-  });
-}
 
 function MiniStat({ label, value, sub }) {
   return (
@@ -144,7 +105,7 @@ function TelemetryChart({ data, metric }) {
               className="analytics-grid-line"
             />
             <text x={8} y={t.y + 4} className="analytics-axis-text">
-              {t.value.toFixed(0)}
+              {roundValue(t.value, 0)}
             </text>
           </g>
         ))}
@@ -154,7 +115,10 @@ function TelemetryChart({ data, metric }) {
         {points.map((p, i) => (
           <g key={i}>
             <circle cx={toX(i)} cy={toY(p.value)} r="4" className="analytics-dot" />
-            <title>{`${p.label} | ${metric}: ${p.value}`}</title>
+            <title>{`${formatTableTimestamp(p.label)} | ${metric}: ${roundValue(
+              p.value,
+              1
+            )}`}</title>
           </g>
         ))}
       </svg>
@@ -241,13 +205,18 @@ export default function Analytics() {
     const motionCount = telemetry.filter((d) => d.motion).length;
     const latest = telemetry[telemetry.length - 1];
 
-    const avg = (arr) =>
-      arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : "--";
+    const avg = (arr, digits = 1) =>
+      arr.length
+        ? roundValue(arr.reduce((a, b) => a + b, 0) / arr.length, digits)
+        : "--";
 
     return {
-      latestLight: latest?.light_level ?? "--",
-      avgTemp: avg(validTemp),
-      avgHumidity: avg(validHumidity),
+      latestLight:
+        latest?.light_level !== null && latest?.light_level !== undefined
+          ? roundValue(latest.light_level, 0)
+          : "--",
+      avgTemp: avg(validTemp, 1),
+      avgHumidity: avg(validHumidity, 1),
       motionCount,
     };
   }, [telemetry]);
@@ -374,12 +343,12 @@ export default function Analytics() {
                 {telemetry.length ? (
                   telemetry.slice(-12).reverse().map((row, index) => (
                     <tr key={`${row.timestamp}-${index}`}>
-                      <td>{row.timestamp}</td>
+                      <td>{formatTableTimestamp(row.timestamp)}</td>
                       <td>{row.lux ?? "--"}</td>
                       <td>{row.light_level ?? "--"}</td>
                       <td>{row.temp_c ?? "--"}</td>
                       <td>{row.humidity ?? "--"}</td>
-                      <td>{String(row.motion)}</td>
+                      <td>{row.motion ? "True" : "False"}</td>
                       <td>{row.health || "OK"}</td>
                     </tr>
                   ))

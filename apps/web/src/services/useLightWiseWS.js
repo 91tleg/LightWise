@@ -23,15 +23,19 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
   const wsRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const manualCloseRef = useRef(false);
+  const streetlightIdRef = useRef("");
 
   const [status, setStatus] = useState(wsUrl ? "connecting" : "idle");
   const [error, setError] = useState(null);
   const [lastMessage, setLastMessage] = useState(null);
   const [messages, setMessages] = useState([]);
 
-  const log = useCallback((...args) => {
-    if (debug) console.log("[LightWiseWS]", ...args);
-  }, [debug]);
+  const log = useCallback(
+    (...args) => {
+      if (debug) console.log("[LightWiseWS]", ...args);
+    },
+    [debug]
+  );
 
   const clearReconnectTimer = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -73,6 +77,8 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     (streetlightId) => {
       const id = String(streetlightId || "").trim();
       if (!id) return false;
+
+      streetlightIdRef.current = id;
       return send({ action: "subscribe", streetlight_id: id });
     },
     [send]
@@ -114,6 +120,16 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
       log("connected");
       setStatus("connected");
       setError(null);
+
+      const id = streetlightIdRef.current;
+      if (id) {
+        try {
+          ws.send(JSON.stringify({ action: "subscribe", streetlight_id: id }));
+          log("re-subscribed on open", id);
+        } catch (e) {
+          setError(e);
+        }
+      }
     };
 
     ws.onmessage = (evt) => {
@@ -166,5 +182,14 @@ export function useLightWiseWS(wsBaseUrl, options = {}) {
     return () => disconnect();
   }, [wsUrl, connect, disconnect]);
 
-  return { status, error, lastMessage, messages, send, subscribe, connect, disconnect };
+  return {
+    status,
+    error,
+    lastMessage,
+    messages,
+    send,
+    subscribe,
+    connect,
+    disconnect,
+  };
 }
