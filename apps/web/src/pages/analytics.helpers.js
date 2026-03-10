@@ -1,5 +1,23 @@
 import { roundValue } from "../utils/formatters";
 
+function roundWhole(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  return Math.round(num);
+}
+
+function roundOneDecimal(value) {
+  if (value === null || value === undefined || value === "") return null;
+  return roundValue(value, 1);
+}
+
+function toBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return Boolean(value);
+}
+
 export function normalizeTelemetryRows(payload) {
   const rows = Array.isArray(payload)
     ? payload
@@ -24,23 +42,11 @@ export function normalizeTelemetryRows(payload) {
 
     return {
       timestamp,
-      lux: roundValue(data?.lux, 1),
-      temp_c: roundValue(
-        data?.temp_c ?? data?.temperature_c,
-        1
-      ),
-      humidity: roundValue(
-        data?.humidity ?? data?.humidity_pct,
-        1
-      ),
-      motion:
-        typeof data?.motion === "boolean"
-          ? data.motion
-          : String(data?.motion).toLowerCase() === "true",
-      light_level: roundValue(
-        data?.light_level ?? data?.light_level_pct,
-        1
-      ),
+      lux: roundWhole(data?.lux),
+      temp_c: roundOneDecimal(data?.temp_c ?? data?.temperature_c),
+      humidity: roundOneDecimal(data?.humidity ?? data?.humidity_pct),
+      motion: toBoolean(data?.motion),
+      light_level: roundWhole(data?.light_level ?? data?.light_level_pct),
       health: item?.health || data?.health || "OK",
     };
   });
