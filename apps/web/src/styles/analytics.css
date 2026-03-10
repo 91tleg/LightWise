@@ -9,6 +9,7 @@
   width: 100%;
 }
 
+/* ---------- Top filter card polish ---------- */
 .analytics-filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -24,29 +25,45 @@
 
 .analytics-field label {
   font-size: 0.92rem;
-  font-weight: 700;
-  color: #8ea3d8;
+  font-weight: 800;
+  color: #6b82ad;
+  letter-spacing: 0.2px;
 }
 
 .analytics-field select,
 .analytics-field input {
   width: 100%;
-  border: 1px solid #d6e2f3;
-  background: #ffffff;
+  border: 1px solid #d7e3f3;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
   color: #22324d;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px 14px;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease,
+    background 0.2s ease;
+}
+
+.analytics-field select:hover,
+.analytics-field input:hover {
+  border-color: #bfd6f4;
 }
 
 .analytics-field select:focus,
 .analytics-field input:focus {
   border-color: #7ab6ff;
-  box-shadow: 0 0 0 3px rgba(122, 182, 255, 0.18);
+  box-shadow:
+    0 0 0 3px rgba(122, 182, 255, 0.16),
+    0 10px 18px rgba(107, 146, 205, 0.08);
   background: #ffffff;
+  transform: translateY(-1px);
 }
 
+/* ---------- Preset pills ---------- */
 .analytics-presets {
   display: flex;
   flex-wrap: wrap;
@@ -54,23 +71,32 @@
 }
 
 .analytics-presets button {
-  border: 1px solid #cfe0f6;
-  background: #ffffff;
+  border: 1px solid #d2e2f5;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
   color: #29446f;
   border-radius: 999px;
   padding: 10px 16px;
   cursor: pointer;
-  font-weight: 700;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  font-weight: 800;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
 }
 
 .analytics-presets button:hover {
   transform: translateY(-1px);
   border-color: #8fc4ff;
   background: #f5fbff;
-  box-shadow: 0 8px 18px rgba(84, 132, 196, 0.12);
+  box-shadow: 0 10px 20px rgba(84, 132, 196, 0.12);
 }
 
+.analytics-presets button:active {
+  transform: translateY(0);
+}
+
+/* ---------- Mini stat cards ---------- */
 .analytics-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -79,23 +105,33 @@
 
 .analytics-mini-stat {
   border: 1px solid #dbe7f5;
-  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
-  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6faff 100%);
+  border-radius: 20px;
   padding: 18px;
-  box-shadow: 0 10px 24px rgba(83, 118, 168, 0.08);
+  box-shadow:
+    0 10px 24px rgba(83, 118, 168, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  transition: transform 0.16s ease, box-shadow 0.2s ease;
+}
+
+.analytics-mini-stat:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 30px rgba(83, 118, 168, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .analytics-mini-label {
   color: #6780ad;
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 800;
   margin-bottom: 8px;
 }
 
 .analytics-mini-value {
-  color: #1d3557;
-  font-size: 1.7rem;
-  font-weight: 800;
+  color: #193455;
+  font-size: 1.75rem;
+  font-weight: 900;
   line-height: 1.2;
 }
 
@@ -103,15 +139,20 @@
   margin-top: 6px;
   color: #7a8faf;
   font-size: 0.84rem;
+  font-weight: 700;
 }
 
+/* ---------- Chart card ---------- */
 .analytics-chart-wrap {
   width: 100%;
   overflow-x: auto;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
   border: 1px solid #dbe7f6;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 20px rgba(84, 132, 196, 0.06);
+  padding: 10px;
 }
 
 .analytics-chart {
@@ -129,7 +170,7 @@
 .analytics-axis-text {
   fill: #7d95bb;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .analytics-line {
@@ -147,62 +188,130 @@
   stroke-width: 2.5;
 }
 
+/* ---------- Table ---------- */
 .analytics-table-wrap {
   overflow-x: auto;
   border: 1px solid #dbe7f6;
-  border-radius: 16px;
-  background: #ffffff;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0 8px 18px rgba(84, 132, 196, 0.05);
 }
 
 .analytics-table {
   width: 100%;
   border-collapse: collapse;
   min-width: 760px;
-  background: #ffffff;
+  background: transparent;
 }
 
 .analytics-table th,
 .analytics-table td {
-  padding: 12px 14px;
+  padding: 13px 14px;
   text-align: left;
 }
 
 .analytics-table thead th {
-  color: #89a1cb;
+  color: #7f97c2;
   font-size: 0.88rem;
-  font-weight: 800;
-  background: #f7fbff;
+  font-weight: 900;
+  background: #f6faff;
   border-bottom: 1px solid #dbe7f6;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .analytics-table tbody td {
   color: #243a5a;
   border-bottom: 1px solid #edf3fa;
+  font-weight: 700;
+}
+
+.analytics-table tbody tr {
+  transition: background 0.18s ease;
 }
 
 .analytics-table tbody tr:hover {
   background: #f7fbff;
 }
 
+/* Optional tone pills if you use spans later */
+.analytics-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.analytics-pill.ok {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.analytics-pill.warn {
+  color: #92400e;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.analytics-pill.bad {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.analytics-pill.motion-on {
+  color: #0b63a6;
+  background: rgba(59, 130, 246, 0.14);
+}
+
+.analytics-pill.motion-off {
+  color: #64748b;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+/* ---------- Empty / loading / error ---------- */
 .analytics-empty {
   color: #7e94b8;
-  padding: 28px 12px;
+  padding: 32px 16px;
   text-align: center;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .analytics-error {
   color: #d46b6b;
-  background: #fff7f7;
+  background: linear-gradient(180deg, #fff8f8 0%, #fff3f3 100%);
   border: 1px solid #f1d4d4;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 16px 14px;
   text-align: center;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .analytics-no-rows {
   text-align: center;
   color: #8094b5;
   font-style: italic;
+  padding: 20px 12px;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 760px) {
+  .analytics-page {
+    gap: 14px;
+  }
+
+  .analytics-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-mini-value {
+    font-size: 1.45rem;
+  }
+
+  .analytics-chart {
+    min-width: 720px;
+  }
 }

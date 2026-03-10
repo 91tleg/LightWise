@@ -1,95 +1,46 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import Card from "../components/Card";
 import MapEmbed from "../components/MapEmbed";
-import { listStreetlights } from "../services/api";
+import { LightWiseContext } from "../context/LightWiseProvider";
 import { loadPoleMetaMap } from "../services/poleStorage";
 import {
   DEFAULT_CENTER,
   isValidCoord,
   mergeBackendAndLocalPoles,
-  normalizeStreetlightFromApi,
   pickBestCenter,
 } from "../utils/poleHelpers";
 import "../styles/lightwise.css";
 
 export default function MapView() {
-  const [backendPoles, setBackendPoles] = useState([]);
+  const { streetlights } = useContext(LightWiseContext);
+
   const [localMeta, setLocalMeta] = useState(() => loadPoleMetaMap());
   const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const raw = await listStreetlights();
-        const rows = (Array.isArray(raw) ? raw : []).map(
-          normalizeStreetlightFromApi
-        );
-        const local = loadPoleMetaMap();
-
-        if (cancelled) return;
-
-        setLocalMeta(local);
-        setBackendPoles(rows);
-
-        const merged = mergeBackendAndLocalPoles(rows, local);
-        const center = pickBestCenter(merged);
-
-        setSelectedId((prev) => {
-          if (prev && merged.some((pole) => pole.streetlight_id === prev)) {
-            return prev;
-          }
-          return center.selectedId;
-        });
-      } catch {
-        if (cancelled) return;
-
-        const local = loadPoleMetaMap();
-        setLocalMeta(local);
-        setBackendPoles([]);
-
-        const merged = mergeBackendAndLocalPoles([], local);
-        const center = pickBestCenter(merged);
-
-        setSelectedId((prev) => {
-          if (prev && merged.some((pole) => pole.streetlight_id === prev)) {
-            return prev;
-          }
-          return center.selectedId;
-        });
-      }
-    }
-
-    load();
-
     const onFocus = () => {
-      const nextLocal = loadPoleMetaMap();
-      setLocalMeta(nextLocal);
-
-      const merged = mergeBackendAndLocalPoles(backendPoles, nextLocal);
-      const center = pickBestCenter(merged);
-
-      setSelectedId((prev) => {
-        if (prev && merged.some((pole) => pole.streetlight_id === prev)) {
-          return prev;
-        }
-        return center.selectedId;
-      });
+      setLocalMeta(loadPoleMetaMap());
     };
 
     window.addEventListener("focus", onFocus);
-
-    return () => {
-      cancelled = true;
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [backendPoles]);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   const mergedPoles = useMemo(() => {
-    return mergeBackendAndLocalPoles(backendPoles, localMeta);
-  }, [backendPoles, localMeta]);
+    return mergeBackendAndLocalPoles(streetlights, localMeta);
+  }, [streetlights, localMeta]);
+
+  useEffect(() => {
+    const center = pickBestCenter(mergedPoles);
+
+    setSelectedId((prev) => {
+      if (prev && mergedPoles.some((pole) => pole.streetlight_id === prev)) {
+        return prev;
+      }
+      return center.selectedId;
+    });
+  }, [mergedPoles]);
 
   const validPoles = useMemo(() => {
     return mergedPoles.filter(

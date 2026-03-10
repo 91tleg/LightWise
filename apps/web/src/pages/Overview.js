@@ -5,14 +5,13 @@ import Card from "../components/Card";
 import ActivityFeed from "../components/ActivityFeed";
 import UiIcon from "../components/UiIcon";
 import { LightWiseContext } from "../context/LightWiseProvider";
-import { listStreetlights, getStreetlightTelemetry } from "../services/api";
+import { getStreetlightTelemetry } from "../services/api";
 import { loadPoleMetaMap } from "../services/poleStorage";
 import { formatTimestamp } from "../utils/formatters";
 import "../styles/lightwise.css";
 import { getCombinedSensorHealth } from "./overview.helpers";
 
 const CACHE_KEYS = {
-  STREETLIGHTS: "lightwise_overview_streetlights_cache_v5",
   SNAPSHOTS: "lightwise_overview_snapshots_cache_v5",
   EVENTS: "lightwise_overview_events_cache_v5",
   SELECTED: "lightwise_overview_selected_v5",
@@ -56,62 +55,6 @@ function toBoolOrNull(value) {
 function cleanDisplay(value, fallback = "Waiting for data") {
   if (value === null || value === undefined || value === "") return fallback;
   return value;
-}
-
-function normalizePole(pole, index = 0) {
-  const id =
-    pole?.streetlight_id ||
-    pole?.id ||
-    pole?.pole_id ||
-    pole?.device_id ||
-    pole?.streetlightId ||
-    `LW-${String(index + 1).padStart(5, "0")}`;
-
-  return {
-    streetlight_id: id,
-    name: pole?.name || pole?.label || pole?.display_name || null,
-    health: pole?.health || pole?.status || "OK",
-    lat:
-      pole?.lat ??
-      pole?.latitude ??
-      pole?.location?.lat ??
-      pole?.location?.latitude ??
-      null,
-    lng:
-      pole?.lng ??
-      pole?.lon ??
-      pole?.longitude ??
-      pole?.location?.lng ??
-      pole?.location?.lon ??
-      pole?.location?.longitude ??
-      null,
-    motion_detected:
-      typeof pole?.motion_detected === "boolean"
-        ? pole.motion_detected
-        : typeof pole?.motion === "boolean"
-        ? pole.motion
-        : null,
-    light_level:
-      typeof pole?.light_level === "number"
-        ? pole.light_level
-        : typeof pole?.brightness === "number"
-        ? pole.brightness
-        : null,
-    last_seen:
-      pole?.last_seen ||
-      pole?.timestamp ||
-      pole?.updated_at ||
-      pole?.lastSeen ||
-      null,
-    ambient_primary_ok: pole?.ambient_primary_ok ?? null,
-    ambient_secondary_ok: pole?.ambient_secondary_ok ?? null,
-    th_ok: pole?.th_ok ?? null,
-    motion_primary_ok: pole?.motion_primary_ok ?? null,
-    motion_secondary_ok: pole?.motion_secondary_ok ?? null,
-    temp_c: pole?.temp_c ?? null,
-    humidity: pole?.humidity ?? null,
-    lux: pole?.lux ?? null,
-  };
 }
 
 function snapshotFromPoint(point) {
@@ -256,16 +199,11 @@ function MetricRow({ label, value, tone = "neutral" }) {
 }
 
 export default function Overview() {
-  const { wsStatus, lastMessage, subscribe } = useContext(LightWiseContext);
+  const { wsStatus, lastMessage, streetlights } = useContext(LightWiseContext);
 
   const initialLocalMeta = loadPoleMetaMap();
 
   const [localMeta, setLocalMeta] = useState(initialLocalMeta);
-  const [streetlights, setStreetlights] = useState(() =>
-    readCache(CACHE_KEYS.STREETLIGHTS, buildFallbackPoles(initialLocalMeta)).filter(
-      isVisiblePole
-    )
-  );
   const [snapshotMap, setSnapshotMap] = useState(() => readCache(CACHE_KEYS.SNAPSHOTS, {}));
   const [events, setEvents] = useState(() => readCache(CACHE_KEYS.EVENTS, []));
   const [selectedId, setSelectedId] = useState(() => {
@@ -273,10 +211,6 @@ export default function Overview() {
     return HIDDEN_POLE_IDS.has(cached) ? DEFAULT_POLE_ID : cached;
   });
   const [telemetryLoading, setTelemetryLoading] = useState(false);
-
-  useEffect(() => {
-    writeCache(CACHE_KEYS.STREETLIGHTS, streetlights.filter(isVisiblePole));
-  }, [streetlights]);
 
   useEffect(() => writeCache(CACHE_KEYS.SNAPSHOTS, snapshotMap), [snapshotMap]);
   useEffect(() => writeCache(CACHE_KEYS.EVENTS, events), [events]);
@@ -287,60 +221,6 @@ export default function Overview() {
     window.addEventListener("focus", refreshLocal);
     return () => window.removeEventListener("focus", refreshLocal);
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const raw = await listStreetlights();
-        const rows = (Array.isArray(raw) ? raw : [])
-          .map(normalizePole)
-          .filter(isVisiblePole);
-
-        if (cancelled) return;
-
-        const latestLocal = loadPoleMetaMap();
-        setLocalMeta(latestLocal);
-
-        if (rows.length) {
-          const merged = rows.map((pole) => mergeLocalMeta(pole, latestLocal));
-          setStreetlights(merged);
-
-          if (!merged.some((pole) => pole.streetlight_id === selectedId)) {
-            setSelectedId(merged[0]?.streetlight_id || DEFAULT_POLE_ID);
-          }
-        } else {
-          const fallback = buildFallbackPoles(latestLocal);
-          setStreetlights(fallback);
-
-          if (!fallback.some((pole) => pole.streetlight_id === selectedId)) {
-            setSelectedId(fallback[0]?.streetlight_id || DEFAULT_POLE_ID);
-          }
-        }
-      } catch {
-        const latestLocal = loadPoleMetaMap();
-        const fallback = buildFallbackPoles(latestLocal);
-
-        if (!cancelled) {
-          setLocalMeta(latestLocal);
-          setStreetlights((prev) => (prev.length ? prev.filter(isVisiblePole) : fallback));
-
-          if (!fallback.some((pole) => pole.streetlight_id === selectedId)) {
-            setSelectedId(fallback[0]?.streetlight_id || DEFAULT_POLE_ID);
-          }
-        }
-      }
-    }
-
-    load();
-    const timer = setInterval(load, 15000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [selectedId]);
 
   const mergedPoles = useMemo(() => {
     const base = streetlights.length ? streetlights : buildFallbackPoles(localMeta);
@@ -385,6 +265,13 @@ export default function Overview() {
       });
   }, [streetlights, localMeta, snapshotMap]);
 
+  useEffect(() => {
+    if (!mergedPoles.length) return;
+    if (!mergedPoles.some((pole) => pole.streetlight_id === selectedId)) {
+      setSelectedId(mergedPoles[0]?.streetlight_id || DEFAULT_POLE_ID);
+    }
+  }, [mergedPoles, selectedId]);
+
   const selectedPole = useMemo(() => {
     return (
       mergedPoles.find((pole) => pole.streetlight_id === selectedId) ||
@@ -394,15 +281,9 @@ export default function Overview() {
   }, [mergedPoles, selectedId]);
 
   useEffect(() => {
-    if (wsStatus === "connected" && selectedPole?.streetlight_id) {
-      subscribe(selectedPole.streetlight_id);
-    }
-  }, [wsStatus, selectedPole?.streetlight_id, subscribe]);
-
-  useEffect(() => {
     let cancelled = false;
 
-    async function loadTelemetry() {
+    async function loadTelemetryOnce() {
       if (!selectedPole?.streetlight_id) return;
 
       setTelemetryLoading(true);
@@ -449,12 +330,10 @@ export default function Overview() {
       }
     }
 
-    loadTelemetry();
-    const timer = setInterval(loadTelemetry, 20000);
+    loadTelemetryOnce();
 
     return () => {
       cancelled = true;
-      clearInterval(timer);
     };
   }, [selectedPole?.streetlight_id]);
 
@@ -476,25 +355,64 @@ export default function Overview() {
       }));
     }
 
+    const tone =
+      snapshot?.health && String(snapshot.health).toUpperCase() === "CRITICAL"
+        ? "critical"
+        : snapshot?.health &&
+          (String(snapshot.health).toUpperCase() === "DEGRADED" ||
+            String(snapshot.health).toUpperCase() === "WARNING")
+        ? "warning"
+        : typeof snapshot?.motion_detected === "boolean" && snapshot.motion_detected
+        ? "warning"
+        : "healthy";
+
     const nextEvent = {
       id: `${poleId}-${lastMessage.timestamp || Date.now()}`,
       type: "update",
+      tone,
       label:
         typeof snapshot?.motion_detected === "boolean"
           ? snapshot.motion_detected
             ? "Motion detected"
             : "Motion cleared"
-          : "Sensor update",
+          : typeof snapshot?.light_level === "number"
+          ? "Brightness updated"
+          : snapshot?.health
+          ? "Health status changed"
+          : "Telemetry received",
       streetlightId: poleId,
       timestamp: lastMessage.timestamp || new Date().toISOString(),
       value:
         typeof snapshot?.light_level === "number"
-          ? `${snapshot.light_level}%`
-          : "Updated",
-      note: snapshot?.health ? `Health ${snapshot.health}` : undefined,
+          ? `${snapshot.light_level}% brightness`
+          : snapshot?.lux != null
+          ? `${Math.round(snapshot.lux)} lux`
+          : "",
+      note:
+        snapshot?.health
+          ? `Current health: ${snapshot.health}`
+          : snapshot?.temp_c != null && snapshot?.humidity != null
+          ? `Temp ${snapshot.temp_c}°C · Humidity ${snapshot.humidity}%`
+          : undefined,
     };
 
-    setEvents((prev) => [nextEvent, ...prev].slice(0, 12));
+    setEvents((prev) => {
+      const first = prev[0];
+
+      const isDuplicate =
+        first &&
+        first.label === nextEvent.label &&
+        first.streetlightId === nextEvent.streetlightId &&
+        first.value === nextEvent.value &&
+        first.note === nextEvent.note &&
+        Math.abs(
+          new Date(first.timestamp).getTime() - new Date(nextEvent.timestamp).getTime()
+        ) < 15000;
+
+      if (isDuplicate) return prev;
+
+      return [nextEvent, ...prev].slice(0, 12);
+    });
   }, [lastMessage, selectedPole?.streetlight_id]);
 
   const counts = useMemo(() => {
@@ -598,7 +516,7 @@ export default function Overview() {
           <div className="lwOverviewSideStack">
             <Card title="Selected Pole" className="lwOperatorCard">
               {selectedPole ? (
-                <>
+                <div className="lwSelectedPoleSurface">
                   <div className="lwSelectedHeaderCompact">
                     <div>
                       <div className="lwSelectedPoleId">{selectedPole.streetlight_id}</div>
@@ -655,7 +573,11 @@ export default function Overview() {
                     />
                     <MetricRow
                       label="Lux"
-                      value={selectedPole.lux != null ? `${Math.round(selectedPole.lux)}` : "Waiting for data"}
+                      value={
+                        selectedPole.lux != null
+                          ? `${Math.round(selectedPole.lux)}`
+                          : "Waiting for data"
+                      }
                     />
                     <MetricRow
                       label="Latitude"
@@ -675,7 +597,7 @@ export default function Overview() {
                       tone={combinedSensorHealth.tone}
                     />
                   </div>
-                </>
+                </div>
               ) : (
                 <div className="lwTrendEmpty">Waiting for pole selection…</div>
               )}

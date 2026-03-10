@@ -288,23 +288,20 @@ export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } 
     const end = new Date(to).getTime();
     const step = Math.max(Math.floor((end - start) / 20), 60 * 1000);
 
-    const data = [];
+    const rows = [];
     for (let ts = start; ts <= end; ts += step) {
-      data.push({
-        timestamp: new Date(ts).toISOString(),
-        data: {
-          lux: Math.floor(20 + Math.random() * 80),
-          temp_c: Math.floor(15 + Math.random() * 12),
-          humidity: Math.floor(45 + Math.random() * 30),
-          motion: Math.random() > 0.7,
-          light_level: Math.floor(10 + Math.random() * 90),
-        },
+      rows.push({
+        time: new Date(ts).toISOString(),
+        lux: Number((20 + Math.random() * 80).toFixed(2)),
+        temperature_c: Number((15 + Math.random() * 12).toFixed(1)),
+        humidity_pct: Number((45 + Math.random() * 30).toFixed(1)),
+        light_level_pct: Number((10 + Math.random() * 90).toFixed(1)),
       });
     }
 
     return {
       streetlight_id: id,
-      items: data,
+      data: rows,
     };
   }
 
@@ -319,7 +316,7 @@ export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } 
 
   return {
     streetlight_id: id,
-    items: normalizeTelemetryResponse(data),
+    data: normalizeTelemetryResponse(data),
   };
 }
 

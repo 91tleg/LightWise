@@ -406,7 +406,6 @@ body{
   .lwKpiGrid{grid-template-columns:1fr;}
 }
 
-
 /* ================= CLEAN OPERATOR UI ================= */
 .lwPageTitle{font-size:28px;line-height:1.05;}
 .lwPageSubtitle{font-size:14px;}
@@ -473,11 +472,13 @@ body{
 .lwMapCardShell{padding:12px;}
 .lwOverviewSideStack{display:grid;gap:14px;}
 .lwOperatorCard{padding:12px;}
+
 .lwSelectedHeaderCompact{
-  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;
 }
 .lwSelectedPoleId{font-size:24px;font-weight:1000;line-height:1.05;color:#0f172a;}
 .lwSelectedPoleName{font-size:14px;font-weight:750;color:#64748b;margin-top:4px;}
+
 .lwSelectedTrendWrap{
   padding:12px;border-radius:16px;background:rgba(248,250,252,.85);
   border:1px solid rgba(226,232,240,.95);margin-bottom:12px;
@@ -491,11 +492,32 @@ body{
   padding:18px 14px;border-radius:14px;background:rgba(248,250,252,.82);
   border:1px dashed rgba(148,163,184,.35);color:#64748b;font-weight:800;text-align:center;
 }
-.lwMetricGridCompact{display:grid;gap:8px;}
+
+/* NEW: richer shaded block for selected pole section */
+.lwSelectedPoleSurface{
+  padding:14px;
+  border-radius:18px;
+  background:linear-gradient(180deg, rgba(244,248,252,.96), rgba(237,243,249,.94));
+  border:1px solid rgba(210,223,235,.95);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.65);
+}
+
+.lwMetricGridCompact{display:grid;gap:10px;}
 .lwMetricRow{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:10px 12px;border-radius:14px;background:rgba(248,250,252,.92);
-  border:1px solid rgba(226,232,240,.95);font-size:13px;font-weight:800;color:#334155;
+  padding:12px 14px;
+  border-radius:15px;
+  background:linear-gradient(180deg, rgba(246,250,253,.98), rgba(236,242,248,.96));
+  border:1px solid rgba(214,226,237,.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.68),
+    0 2px 6px rgba(15,23,42,.03);
+  font-size:13px;font-weight:800;color:#334155;
+  transition:background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.lwMetricRow:hover{
+  background:linear-gradient(180deg, rgba(241,247,252,.99), rgba(230,238,246,.98));
+  border-color:rgba(188,208,226,.98);
 }
 .lwMetricBadge{
   display:inline-flex;align-items:center;justify-content:center;
@@ -505,16 +527,43 @@ body{
 .lwMetricBadge.healthy{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.22);color:#166534;}
 .lwMetricBadge.warning{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.22);color:#b45309;}
 .lwMetricBadge.critical{background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.22);color:#b91c1c;}
-.lwPoleList{display:grid;gap:8px;max-height:208px;overflow:auto;padding-right:4px;}
+
+.lwPoleList{
+  display:grid;
+  gap:10px;
+  max-height:208px;
+  overflow:auto;
+  padding-right:4px;
+}
 .lwPoleListItem{
-  width:100%;text-align:left;border:1px solid rgba(226,232,240,.95);background:rgba(248,250,252,.92);
-  border-radius:14px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;
+  width:100%;
+  text-align:left;
+  border:1px solid rgba(206,221,234,.98);
+  background:linear-gradient(180deg, rgba(245,249,253,.98), rgba(235,242,248,.97));
+  border-radius:16px;
+  padding:12px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.68),
+    0 2px 6px rgba(15,23,42,.03);
+  transition:background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.lwPoleListItem:hover{
+  background:linear-gradient(180deg, rgba(239,246,252,.99), rgba(228,237,246,.98));
+  border-color:rgba(178,202,224,.98);
 }
 .lwPoleListItem strong{display:block;color:#0f172a;font-size:13px;}
 .lwPoleListItem small{display:block;margin-top:3px;color:#64748b;font-size:12px;font-weight:700;}
 .lwPoleListItem.isSelected{
   border-color:rgba(11,99,166,.28);
-  box-shadow:inset 0 0 0 1px rgba(11,99,166,.12);
+  background:linear-gradient(180deg, rgba(236,245,252,.99), rgba(225,236,246,.98));
+  box-shadow:
+    inset 0 0 0 1px rgba(11,99,166,.12),
+    0 4px 10px rgba(11,99,166,.06);
 }
 
 .lwInteractiveMap{position:relative;border-radius:18px;overflow:hidden;background:#dde7ef;}
@@ -615,4 +664,240 @@ body{
   .lwMapCardShell {
     min-height: 440px;
   }
+}
+
+/* ===== Activity Feed upgraded readable UI ===== */
+
+.lwActivityFeed {
+  display: grid;
+  gap: 12px;
+}
+
+.lwActivityFeedHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lwActivityFeedTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lwActivityFeedStatus {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid #d7e3ef;
+  background: #eef3f8;
+  color: #35506b;
+}
+
+.lwActivityFeedStatus.connected {
+  background: #e8f8ef;
+  border-color: #c7ead4;
+  color: #1f7a45;
+}
+
+.lwActivityFeedStatus.connecting {
+  background: #fff4df;
+  border-color: #f2d7a6;
+  color: #9a6500;
+}
+
+.lwActivityFeedStatus.offline,
+.lwActivityFeedStatus.disconnected,
+.lwActivityFeedStatus.error {
+  background: #fdeaea;
+  border-color: #f1c1c1;
+  color: #b42318;
+}
+
+.lwActivityFeedHint {
+  font-size: 12px;
+  color: #6b7c8f;
+}
+
+.lwActivityList {
+  display: grid;
+  gap: 12px;
+}
+
+.lwActivityItem {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(245,249,253,.98), rgba(234,241,248,.97));
+  border: 1px solid #d4e0ec;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.7),
+    0 3px 8px rgba(15,23,42,.03);
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.lwActivityItem:hover {
+  background: linear-gradient(180deg, rgba(239,246,252,.99), rgba(226,236,245,.98));
+  border-color: #bdd1e4;
+}
+
+.lwActivityItem.healthy {
+  border-left: 4px solid rgba(34,197,94,.6);
+}
+
+.lwActivityItem.warning {
+  border-left: 4px solid rgba(245,158,11,.72);
+}
+
+.lwActivityItem.critical {
+  border-left: 4px solid rgba(239,68,68,.72);
+}
+
+.lwActivityItem.neutral {
+  border-left: 4px solid rgba(59,130,246,.38);
+}
+
+.lwActivityIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #edf3f8;
+  color: #46607b;
+  margin-top: 1px;
+}
+
+.lwActivityIcon.healthy {
+  background: #e8f8ef;
+  color: #1f7a45;
+}
+
+.lwActivityIcon.warning {
+  background: #fff4df;
+  color: #9a6500;
+}
+
+.lwActivityIcon.critical {
+  background: #fdeaea;
+  color: #b42318;
+}
+
+.lwActivityMain {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.lwActivityTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.lwActivityLabel {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1d3144;
+  line-height: 1.3;
+}
+
+.lwActivityTime {
+  font-size: 12px;
+  color: #60758a;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.lwActivityMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lwActivityPole {
+  font-size: 12px;
+  font-weight: 800;
+  color: #2d567d;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #e2ebf8;
+  border: 1px solid rgba(162,186,215,.45);
+}
+
+.lwActivityValue {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #edf3f8;
+  color: #33475b;
+  border: 1px solid rgba(194,210,226,.42);
+}
+
+.lwActivityValue.healthy {
+  background: #e8f8ef;
+  color: #1f7a45;
+  border-color: rgba(120,201,149,.35);
+}
+
+.lwActivityValue.warning {
+  background: #fff4df;
+  color: #9a6500;
+  border-color: rgba(234,188,96,.35);
+}
+
+.lwActivityValue.critical {
+  background: #fdeaea;
+  color: #b42318;
+  border-color: rgba(229,145,145,.35);
+}
+
+.lwActivityNote {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #587086;
+  font-weight: 700;
+}
+
+.lwActivityEmpty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f8fbff;
+  border: 1px dashed #d7e3ef;
+}
+
+.lwActivityEmptyIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #edf3f8;
+  color: #46607b;
+}
+
+.lwActivityEmptyTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #243444;
+}
+
+.lwActivityEmptySub {
+  font-size: 12px;
+  color: #6b7c8f;
+  margin-top: 2px;
 }

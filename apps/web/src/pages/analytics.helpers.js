@@ -7,6 +7,8 @@ export function normalizeTelemetryRows(payload) {
     ? payload.items
     : Array.isArray(payload?.data)
     ? payload.data
+    : Array.isArray(payload?.telemetry)
+    ? payload.telemetry
     : [];
 
   return rows.map((item, idx) => {
@@ -22,14 +24,23 @@ export function normalizeTelemetryRows(payload) {
 
     return {
       timestamp,
-      lux: roundValue(data?.lux, 0),
-      temp_c: roundValue(data?.temp_c, 1),
-      humidity: roundValue(data?.humidity, 1),
+      lux: roundValue(data?.lux, 1),
+      temp_c: roundValue(
+        data?.temp_c ?? data?.temperature_c,
+        1
+      ),
+      humidity: roundValue(
+        data?.humidity ?? data?.humidity_pct,
+        1
+      ),
       motion:
         typeof data?.motion === "boolean"
           ? data.motion
           : String(data?.motion).toLowerCase() === "true",
-      light_level: roundValue(data?.light_level, 0),
+      light_level: roundValue(
+        data?.light_level ?? data?.light_level_pct,
+        1
+      ),
       health: item?.health || data?.health || "OK",
     };
   });
