@@ -6,7 +6,7 @@ import AdminWsControls from "../components/AdminWsControls";
 import MapEmbed from "../components/MapEmbed";
 import UiIcon from "../components/UiIcon";
 import { LightWiseContext } from "../context/LightWiseProvider";
-import { listStreetlights, updateStreetlightMetadata } from "../services/api";
+import { updateStreetlightMetadata } from "../services/api";
 import { loadPoleMetaMap, upsertPoleMeta } from "../services/poleStorage";
 import "../styles/lightwise.css";
 import "../styles/admin.css";
@@ -59,56 +59,6 @@ function hasOwn(obj, key) {
   return Object.prototype.hasOwnProperty.call(obj || {}, key);
 }
 
-function normalizePole(pole, index = 0) {
-  const id =
-    pole?.streetlight_id ||
-    pole?.id ||
-    pole?.pole_id ||
-    pole?.device_id ||
-    pole?.streetlightId ||
-    `LW-${String(index + 1).padStart(5, "0")}`;
-
-  return {
-    streetlight_id: id,
-    name: pole?.name || pole?.label || pole?.display_name || null,
-    health: pole?.health || pole?.status || "OK",
-    lat:
-      pole?.lat ??
-      pole?.latitude ??
-      pole?.location?.lat ??
-      pole?.location?.latitude ??
-      null,
-    lng:
-      pole?.lng ??
-      pole?.lon ??
-      pole?.longitude ??
-      pole?.location?.lng ??
-      pole?.location?.lon ??
-      pole?.location?.longitude ??
-      null,
-    motion_detected:
-      typeof pole?.motion_detected === "boolean"
-        ? pole.motion_detected
-        : typeof pole?.motion === "boolean"
-        ? pole.motion
-        : null,
-    light_level:
-      typeof pole?.light_level === "number"
-        ? pole.light_level
-        : typeof pole?.brightness === "number"
-        ? pole.brightness
-        : null,
-    last_seen:
-      pole?.last_seen ||
-      pole?.timestamp ||
-      pole?.updated_at ||
-      pole?.lastSeen ||
-      null,
-    temp_c: pole?.temp_c ?? null,
-    humidity: pole?.humidity ?? null,
-  };
-}
-
 function mergeLocalMeta(pole, localMeta) {
   const local = localMeta[pole.streetlight_id] || {};
   return {
@@ -132,6 +82,7 @@ function buildFallbackPole(id = DEFAULT_POLE_ID, localMeta = {}) {
     last_seen: null,
     temp_c: null,
     humidity: null,
+    lux: null,
   };
 }
 
@@ -157,9 +108,9 @@ function getFormValuesForPole(pole, metaMap) {
 }
 
 export default function Admin() {
-  const { wsStatus, lastMessage, subscribe } = useContext(LightWiseContext);
+  const { wsStatus, lastMessage, subscribe, streetlights, applyStreetlightLocalPatch } =
+    useContext(LightWiseContext);
 
-  const [streetlights, setStreetlights] = useState([]);
   const [selectedId, setSelectedId] = useState(DEFAULT_POLE_ID);
   const [metaMap, setMetaMap] = useState(() => loadPoleMetaMap());
   const [events, setEvents] = useState([]);
@@ -180,45 +131,9 @@ export default function Admin() {
   }, [selectedId]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const raw = await listStreetlights();
-        const rows = (Array.isArray(raw) ? raw : []).map(normalizePole);
-
-        if (cancelled) return;
-
-        const local = loadPoleMetaMap();
-        setMetaMap(local);
-
-        if (rows.length) {
-          const merged = rows.map((pole) => mergeLocalMeta(pole, local));
-          setStreetlights(merged);
-
-          if (!merged.some((row) => row.streetlight_id === selectedIdRef.current)) {
-            setSelectedId(merged[0]?.streetlight_id || DEFAULT_POLE_ID);
-          }
-        } else {
-          setStreetlights([buildFallbackPole(selectedIdRef.current, local)]);
-        }
-      } catch {
-        if (cancelled) return;
-        const local = loadPoleMetaMap();
-        setMetaMap(local);
-        setStreetlights((prev) =>
-          prev.length ? prev : [buildFallbackPole(selectedIdRef.current, local)]
-        );
-      }
-    }
-
-    load();
-    const timer = setInterval(load, 15000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
+    const refreshLocal = () => setMetaMap(loadPoleMetaMap());
+    window.addEventListener("focus", refreshLocal);
+    return () => window.removeEventListener("focus", refreshLocal);
   }, []);
 
   const mapPoles = useMemo(() => {
@@ -228,6 +143,14 @@ export default function Admin() {
 
     return base.map((pole) => mergeLocalMeta(pole, metaMap));
   }, [streetlights, selectedId, metaMap]);
+
+  useEffect(() => {
+    if (!mapPoles.length) return;
+
+    if (!mapPoles.some((row) => row.streetlight_id === selectedIdRef.current)) {
+      setSelectedId(mapPoles[0]?.streetlight_id || DEFAULT_POLE_ID);
+    }
+  }, [mapPoles]);
 
   const selectedBase = useMemo(() => {
     return (
@@ -252,12 +175,6 @@ export default function Admin() {
       setIsEditing(false);
     }
   }, [selectedBase?.streetlight_id, metaMap]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (wsStatus === "connected" && selectedId) {
-      subscribe(selectedId);
-    }
-  }, [wsStatus, selectedId, subscribe]);
 
   const live = useMemo(() => {
     if (!lastMessage || lastMessage.streetlight_id !== selectedId) return null;
@@ -321,18 +238,7 @@ export default function Admin() {
     upsertPoleMeta(selectedId, patch);
     const nextMeta = loadPoleMetaMap();
     setMetaMap(nextMeta);
-
-    setStreetlights((prev) => {
-      const exists = prev.some((pole) => pole.streetlight_id === selectedId);
-
-      if (!exists) {
-        return [{ ...buildFallbackPole(selectedId, nextMeta), ...patch }, ...prev];
-      }
-
-      return prev.map((pole) =>
-        pole.streetlight_id === selectedId ? { ...pole, ...patch } : pole
-      );
-    });
+    applyStreetlightLocalPatch(selectedId, patch);
 
     try {
       await updateStreetlightMetadata(selectedId, patch);
@@ -374,13 +280,7 @@ export default function Admin() {
     setLngInput("");
     setIsEditing(false);
 
-    setStreetlights((prev) =>
-      prev.map((pole) =>
-        pole.streetlight_id === selectedId
-          ? { ...pole, lat: null, lng: null }
-          : pole
-      )
-    );
+    applyStreetlightLocalPatch(selectedId, { lat: null, lng: null });
 
     try {
       await updateStreetlightMetadata(selectedId, { lat: null, lng: null });
@@ -436,15 +336,8 @@ export default function Admin() {
           />
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(360px, 0.95fr) minmax(520px, 1.45fr)",
-            gap: "16px",
-            alignItems: "start",
-          }}
-        >
-          <div style={{ display: "grid", gap: "16px", minWidth: 0 }}>
+        <div className="lwAdminSplitLayout">
+          <div className="lwAdminStack">
             <BubbleCard
               icon={<UiIcon name="settings" size={22} />}
               title="Rules Engine"
@@ -603,18 +496,28 @@ export default function Admin() {
             </BubbleCard>
           </div>
 
-          <div style={{ display: "grid", gap: "16px", minWidth: 0 }}>
+          <div className="lwAdminStack">
             <BubbleCard
               icon={<UiIcon name="bolt" size={22} />}
               title="Live Light State"
               sub="Current output and health"
             >
               <div className="lwAdminMetricList">
-                <div><b>Streetlight:</b> {selectedId}</div>
-                <div><b>Display Name:</b> {nameInput || selectedBase?.name || "Unnamed pole"}</div>
-                <div><b>Motion:</b> {motionText}</div>
-                <div><b>Brightness Level:</b> {lightPct}%</div>
-                <div><b>Health:</b> {healthText}</div>
+                <div>
+                  <b>Streetlight:</b> {selectedId}
+                </div>
+                <div>
+                  <b>Display Name:</b> {nameInput || selectedBase?.name || "Unnamed pole"}
+                </div>
+                <div>
+                  <b>Motion:</b> {motionText}
+                </div>
+                <div>
+                  <b>Brightness Level:</b> {lightPct}%
+                </div>
+                <div>
+                  <b>Health:</b> {healthText}
+                </div>
               </div>
 
               <div className="lwProgressTrack lwProgressTrackClean">
@@ -630,14 +533,7 @@ export default function Admin() {
               title="Device Map"
               sub="Interactive location view"
             >
-              <div
-                style={{
-                  width: "100%",
-                  minWidth: 0,
-                  borderRadius: "18px",
-                  overflow: "hidden",
-                }}
-              >
+              <div className="lwAdminMapShell">
                 <MapEmbed
                   key={mapKey}
                   title="Selected pole location"
