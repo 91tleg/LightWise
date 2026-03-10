@@ -33,6 +33,8 @@ namespace fsm
         Manager::Inputs inputs{};
         Manager::Outputs outputs{};
 
+        ambient::Data lastAmbient{};
+
         TickType_t ambientPollTick = xTaskGetTickCount();
         TickType_t lastMotionTick = 0UL;
 
@@ -83,11 +85,21 @@ namespace fsm
             {
                 lastMotionTick = xTaskGetTickCount();
                 motionEverCleared = true;
+
+                inputs.mmwave.motionDetected = false;
+                outputs = mgr.update( inputs );
+
+                const BaseType_t uplinkResult = xQueueOverwrite( params->lorawanTxQueue,
+                                                                 &outputs.uplinkData );
+                LOGI( kTag, "Motion cleared uplink: %s",
+                      uplinkResult == pdPASS ? "success" : "failed" );
             }
             else
             {
                 /* Received error */
             }
+
+            inputs.ambient = lastAmbient;
 
             const TickType_t now = xTaskGetTickCount();
             if( ( now - ambientPollTick ) >= pdMS_TO_TICKS( kAmbientSamplePeriodMs ) )
@@ -96,7 +108,7 @@ namespace fsm
                                    &inputs.ambient, 
                                    0UL ) )
                 {
-                    LOGI( kTag, "Received ambient data" );
+                    lastAmbient = inputs.ambient;
                     outputs = mgr.update(inputs);
                     ambientPollTick = now;
                 }
