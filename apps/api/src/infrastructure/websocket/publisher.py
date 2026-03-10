@@ -21,7 +21,7 @@ def get_apigateway_client() -> boto3.client:
     Return a cached API Gateway Management client.
     Reused for warm Lambda invocations.
     """
-    endpoint = settings.ws_management_url or None
+    endpoint = settings.WS_MANAGEMENT_URL
     return boto3.client(
         "apigatewaymanagementapi",
         endpoint_url=endpoint,
@@ -77,5 +77,7 @@ class SensorEventPublisher:
         Sends the same payload to multiple active connections.
         Automatically skips and cleans up disconnected clients.
         """
+        logger.info(f"Broadcasting to {len(connections)} connections")
         for conn in connections:
+            logger.info(f"Pushing to {conn.connection_id}")
             self.push(conn.connection_id, data)

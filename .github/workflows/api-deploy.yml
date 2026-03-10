@@ -40,10 +40,9 @@ jobs:
             --s3-bucket ${{ secrets.SAM_DEPLOY_BUCKET }} \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --capabilities CAPABILITY_IAM \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Env=prod \
               InfluxUrl=${{ secrets.INFLUX_URL }} \
               InfluxToken=${{ secrets.INFLUX_TOKEN }} \
-              InfluxOrg=${{ secrets.INFLUX_ORG }} \
-              WsEndpoint=${{ secrets.WS_ENDPOINT }}
+              InfluxOrg=${{ secrets.INFLUX_ORG }}
