@@ -1,5 +1,3 @@
-// apps/web/src/context/LightWiseProvider.jsx
-
 import React, { createContext, useEffect, useMemo, useCallback, useState } from "react";
 import { useLightWiseWS } from "../services/useLightWiseWS";
 import { normalizeEvent } from "../utils/normalizeEvent";
@@ -15,31 +13,24 @@ export function LightWiseProvider({ children }) {
   const TENANT_ID = (process.env.REACT_APP_TENANT_ID || "tenant-001").trim();
   const USE_MOCK = String(process.env.REACT_APP_USE_MOCK || "false").toLowerCase() === "true";
 
-  // Poles = list of streetlight_id strings
   const [poles, setPoles] = useState(() => loadPoles());
-
-  // Events = normalized objects for ActivityFeed
   const [events, setEvents] = useState([]);
 
-  // WebSocket engine
   const { status: wsStatus, error: wsError, lastMessage, send, subscribe } =
     useLightWiseWS(WS_URL, {
       debug: false,
       autoReconnect: true,
     });
 
-  // Persist poles whenever they change
   useEffect(() => {
     savePoles(poles);
   }, [poles]);
 
-  // Auto-subscribe to all poles when connected
   useEffect(() => {
     if (wsStatus !== "connected") return;
     poles.forEach((id) => subscribe(id));
   }, [wsStatus, poles, subscribe]);
 
-  // Convert incoming WS messages into events once (single pipeline)
   useEffect(() => {
     if (!lastMessage) return;
 
@@ -71,7 +62,6 @@ export function LightWiseProvider({ children }) {
         API_BASE,
         TENANT_ID,
         USE_MOCK,
-        // Kirat confirmed only subscribe exists on WS right now
         wsCapabilities: { subscribe: true, controls: false },
       },
       wsStatus,

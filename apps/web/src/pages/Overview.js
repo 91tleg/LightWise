@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import MapEmbed from "../components/MapEmbed";
 import Card from "../components/Card";
 import ActivityFeed from "../components/ActivityFeed";
 import UiIcon from "../components/UiIcon";
+import { LightWiseContext } from "../context/LightWiseProvider";
 import { listStreetlights, getStreetlightTelemetry } from "../services/api";
-import { useLightWiseWS } from "../services/useLightWiseWS";
 import { loadPoleMetaMap } from "../services/poleStorage";
 import { formatTimestamp } from "../utils/formatters";
 import "../styles/lightwise.css";
@@ -255,13 +255,8 @@ function MetricRow({ label, value, tone = "neutral" }) {
   );
 }
 
-
-
 export default function Overview() {
-  const WS_URL =
-    process.env.REACT_APP_WS_URL ||
-    process.env.REACT_APP_LIGHTWISE_WS_URL ||
-    "";
+  const { wsStatus, lastMessage, subscribe } = useContext(LightWiseContext);
 
   const initialLocalMeta = loadPoleMetaMap();
 
@@ -278,10 +273,6 @@ export default function Overview() {
     return HIDDEN_POLE_IDS.has(cached) ? DEFAULT_POLE_ID : cached;
   });
   const [telemetryLoading, setTelemetryLoading] = useState(false);
-
-  const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
-    debug: false,
-  });
 
   useEffect(() => {
     writeCache(CACHE_KEYS.STREETLIGHTS, streetlights.filter(isVisiblePole));

@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import Layout from "../components/Layout";
 import ActivityFeed from "../components/ActivityFeed";
 import BubbleCard from "../components/BubbleCard";
 import AdminWsControls from "../components/AdminWsControls";
 import MapEmbed from "../components/MapEmbed";
 import UiIcon from "../components/UiIcon";
-import { useLightWiseWS } from "../services/useLightWiseWS";
+import { LightWiseContext } from "../context/LightWiseProvider";
 import { listStreetlights, updateStreetlightMetadata } from "../services/api";
 import { loadPoleMetaMap, upsertPoleMeta } from "../services/poleStorage";
 import "../styles/lightwise.css";
@@ -157,11 +157,7 @@ function getFormValuesForPole(pole, metaMap) {
 }
 
 export default function Admin() {
-  const tenantId = process.env.REACT_APP_TENANT_ID || "tenant-001";
-  const WS_URL =
-    process.env.REACT_APP_WS_URL ||
-    process.env.REACT_APP_LIGHTWISE_WS_URL ||
-    "";
+  const { wsStatus, lastMessage, subscribe } = useContext(LightWiseContext);
 
   const [streetlights, setStreetlights] = useState([]);
   const [selectedId, setSelectedId] = useState(DEFAULT_POLE_ID);
@@ -178,11 +174,6 @@ export default function Admin() {
 
   const selectedIdRef = useRef(DEFAULT_POLE_ID);
   const lastLoadedPoleIdRef = useRef(null);
-
-  const { status: wsStatus, lastMessage, subscribe } = useLightWiseWS(WS_URL, {
-    tenantId,
-    debug: false,
-  });
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
