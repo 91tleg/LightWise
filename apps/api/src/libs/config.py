@@ -3,8 +3,7 @@ import os
 
 class Config:
     def __init__(self):
-        self.AWS_REGION = os.getenv("AWS_REGION", "us-west-2")
-
+        self.AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
         self.TELEMETRY_BACKEND = os.getenv(
             "TELEMETRY_BACKEND", "influxdb"
         )
@@ -42,6 +41,7 @@ class Config:
 
         # WebSocket
         self.WS_ENDPOINT = os.getenv("WS_ENDPOINT", "")
+        self.WS_MANAGEMENT_URL = os.getenv("WS_MANAGEMENT_URL", "")
 
         # Auth
         self.COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
@@ -53,16 +53,6 @@ class Config:
         # App State
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
         self.LAMBDA_STAGE = os.getenv("LAMBDA_STAGE", "dev")
-
-    @property
-    def ws_management_url(self) -> str:
-        """
-        Formats the wss:// endpoint into an https:// endpoint
-        required by the Boto3 ApiGatewayManagementApi client.
-        """
-        if not self.WS_ENDPOINT:
-            return ""
-        return self.WS_ENDPOINT.replace("wss://", "https://")
 
 
 settings = Config()
