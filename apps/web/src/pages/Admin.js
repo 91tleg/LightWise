@@ -6,8 +6,12 @@ import AdminWsControls from "../components/AdminWsControls";
 import MapEmbed from "../components/MapEmbed";
 import UiIcon from "../components/UiIcon";
 import { LightWiseContext } from "../context/LightWiseProvider";
-import { updateStreetlightMetadata } from "../services/api";
+import {
+  updateStreetlightMetadata,
+  getStreetlightTelemetry,
+} from "../services/api";
 import { loadPoleMetaMap, upsertPoleMeta } from "../services/poleStorage";
+import { normalizeTelemetryRows } from "./analytics.helpers";
 import "../styles/lightwise.css";
 import "../styles/admin.css";
 
@@ -114,6 +118,8 @@ export default function Admin() {
   const [selectedId, setSelectedId] = useState(DEFAULT_POLE_ID);
   const [metaMap, setMetaMap] = useState(() => loadPoleMetaMap());
   const [events, setEvents] = useState([]);
+  const [latestTelemetry, setLatestTelemetry] = useState(null);
+  const [telemetryLoading, setTelemetryLoading] = useState(false);
 
   const [nameInput, setNameInput] = useState("");
   const [latInput, setLatInput] = useState("");
@@ -176,26 +182,115 @@ export default function Admin() {
     }
   }, [selectedBase?.streetlight_id, metaMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const live = useMemo(() => {
-    if (!lastMessage || lastMessage.streetlight_id !== selectedId) return null;
+  useEffect(() => {
+    let cancelled = false;
 
-    return {
-      motion:
-        typeof lastMessage?.data?.motion === "boolean"
-          ? lastMessage.data.motion
-          : typeof lastMessage?.motion === "boolean"
-          ? lastMessage.motion
-          : null,
-      lightPct: clampPct(
-        lastMessage?.data?.light_level ?? lastMessage?.light_level ?? 0
-      ),
-      lux: lastMessage?.data?.lux ?? lastMessage?.lux ?? null,
-      tempC: lastMessage?.data?.temp_c ?? lastMessage?.temp_c ?? null,
-      humidity: lastMessage?.data?.humidity ?? lastMessage?.humidity ?? null,
-      health: lastMessage?.health || selectedBase?.health || "OK",
-      timestamp: lastMessage?.timestamp || new Date().toISOString(),
+    async function loadLatestTelemetry() {
+      if (!selectedId) {
+        setLatestTelemetry(null);
+        return;
+      }
+
+      setTelemetryLoading(true);
+
+      const to = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+      const from = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .replace(/\.\d{3}Z$/, "Z");
+
+      try {
+        const payload = await getStreetlightTelemetry(selectedId, {
+          from,
+          to,
+          interval: "1h",
+        });
+
+        if (cancelled) return;
+
+        const rows = normalizeTelemetryRows(payload);
+        const latest = rows.length ? rows[rows.length - 1] : null;
+        setLatestTelemetry(latest);
+      } catch {
+        if (!cancelled) setLatestTelemetry(null);
+      } finally {
+        if (!cancelled) setTelemetryLoading(false);
+      }
+    }
+
+    loadLatestTelemetry();
+
+    return () => {
+      cancelled = true;
     };
-  }, [lastMessage, selectedId, selectedBase?.health]);
+  }, [selectedId]);
+
+  const live = useMemo(() => {
+    const wsForSelected =
+      lastMessage && lastMessage.streetlight_id === selectedId ? lastMessage : null;
+
+    if (wsForSelected) {
+      return {
+        motion:
+          typeof wsForSelected?.data?.motion === "boolean"
+            ? wsForSelected.data.motion
+            : typeof wsForSelected?.motion === "boolean"
+            ? wsForSelected.motion
+            : null,
+        lightPct: clampPct(
+          wsForSelected?.data?.light_level ??
+            wsForSelected?.light_level ??
+            selectedBase?.light_level ??
+            latestTelemetry?.light_level ??
+            0
+        ),
+        lux:
+          wsForSelected?.data?.lux ??
+          wsForSelected?.lux ??
+          latestTelemetry?.lux ??
+          selectedBase?.lux ??
+          null,
+        tempC:
+          wsForSelected?.data?.temp_c ??
+          wsForSelected?.temp_c ??
+          latestTelemetry?.temp_c ??
+          selectedBase?.temp_c ??
+          null,
+        humidity:
+          wsForSelected?.data?.humidity ??
+          wsForSelected?.humidity ??
+          latestTelemetry?.humidity ??
+          selectedBase?.humidity ??
+          null,
+        health: wsForSelected?.health || selectedBase?.health || "OK",
+        timestamp:
+          wsForSelected?.timestamp ||
+          latestTelemetry?.timestamp ||
+          selectedBase?.last_seen ||
+          null,
+      };
+    }
+
+    if (latestTelemetry || selectedBase) {
+      return {
+        motion:
+          typeof latestTelemetry?.motion === "boolean"
+            ? latestTelemetry.motion
+            : typeof selectedBase?.motion_detected === "boolean"
+            ? selectedBase.motion_detected
+            : null,
+        lightPct: clampPct(
+          latestTelemetry?.light_level ?? selectedBase?.light_level ?? 0
+        ),
+        lux: latestTelemetry?.lux ?? selectedBase?.lux ?? null,
+        tempC: latestTelemetry?.temp_c ?? selectedBase?.temp_c ?? null,
+        humidity: latestTelemetry?.humidity ?? selectedBase?.humidity ?? null,
+        health: latestTelemetry?.health || selectedBase?.health || "OK",
+        timestamp: latestTelemetry?.timestamp || selectedBase?.last_seen || null,
+      };
+    }
+
+    return null;
+  }, [lastMessage, selectedId, selectedBase, latestTelemetry]);
 
   useEffect(() => {
     if (!lastMessage || lastMessage.streetlight_id !== selectedId) return;
@@ -319,7 +414,7 @@ export default function Admin() {
         : "Clear"
       : "Clear";
 
-  const loadingSensors = !live;
+  const loadingSensors = telemetryLoading && !live;
   const mapHeight = 640;
   const mapKey = `${selectedId}-${mapLat}-${mapLng}`;
 
