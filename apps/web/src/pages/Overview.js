@@ -10,6 +10,7 @@ import { loadPoleMetaMap } from "../services/poleStorage";
 import { formatTimestamp } from "../utils/formatters";
 import "../styles/lightwise.css";
 import { getCombinedSensorHealth } from "./overview.helpers";
+import { normalizeTelemetryRows } from "./analytics.helpers";
 
 const CACHE_KEYS = {
   SNAPSHOTS: "lightwise_overview_snapshots_cache_v5",
@@ -63,6 +64,13 @@ function snapshotFromPoint(point) {
   const diagnostics = point?.diagnostics || {};
   const data = point?.data || {};
 
+  const hasTemp =
+    typeof point?.temp_c === "number" || typeof data?.temp_c === "number";
+  const hasHumidity =
+    typeof point?.humidity === "number" || typeof data?.humidity === "number";
+  const hasLux =
+    typeof point?.lux === "number" || typeof data?.lux === "number";
+
   return {
     timestamp: point?.timestamp || point?.time || point?.ts || null,
     health: point?.health ?? null,
@@ -85,24 +93,21 @@ function snapshotFromPoint(point) {
     motion_secondary_ok: toBoolOrNull(
       point?.motion_secondary_ok ?? diagnostics?.motion_secondary_ok
     ),
-    temp_c:
-      typeof point?.temp_c === "number"
+    temp_c: hasTemp
+      ? typeof point?.temp_c === "number"
         ? point.temp_c
-        : typeof data?.temp_c === "number"
-        ? data.temp_c
-        : null,
-    humidity:
-      typeof point?.humidity === "number"
+        : data.temp_c
+      : undefined,
+    humidity: hasHumidity
+      ? typeof point?.humidity === "number"
         ? point.humidity
-        : typeof data?.humidity === "number"
-        ? data.humidity
-        : null,
-    lux:
-      typeof point?.lux === "number"
+        : data.humidity
+      : undefined,
+    lux: hasLux
+      ? typeof point?.lux === "number"
         ? point.lux
-        : typeof data?.lux === "number"
-        ? data.lux
-        : null,
+        : data.lux
+      : undefined,
   };
 }
 
@@ -289,7 +294,7 @@ export default function Overview() {
       setTelemetryLoading(true);
 
       const to = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-      const from = new Date(Date.now() - 60 * 60 * 1000)
+      const from = new Date(Date.now() - 24 * 60 * 60 * 1000)
         .toISOString()
         .replace(/\.\d{3}Z$/, "Z");
 
@@ -297,33 +302,33 @@ export default function Overview() {
         const points = await getStreetlightTelemetry(selectedPole.streetlight_id, {
           from,
           to,
-          interval: "5m",
+          interval: "1h",
         });
 
         if (cancelled) return;
 
-        const rows = Array.isArray(points)
-          ? points
-          : Array.isArray(points?.items)
-          ? points.items
-          : Array.isArray(points?.data)
-          ? points.data
-          : [];
-
+        const rows = normalizeTelemetryRows(points);
         if (!rows.length) return;
 
-        const snapshots = rows.map(snapshotFromPoint).filter(Boolean);
-        const latest = snapshots[snapshots.length - 1];
+        const latestRow = rows[rows.length - 1];
+        const latest = {
+          timestamp: latestRow.timestamp || null,
+          health: latestRow.health ?? null,
+          motion_detected:
+            typeof latestRow.motion === "boolean" ? latestRow.motion : null,
+          light_level: clampPct(latestRow.light_level),
+          temp_c: latestRow.temp_c ?? null,
+          humidity: latestRow.humidity ?? null,
+          lux: latestRow.lux ?? null,
+        };
 
-        if (latest) {
-          setSnapshotMap((prev) => ({
-            ...prev,
-            [selectedPole.streetlight_id]: {
-              ...(prev[selectedPole.streetlight_id] || {}),
-              ...latest,
-            },
-          }));
-        }
+        setSnapshotMap((prev) => ({
+          ...prev,
+          [selectedPole.streetlight_id]: {
+            ...(prev[selectedPole.streetlight_id] || {}),
+            ...latest,
+          },
+        }));
       } catch {
       } finally {
         if (!cancelled) setTelemetryLoading(false);
@@ -344,16 +349,40 @@ export default function Overview() {
     if (!poleId || HIDDEN_POLE_IDS.has(poleId)) return;
 
     const snapshot = snapshotFromPoint(lastMessage);
+    if (!snapshot) return;
 
-    if (snapshot) {
-      setSnapshotMap((prev) => ({
+    setSnapshotMap((prev) => {
+      const existing = prev[poleId] || {};
+
+      return {
         ...prev,
         [poleId]: {
-          ...(prev[poleId] || {}),
-          ...snapshot,
+          ...existing,
+          ...(snapshot.timestamp ? { timestamp: snapshot.timestamp } : {}),
+          ...(snapshot.health != null ? { health: snapshot.health } : {}),
+          ...(typeof snapshot.motion_detected === "boolean"
+            ? { motion_detected: snapshot.motion_detected }
+            : {}),
+          ...(snapshot.light_level != null ? { light_level: snapshot.light_level } : {}),
+          ...(snapshot.ambient_primary_ok != null
+            ? { ambient_primary_ok: snapshot.ambient_primary_ok }
+            : {}),
+          ...(snapshot.ambient_secondary_ok != null
+            ? { ambient_secondary_ok: snapshot.ambient_secondary_ok }
+            : {}),
+          ...(snapshot.th_ok != null ? { th_ok: snapshot.th_ok } : {}),
+          ...(snapshot.motion_primary_ok != null
+            ? { motion_primary_ok: snapshot.motion_primary_ok }
+            : {}),
+          ...(snapshot.motion_secondary_ok != null
+            ? { motion_secondary_ok: snapshot.motion_secondary_ok }
+            : {}),
+          ...(snapshot.temp_c !== undefined ? { temp_c: snapshot.temp_c } : {}),
+          ...(snapshot.humidity !== undefined ? { humidity: snapshot.humidity } : {}),
+          ...(snapshot.lux !== undefined ? { lux: snapshot.lux } : {}),
         },
-      }));
-    }
+      };
+    });
 
     const tone =
       snapshot?.health && String(snapshot.health).toUpperCase() === "CRITICAL"
