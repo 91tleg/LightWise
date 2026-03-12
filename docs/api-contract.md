@@ -112,10 +112,10 @@ Returns time-series sensor data for charts. Hits Timestream. Returns empty array
   "data": [
     {
       "time": "2026-02-27T03:00:00Z",
-      "lux": "123.4",
-      "temperature_c": "22",
-      "humidity_pct": "48",
-      "light_level_pct": "80"
+      "lux": 123.4,
+      "temperature_c": 22.0,
+      "humidity_pct": 48.0,
+      "light_level_pct": 80.0
     }
   ]
 }
@@ -266,6 +266,21 @@ All endpoints return errors in the following format:
 | `500` | Internal server error |
 
 ---
+
+## IoTCore Uplink
+```json
+{
+  "MessageId": "ec8a023d-9b97-422c-b762-b575a1f1e88a",
+  "WirelessDeviceId": "559bf27a-76d7-4afe-a12c-0c618afe0eeb",
+  "PayloadData": "ARQZE0EAHg==",
+  "WirelessMetadata": {
+    "LoRaWAN": {
+      "FCnt": 10,
+      "FPort": 3
+    }
+  }
+}
+```
 
 **Document Version:** 1.0  
 **Last Updated:** February 27, 2026

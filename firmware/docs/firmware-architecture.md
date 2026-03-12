@@ -1,8 +1,12 @@
 # Firmware Architecture
 
-![Firmware Architecture](assets/firmware-architecture-v1.0.png)
+![Firmware Architecture](assets/firmware-architecture.png)
 
-## Modules:
+Lightwise firmware uses a layered architecture. 
+
+
+## RTOS Tasks
+![RTOS Tasks](assets/rtos-tasks.png)
 
 ### FSM
 Role:
@@ -19,32 +23,24 @@ Considerations:
 
 ### MMWave
 Role:
-- Read frames, parse data, push events to FSM
-
-Considerations: 
-- Do not let MMWave task directly control lights or LoRaWAN.
+- Read frames, parse data, push events to FSM when motion detected.
 
 ---
 
 ### LoRaWAN
 Role:
-- Handle sending and receiving packets.
-
-Considerations:
-- LoRaWAN is usually blocking for TX/RX, or uses internal callbacks.
-- Use a queue or ring buffer to push messages from FSM/diag to LoRa task.
-- Ensure LoRaWAN TX does not block motion/light tasks.
+- Handle sending LoRaWAN packets.
 
 ---
 
-### Ambient Light
+### Ambient
 Role:
 - Read ambiet light level periodically.
 - Notify FSM to turn ON/OFF light when threshold met.
 
 ---
 
-### Light Control
+### LED
 Role:
 - Control dimming / ON/OFF based on FSM and sensor input.
 - Subscribe to event from FSM 
@@ -55,10 +51,10 @@ Considerations:
 
 ---
 
-### DHT11
+### TH
 Role:
-- Called when motion is detected, for extra data to send uplink.
-- Hangs until motion is detected.
+- Called when motion is detected, for temperature/humidity data to send uplink.
+- Idles until motion is detected.
 
 Considerations: 
 - DHT11 is slow and blocking.
@@ -66,15 +62,15 @@ Considerations:
 
 ## Event Flow Example:
 
-- MMWave task reads frames → detects motion → posts MOTION_DETECTED to FSM queue.
+- MMWave task reads frames → detects motion → posts event to FSM queue.
 
-- FSM task updates state → posts event to Light Control (TURN_ON, DIM_LEVEL).
+- FSM task updates state → posts light level to Light.
 
-- FSM task request DHT11 data → send to LoRaWAN task to send uplink.
+- FSM task request temperature/humidity data → send to LoRaWAN task to send uplink.
 
-- LoRaWAN task asynchronously sends telemetry.
+- LoRaWAN task asynchronously sends telemetry uplink.
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: January 29, 2026  
+**Document Version**: 1.1  
+**Last Updated**: Feb 26, 2026  
