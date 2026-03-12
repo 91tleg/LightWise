@@ -476,3 +476,301 @@
     justify-content: center;
   }
 }
+
+/* =========================================================
+   ADMIN DARK MODE OVERRIDES
+========================================================= */
+
+body.dark .lwAdminHeroClean {
+  background: linear-gradient(180deg, rgba(22, 31, 41, 0.96), rgba(17, 25, 34, 0.94));
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+body.dark .lwWsBtn,
+body.dark .lwAdminSimBtn,
+body.dark .lwAdminSubscribeBtn {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #0b63a6, #1491c9) !important;
+  box-shadow: 0 10px 22px rgba(20, 145, 201, 0.22) !important;
+}
+
+body.dark .lwWsBtn:hover,
+body.dark .lwAdminSimBtn:hover,
+body.dark .lwAdminSubscribeBtn:hover {
+  box-shadow: 0 14px 28px rgba(20, 145, 201, 0.26) !important;
+}
+
+body.dark .lwAdminSubscribeBox,
+body.dark .lwAdminConnectionChip {
+  background: linear-gradient(180deg, rgba(28, 39, 51, 0.96), rgba(21, 31, 41, 0.96));
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+body.dark .lwAdminMiniLabel {
+  color: #98aec1;
+}
+
+body.dark .lwAdminCompactInput {
+  background: rgba(18, 27, 36, 0.98);
+  color: #e6f0f7;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+body.dark .lwAdminCompactInput:focus {
+  border-color: #4da3df;
+  box-shadow: 0 0 0 3px rgba(77,163,223,.16);
+}
+
+body.dark .lwAdminConnectionValue {
+  color: #e8f0f7;
+}
+
+body.dark .lwBubbleCard {
+  background: linear-gradient(180deg, rgba(24, 34, 45, 0.94), rgba(18, 27, 36, 0.92)) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22) !important;
+}
+
+body.dark .lwBubbleCard::after {
+  background: radial-gradient(
+    circle,
+    rgba(58, 130, 109, 0.16) 0%,
+    rgba(58, 130, 109, 0.1) 40%,
+    rgba(58, 130, 109, 0) 72%
+  );
+}
+
+body.dark .lwBubbleIcon {
+  background: linear-gradient(180deg, rgba(31, 43, 55, 0.98), rgba(23, 33, 43, 0.98)) !important;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
+}
+
+body.dark .lwBubbleTitle {
+  color: #eef5fa !important;
+}
+
+body.dark .lwBubbleSub {
+  color: #9eb2c2 !important;
+}
+
+body.dark .lwAdminFormSection .lwLabel,
+body.dark .lwAdminFormGrid .lwLabel {
+  color: #a9bccb;
+}
+
+body.dark .lwAdminInput {
+  background: linear-gradient(180deg, rgba(24, 34, 45, 0.98) 0%, rgba(19, 27, 36, 0.98) 100%) !important;
+  color: #e8f0f7 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+body.dark .lwAdminInput:hover {
+  border-color: rgba(77, 163, 223, 0.45) !important;
+}
+
+body.dark .lwAdminInput:focus {
+  border-color: #4da3df !important;
+  box-shadow:
+    0 0 0 4px rgba(77,163,223,.14),
+    0 10px 22px rgba(77,163,223,.08) !important;
+}
+
+body.dark .lwAdminInput.isInvalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 4px rgba(239,68,68,.12) !important;
+}
+
+body.dark .lwFieldError {
+  color: #ff9f9f;
+}
+
+body.dark .lwFieldHint {
+  color: #93a9ba;
+}
+
+body.dark .lwAdminPrimaryBtn {
+  color: #ffffff;
+  background: linear-gradient(135deg, #0b63a6, #1592cb);
+  box-shadow: 0 12px 24px rgba(11,99,166,.24);
+}
+
+body.dark .lwAdminSecondaryBtn {
+  color: #bfe4ff;
+  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
+  border: 1px solid rgba(91, 185, 255, 0.16);
+  box-shadow: 0 8px 16px rgba(0,0,0,.14);
+}
+
+body.dark .lwAdminSecondaryBtn:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(31, 43, 55, 0.99), rgba(24, 35, 46, 0.99));
+}
+
+body.dark .lwAdminStatusMsg.saved { color: #4ade80; }
+body.dark .lwAdminStatusMsg.error { color: #ff8c8c; }
+body.dark .lwAdminStatusMsg.saving { color: #67d2e3; }
+
+body.dark .lwAdminMetricList {
+  color: #dbe8f2;
+}
+
+body.dark .lwAdminMetricList > div {
+  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+body.dark .lwProgressTrackClean {
+  background: rgba(44, 58, 71, 0.95);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+
+body.dark .lwProgressFillClean {
+  background: linear-gradient(90deg, #18b2a5, #2fd671);
+  box-shadow: 0 6px 14px rgba(47,214,113,.18);
+}
+
+body.dark .lwSensorRow {
+  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+  color: #cfdde8;
+}
+
+body.dark .lwSensorValue {
+  color: #eef5fa;
+}
+
+body.dark .lwSkeletonLine {
+  background: linear-gradient(
+    90deg,
+    rgba(70, 85, 101, 0.95),
+    rgba(102, 118, 136, 0.82),
+    rgba(70, 85, 101, 0.95)
+  );
+  background-size: 200% 100%;
+}
+
+body.dark .lwAdminMapShell {
+  background: linear-gradient(180deg, rgba(24, 34, 45, 0.96), rgba(19, 27, 36, 0.98));
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+/* =========================================================
+   ADMIN HOVER SHADE FEEDBACK
+   Adds the same "cursor is here" shading feel
+   without changing layout or color system
+========================================================= */
+
+/* whole admin cards */
+.lwAdminPageClean .lwBubbleCard {
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    filter 0.18s ease;
+}
+
+.lwAdminPageClean .lwBubbleCard:hover {
+  box-shadow: 0 18px 34px rgba(57, 86, 114, 0.12) !important;
+  filter: brightness(1.01);
+}
+
+/* live state rows */
+.lwAdminMetricList > div {
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.lwAdminMetricList > div:hover {
+  background: linear-gradient(180deg, rgba(250,252,255,.88), rgba(240,247,252,.96));
+  border-color: rgba(110, 158, 210, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.90),
+    0 4px 10px rgba(40,74,107,.05);
+}
+
+/* sensor rows */
+.lwSensorRow {
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.lwSensorRow:hover {
+  background: linear-gradient(180deg, rgba(252,254,255,.90), rgba(239,247,252,.96));
+  border-color: rgba(110, 158, 210, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.90),
+    0 4px 10px rgba(40,74,107,.05);
+}
+
+/* live events outer feed card already handled above, but make empty box + rows stronger */
+.lwAdminPageClean .lwActivityItem:hover {
+  background: linear-gradient(180deg, rgba(241,248,253,.99), rgba(228,239,247,.98));
+}
+
+.lwAdminPageClean .lwActivityEmpty:hover {
+  background: linear-gradient(180deg, #fbfdff 0%, #eef6fc 100%);
+}
+
+/* progress bar area subtle response */
+.lwProgressTrackClean {
+  transition: box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.lwBubbleCard:hover .lwProgressTrackClean {
+  box-shadow:
+    inset 0 2px 6px rgba(20, 37, 52, 0.10),
+    0 4px 10px rgba(47,214,113,.08);
+}
+
+/* =========================================================
+   ADMIN DARK MODE HOVER SHADE
+========================================================= */
+
+body.dark .lwAdminPageClean .lwBubbleCard:hover {
+  box-shadow: 0 20px 36px rgba(0,0,0,.30) !important;
+  filter: brightness(1.03);
+}
+
+body.dark .lwAdminMetricList > div:hover {
+  background: linear-gradient(180deg, rgba(34, 48, 62, 0.99), rgba(25, 37, 49, 0.99)) !important;
+  border-color: rgba(91, 197, 255, 0.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.03),
+    0 8px 16px rgba(0,0,0,.18);
+}
+
+body.dark .lwSensorRow:hover {
+  background: linear-gradient(180deg, rgba(34, 48, 62, 0.99), rgba(25, 37, 49, 0.99)) !important;
+  border-color: rgba(91, 197, 255, 0.14) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.03),
+    0 8px 16px rgba(0,0,0,.18);
+}
+
+body.dark .lwAdminPageClean .lwActivityItem:hover {
+  background: linear-gradient(180deg, rgba(34, 48, 62, 0.99), rgba(25, 37, 49, 0.99)) !important;
+}
+
+body.dark .lwAdminPageClean .lwActivityEmpty:hover {
+  background: linear-gradient(180deg, rgba(31, 44, 58, 0.98), rgba(22, 33, 44, 0.98)) !important;
+  border-color: rgba(91, 197, 255, 0.10) !important;
+}
+
+body.dark .lwBubbleCard:hover .lwProgressTrackClean {
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,.24),
+    0 4px 10px rgba(47,214,113,.08);
+}
