@@ -151,6 +151,25 @@ export function LightWiseProvider({ children }) {
   const [streetlights, setStreetlights] = useState([]);
   const [events, setEvents] = useState([]);
 
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem("lightwise_dark_mode") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleDarkMode = useCallback(() => {
+    setDarkMode((prev) => !prev);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("lightwise_dark_mode", String(darkMode));
+    } catch {}
+    document.body.classList.toggle("dark", darkMode);
+  }, [darkMode]);
+
   const { status: wsStatus, error: wsError, lastMessage, send, subscribe } =
     useLightWiseWS(WS_URL, {
       debug: false,
@@ -294,6 +313,9 @@ export function LightWiseProvider({ children }) {
       clearPoles,
       events,
       clearEvents,
+      darkMode,
+      setDarkMode,
+      toggleDarkMode,
     }),
     [
       WS_URL,
@@ -314,6 +336,9 @@ export function LightWiseProvider({ children }) {
       clearPoles,
       events,
       clearEvents,
+      darkMode,
+      setDarkMode,
+      toggleDarkMode,
     ]
   );
 

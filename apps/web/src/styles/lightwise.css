@@ -901,3 +901,873 @@ body{
   color: #6b7c8f;
   margin-top: 2px;
 }
+
+/* =========================================================
+   DARK MODE + OPERATOR TOGGLE
+   Paste this at the very bottom of lightwise.css
+========================================================= */
+
+/* ---------- shared dark variables ---------- */
+body.dark {
+  --bg: #0f1720;
+  --card: rgba(19, 27, 36, 0.88);
+  --line: rgba(255, 255, 255, 0.08);
+  --shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
+  color: #e8f0f7;
+}
+
+/* keep layout same */
+body.dark .lwMain,
+body.dark .lwPage,
+body.dark .lwApp {
+  color: #e8f0f7;
+}
+
+/* ---------- topbar operator dropdown ---------- */
+.lwTopbarProfileWrap {
+  position: relative;
+}
+
+.lwTopbarProfileChipButton {
+  border: 0;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.lwTopbarProfileChipButton:hover {
+  transform: translateY(-1px);
+}
+
+.lwTopbarProfileChipButton.isOpen {
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+}
+
+.lwTopbarChevron {
+  font-size: 12px;
+  font-weight: 900;
+  opacity: 0.92;
+  transition: transform 0.18s ease;
+}
+
+.lwTopbarChevron.isOpen {
+  transform: rotate(180deg);
+}
+
+.lwOperatorMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(320px, 88vw);
+  border-radius: 20px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(13, 115, 168, 0.1);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(10px);
+  z-index: 50;
+}
+
+.lwOperatorMenuHeader {
+  margin-bottom: 12px;
+}
+
+.lwOperatorMenuTitle {
+  font-size: 15px;
+  font-weight: 1000;
+  color: #12212a;
+}
+
+.lwOperatorMenuSub {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #617384;
+}
+
+.lwOperatorToggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(245, 249, 253, 0.98), rgba(234, 241, 248, 0.97));
+  border: 1px solid #d4e0ec;
+}
+
+.lwOperatorToggleText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lwOperatorToggleText strong {
+  font-size: 14px;
+  color: #12212a;
+}
+
+.lwOperatorToggleText span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6a7d90;
+}
+
+/* ---------- toggle switch like your image ---------- */
+.lwThemeSwitch {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.lwThemeSwitchTrack {
+  width: 96px;
+  height: 46px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  padding: 0 10px;
+  background: linear-gradient(180deg, #1d2329, #2e363f);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  transition: background 0.22s ease;
+}
+
+.lwThemeSwitch.isOn .lwThemeSwitchTrack {
+  background: linear-gradient(180deg, #72d9e9, #63cfe1);
+}
+
+.lwThemeSwitchLabel {
+  font-size: 14px;
+  font-weight: 900;
+  color: #ffffff;
+  margin-left: 10px;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.lwThemeSwitch.isOn .lwThemeSwitchLabel {
+  color: #ffffff;
+}
+
+.lwThemeSwitchThumb {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #000;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+  transition: transform 0.22s ease;
+}
+
+.lwThemeSwitch.isOn .lwThemeSwitchThumb {
+  transform: translateX(50px);
+}
+
+/* ---------- dark mode general surfaces ---------- */
+body.dark {
+  background: var(--bg);
+}
+
+body.dark .lwRail {
+  background: rgba(14, 21, 29, 0.92);
+  border-right: 1px solid rgba(255,255,255,.07);
+}
+
+body.dark .lwRailBtn,
+body.dark .lwRailBackBtn {
+  background: rgba(30, 41, 53, 0.9);
+  box-shadow: 0 12px 20px rgba(0,0,0,.18);
+}
+
+body.dark .lwRailBtn.isActive {
+  outline: 2px solid rgba(91, 197, 255, 0.35);
+}
+
+body.dark .lwRailIcon {
+  color: #d9e8f3;
+}
+
+body.dark .lwMenu {
+  background: #131c25;
+  border-right: 1px solid rgba(255,255,255,.07);
+  box-shadow: 18px 0 30px rgba(0,0,0,.24);
+}
+
+body.dark .lwMenuTitle,
+body.dark .lwMenuLabel {
+  color: #e8f0f7;
+}
+
+body.dark .lwMenuItem {
+  background: rgba(24, 34, 45, 0.96);
+  color: #dbe8f2;
+  border: 1px solid rgba(255,255,255,.07);
+}
+
+body.dark .lwMenuItem.isActive {
+  background: rgba(17, 77, 117, 0.26);
+  border-color: rgba(91, 197, 255, 0.22);
+}
+
+body.dark .lwCard,
+body.dark .lwPanel,
+body.dark .lwLegendCard,
+body.dark .lwBubbleCard,
+body.dark .lwKpiCard,
+body.dark .lwSummaryCard,
+body.dark .lwOperatorCard {
+  background: rgba(19, 27, 36, 0.92);
+  border-color: rgba(255,255,255,.08);
+  box-shadow: var(--shadow);
+  color: #e8f0f7;
+}
+
+body.dark .lwCardTitle,
+body.dark .lwPanelTitle,
+body.dark .lwLegendTitle,
+body.dark .lwSummaryCardValue,
+body.dark .lwSelectedPoleId,
+body.dark .lwActivityHeaderTitle,
+body.dark .lwOperatorMenuTitle {
+  color: #f4f8fb;
+}
+
+body.dark .lwPageTitle,
+body.dark .lwPageSubtitle,
+body.dark .lwSmallText,
+body.dark .lwSummaryCardLabel,
+body.dark .lwSummaryCardNote,
+body.dark .lwSelectedPoleName,
+body.dark .lwLegendRow,
+body.dark .lwActivityTime,
+body.dark .lwActivityHint,
+body.dark .lwOperatorMenuSub {
+  color: #aebfcd;
+}
+
+/* ---------- overview specific ---------- */
+body.dark .lwSelectedPoleSurface {
+  background: linear-gradient(180deg, rgba(25, 35, 46, 0.98), rgba(18, 27, 36, 0.97));
+  border: 1px solid rgba(255,255,255,.07);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+body.dark .lwMetricRow {
+  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
+  border: 1px solid rgba(255,255,255,.06);
+  color: #d4e3ee;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+}
+
+body.dark .lwMetricRow:hover {
+  background: linear-gradient(180deg, rgba(32, 44, 57, 0.99), rgba(24, 35, 46, 0.99));
+  border-color: rgba(255,255,255,.1);
+}
+
+body.dark .lwMetricBadge {
+  background: rgba(148, 163, 184, 0.14);
+  color: #d1dde7;
+  border-color: rgba(255,255,255,.08);
+}
+
+body.dark .lwPoleListItem {
+  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
+  border: 1px solid rgba(255,255,255,.07);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+}
+
+body.dark .lwPoleListItem strong {
+  color: #f2f7fb;
+}
+
+body.dark .lwPoleListItem small {
+  color: #9fb2c2;
+}
+
+body.dark .lwPoleListItem:hover {
+  background: linear-gradient(180deg, rgba(32, 44, 57, 0.99), rgba(24, 35, 46, 0.99));
+  border-color: rgba(255,255,255,.11);
+}
+
+body.dark .lwPoleListItem.isSelected {
+  border-color: rgba(91, 197, 255, 0.25);
+  background: linear-gradient(180deg, rgba(17, 54, 74, 0.52), rgba(18, 40, 56, 0.48));
+  box-shadow:
+    inset 0 0 0 1px rgba(91, 197, 255, 0.08),
+    0 4px 12px rgba(0,0,0,.16);
+}
+
+body.dark .lwMapInfoWindow,
+body.dark .lwLegendCompact {
+  background: rgba(19, 27, 36, 0.96);
+  border-color: rgba(255,255,255,.08);
+  color: #e8f0f7;
+}
+
+body.dark .lwMapInfoWindow strong,
+body.dark .lwMapInfoWindow span,
+body.dark .lwMapInfoWindow small {
+  color: #d7e4ee;
+}
+
+/* ---------- activity feed ---------- */
+body.dark .lwActivityItem,
+body.dark .lwActivityItemClean {
+  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
+  border: 1px solid rgba(255,255,255,.07);
+}
+
+body.dark .lwActivityItem:hover {
+  background: linear-gradient(180deg, rgba(32, 44, 57, 0.99), rgba(24, 35, 46, 0.99));
+  border-color: rgba(255,255,255,.11);
+}
+
+body.dark .lwActivityLabel,
+body.dark .lwActivityHeaderTitle,
+body.dark .lwActivityEmptyTitle {
+  color: #edf4f9;
+}
+
+body.dark .lwActivityNote,
+body.dark .lwActivityHint,
+body.dark .lwActivityEmptySub {
+  color: #9fb2c2;
+}
+
+body.dark .lwActivityPole {
+  background: rgba(29, 69, 104, 0.36);
+  color: #b9dcff;
+  border-color: rgba(91, 197, 255, 0.16);
+}
+
+body.dark .lwActivityValue {
+  background: rgba(148, 163, 184, 0.12);
+  color: #d8e2ea;
+  border-color: rgba(255,255,255,.07);
+}
+
+body.dark .lwActivityIcon,
+body.dark .lwActivityEmptyIcon {
+  background: rgba(148, 163, 184, 0.12);
+  color: #d8e5ee;
+}
+
+body.dark .lwActivityFeedStatus {
+  background: rgba(148, 163, 184, 0.12);
+  color: #d8e5ee;
+  border-color: rgba(255,255,255,.08);
+}
+
+body.dark .lwActivityFeedHint {
+  color: #9cb1c1;
+}
+
+/* ---------- inputs / forms ---------- */
+body.dark .lwInput,
+body.dark select,
+body.dark input,
+body.dark textarea {
+  background: rgba(24, 34, 45, 0.96);
+  color: #e9f2f8;
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+body.dark .lwInput::placeholder,
+body.dark input::placeholder,
+body.dark textarea::placeholder {
+  color: #8ea3b5;
+}
+
+body.dark .lwFieldHint {
+  color: #9db1c1;
+}
+
+body.dark .lwFieldError {
+  color: #ff9d9d;
+}
+
+body.dark .lwLabel {
+  color: #dce8f1;
+}
+
+/* ---------- buttons ---------- */
+body.dark .lwTopbarSignOutBtn {
+  background: rgba(255,255,255,.92);
+  color: #0d73a8;
+}
+
+body.dark .lwTopbarIconBtnClean {
+  background: rgba(255,255,255,.16);
+  color: #fff;
+}
+
+body.dark .lwPrimaryBtn {
+  background: #1281c7;
+  color: #ff9c3f;
+}
+
+body.dark .lwSecondaryBtn {
+  border-color: #5bb9ff;
+  color: #9fd6ff;
+}
+
+body.dark .lwBubbleBtn.ghost {
+  background: rgba(255,255,255,.08);
+  color: #d9e9f5;
+  border-color: rgba(255,255,255,.08);
+}
+
+/* ---------- login ---------- */
+body.dark .lwLogin {
+  background: #0f1720;
+}
+
+body.dark .lwLoginCard {
+  background: linear-gradient(180deg, #18222d, #121b24);
+  box-shadow: 0 18px 40px rgba(0,0,0,.4);
+}
+
+body.dark .lwLinkBtn {
+  color: #7fccff;
+}
+
+body.dark .lwErrorBanner {
+  background: rgba(224,67,67,.16);
+  border-color: rgba(224,67,67,.28);
+  color: #ffd1d1;
+}
+
+/* ---------- analytics shared overrides ---------- */
+body.dark .analytics-page,
+body.dark .analytics-top,
+body.dark .analytics-chart-wrap,
+body.dark .analytics-table-wrap {
+  color: #e8f0f7;
+}
+
+body.dark .analytics-mini-stat {
+  background: rgba(19, 27, 36, 0.92);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: var(--shadow);
+}
+
+body.dark .analytics-mini-label,
+body.dark .analytics-mini-sub,
+body.dark .analytics-axis-text {
+  color: #aebfcd;
+  fill: #aebfcd;
+}
+
+body.dark .analytics-mini-value {
+  color: #f4f8fb;
+}
+
+body.dark .analytics-grid-line {
+  stroke: rgba(255,255,255,.12);
+}
+
+body.dark .analytics-line {
+  stroke: #67d2e3;
+}
+
+body.dark .analytics-dot {
+  fill: #67d2e3;
+}
+
+body.dark .analytics-table {
+  color: #e8f0f7;
+}
+
+body.dark .analytics-table thead th {
+  background: rgba(29, 41, 54, 0.96);
+  color: #eef5fa;
+}
+
+body.dark .analytics-table tbody td {
+  background: rgba(19, 27, 36, 0.92);
+  border-color: rgba(255,255,255,.06);
+}
+
+body.dark .analytics-empty,
+body.dark .analytics-no-rows {
+  color: #afc1cf;
+}
+
+body.dark .analytics-error {
+  color: #ffb4b4;
+  background: rgba(239,68,68,.12);
+  border: 1px solid rgba(239,68,68,.24);
+}
+
+/* ---------- operator dropdown in dark mode ---------- */
+body.dark .lwOperatorMenu {
+  background: rgba(18, 27, 36, 0.98);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 18px 40px rgba(0,0,0,.34);
+}
+
+body.dark .lwOperatorToggleRow {
+  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
+  border: 1px solid rgba(255,255,255,.07);
+}
+
+body.dark .lwOperatorToggleText strong {
+  color: #edf5fa;
+}
+
+body.dark .lwOperatorToggleText span {
+  color: #9fb2c2;
+}
+
+/* ---------- topbar chip stays same but slightly richer in dark ---------- */
+body.dark .lwTopbarProfileChip {
+  background: rgba(255,255,255,.17);
+  border-color: rgba(255,255,255,.2);
+}
+
+/* ---------- small screens ---------- */
+@media (max-width: 760px) {
+  .lwOperatorMenu {
+    right: -8px;
+    width: min(290px, 90vw);
+  }
+
+  .lwThemeSwitchTrack {
+    width: 88px;
+    height: 42px;
+  }
+
+  .lwThemeSwitchThumb {
+    width: 28px;
+    height: 28px;
+    top: 7px;
+    left: 7px;
+  }
+
+  .lwThemeSwitch.isOn .lwThemeSwitchThumb {
+    transform: translateX(46px);
+  }
+}
+
+/* =========================================================
+   DARK MODE READABILITY FIXES
+========================================================= */
+
+/* ---------- sidebar logout button ---------- */
+body.dark .lwRailBackBtn {
+  background: rgba(32, 44, 58, 0.96);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 10px 20px rgba(0,0,0,.24);
+}
+
+body.dark .lwRailBackBtn .lwRailIcon,
+body.dark .lwRailBackBtn svg,
+body.dark .lwRailBackBtn {
+  color: #e8f0f7 !important;
+  fill: #e8f0f7 !important;
+}
+
+/* ---------- overview/admin/analytics consistency ---------- */
+body.dark .lwSummaryCard,
+body.dark .lwOperatorCard,
+body.dark .lwCard,
+body.dark .lwPanel,
+body.dark .lwBubbleCard,
+body.dark .lwKpiCard {
+  background: linear-gradient(180deg, rgba(15, 27, 39, 0.98), rgba(12, 21, 31, 0.98)) !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+}
+
+body.dark .lwSelectedPoleSurface {
+  background: linear-gradient(180deg, rgba(22, 37, 51, 0.98), rgba(16, 27, 38, 0.98)) !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+}
+
+body.dark .lwMetricRow,
+body.dark .lwPoleListItem,
+body.dark .lwActivityItem,
+body.dark .lwActivityItemClean,
+body.dark .lwSensorRow,
+body.dark .lwAdminMetricList > div {
+  background: linear-gradient(180deg, rgba(24, 38, 52, 0.98), rgba(17, 28, 39, 0.98)) !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+}
+
+body.dark .lwPoleListItem.isSelected {
+  background: linear-gradient(180deg, rgba(12, 52, 79, 0.62), rgba(10, 40, 61, 0.58)) !important;
+  border-color: rgba(91, 197, 255, 0.24) !important;
+}
+
+/* ---------- stronger readable text ---------- */
+body.dark .lwPageTitle,
+body.dark .lwCardTitle,
+body.dark .lwPanelTitle,
+body.dark .lwSelectedPoleId,
+body.dark .lwBubbleTitle,
+body.dark .lwActivityLabel,
+body.dark .analytics-mini-value {
+  color: #f4f8fb !important;
+}
+
+body.dark .lwPageSubtitle,
+body.dark .lwSelectedPoleName,
+body.dark .lwBubbleSub,
+body.dark .lwFieldHint,
+body.dark .lwActivityNote,
+body.dark .analytics-mini-sub,
+body.dark .analytics-mini-label {
+  color: #b8c9d6 !important;
+}
+
+/* ---------- empty recent activity box ---------- */
+body.dark .lwActivityEmpty {
+  background: linear-gradient(180deg, rgba(25, 38, 52, 0.98), rgba(18, 28, 39, 0.98)) !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+}
+
+body.dark .lwActivityEmptyIcon {
+  background: rgba(255,255,255,.08) !important;
+  color: #e8f0f7 !important;
+}
+
+body.dark .lwActivityEmptyTitle {
+  color: #eef5fa !important;
+}
+
+body.dark .lwActivityEmptySub {
+  color: #b3c3cf !important;
+}
+
+/* ---------- badges / pills clearer ---------- */
+body.dark .lwMetricBadge,
+body.dark .lwActivityPole,
+body.dark .lwActivityValue {
+  background: rgba(255,255,255,.08) !important;
+  color: #e9f2f8 !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+
+body.dark .lwMetricBadge.healthy,
+body.dark .lwActivityValue.healthy {
+  background: rgba(34,197,94,.16) !important;
+  color: #7ef0a8 !important;
+  border-color: rgba(34,197,94,.18) !important;
+}
+
+body.dark .lwMetricBadge.warning,
+body.dark .lwActivityValue.warning {
+  background: rgba(245,158,11,.16) !important;
+  color: #ffd37a !important;
+  border-color: rgba(245,158,11,.18) !important;
+}
+
+body.dark .lwMetricBadge.critical,
+body.dark .lwActivityValue.critical {
+  background: rgba(239,68,68,.16) !important;
+  color: #ff9c9c !important;
+  border-color: rgba(239,68,68,.18) !important;
+}
+/* =========================================================
+   GLOBAL HOVER SHADE / CURSOR FEEDBACK
+   Keeps layout + colors same, adds subtle hover shading
+   for both light mode and dark mode
+========================================================= */
+
+/* ---------- shared smooth hover transitions ---------- */
+.lwRailBtn,
+.lwRailBackBtn,
+.lwMenuItem,
+.lwMetricRow,
+.lwPoleListItem,
+.lwActivityItem,
+.lwActivityEmpty,
+.lwActivityFeedStatus,
+.lwCard,
+.lwPanel,
+.lwBubbleCard,
+.lwSummaryCard,
+.lwOperatorCard,
+.lwKpiCard,
+.lwLegendCard {
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    filter 0.18s ease;
+}
+
+/* ---------- sidebar rail buttons ---------- */
+.lwRailBtn:hover,
+.lwRailBackBtn:hover {
+  background: rgba(236, 243, 249, 0.96);
+  border-color: rgba(13, 115, 168, 0.18);
+  box-shadow:
+    0 12px 22px rgba(0,0,0,.10),
+    inset 0 1px 0 rgba(255,255,255,.85);
+  transform: translateY(-1px);
+}
+
+/* make active + hover feel richer but same style */
+.lwRailBtn.isActive:hover {
+  background: rgba(231, 242, 255, 0.98);
+  box-shadow:
+    0 14px 24px rgba(13,115,168,.12),
+    inset 0 1px 0 rgba(255,255,255,.88);
+}
+
+/* ---------- sidebar menu items ---------- */
+.lwMenuItem:hover {
+  background: linear-gradient(180deg, #f7fbff 0%, #edf5fc 100%);
+  border-color: rgba(13, 115, 168, 0.18);
+  box-shadow:
+    0 10px 20px rgba(13,115,168,.06),
+    inset 0 1px 0 rgba(255,255,255,.85);
+  transform: translateX(2px);
+}
+
+.lwMenuItem.isActive:hover {
+  background: linear-gradient(180deg, #eaf4ff 0%, #deefff 100%);
+  border-color: rgba(13,115,168,.26);
+}
+
+/* ---------- overview selected pole rows ---------- */
+.lwMetricRow:hover {
+  background: linear-gradient(180deg, rgba(239,246,252,.99), rgba(228,237,246,.98));
+  border-color: rgba(178,202,224,.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.72),
+    0 4px 10px rgba(15,23,42,.05);
+}
+
+/* ---------- pole list hover ---------- */
+.lwPoleListItem:hover {
+  background: linear-gradient(180deg, rgba(239,246,252,.99), rgba(228,237,246,.98));
+  border-color: rgba(178,202,224,.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.72),
+    0 4px 10px rgba(15,23,42,.05);
+}
+
+/* ---------- generic card hover ---------- */
+.lwCard:hover,
+.lwPanel:hover,
+.lwSummaryCard:hover,
+.lwOperatorCard:hover,
+.lwKpiCard:hover,
+.lwLegendCard:hover {
+  box-shadow:
+    0 14px 28px rgba(0,0,0,.10),
+    inset 0 1px 0 rgba(255,255,255,.55);
+}
+
+/* bubble cards like Admin cards */
+.lwBubbleCard:hover {
+  box-shadow:
+    0 18px 34px rgba(57, 86, 114, 0.12) !important;
+  filter: brightness(1.01);
+}
+
+/* ---------- activity feed hover ---------- */
+.lwActivityItem:hover {
+  background: linear-gradient(180deg, rgba(239,246,252,.99), rgba(226,236,245,.98));
+  border-color: #bdd1e4;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.72),
+    0 4px 10px rgba(15,23,42,.05);
+}
+
+.lwActivityEmpty:hover {
+  background: linear-gradient(180deg, #fbfdff 0%, #f1f7fc 100%);
+  border-color: #cddceb;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.72),
+    0 4px 10px rgba(15,23,42,.04);
+}
+
+.lwActivityFeedStatus:hover {
+  filter: brightness(0.98);
+  box-shadow: 0 6px 14px rgba(15,23,42,.06);
+}
+
+/* =========================================================
+   DARK MODE HOVER SHADE
+========================================================= */
+
+body.dark .lwRailBtn:hover,
+body.dark .lwRailBackBtn:hover {
+  background: linear-gradient(180deg, rgba(36, 49, 63, 0.98), rgba(28, 39, 51, 0.98));
+  border-color: rgba(91, 197, 255, 0.16);
+  box-shadow:
+    0 14px 24px rgba(0,0,0,.24),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  transform: translateY(-1px);
+}
+
+body.dark .lwRailBtn.isActive:hover {
+  background: linear-gradient(180deg, rgba(18, 59, 88, 0.48), rgba(18, 47, 70, 0.42));
+  border-color: rgba(91, 197, 255, 0.24);
+}
+
+body.dark .lwMenuItem:hover {
+  background: linear-gradient(180deg, rgba(30, 44, 58, 0.99), rgba(23, 35, 46, 0.99));
+  border-color: rgba(91, 197, 255, 0.16);
+  box-shadow:
+    0 10px 22px rgba(0,0,0,.22),
+    inset 0 1px 0 rgba(255,255,255,.03);
+  transform: translateX(2px);
+}
+
+body.dark .lwMenuItem.isActive:hover {
+  background: linear-gradient(180deg, rgba(18, 62, 92, 0.44), rgba(17, 50, 74, 0.40));
+  border-color: rgba(91, 197, 255, 0.24);
+}
+
+body.dark .lwMetricRow:hover,
+body.dark .lwPoleListItem:hover,
+body.dark .lwActivityItem:hover,
+body.dark .lwActivityItemClean:hover,
+body.dark .lwSensorRow:hover,
+body.dark .lwAdminMetricList > div:hover {
+  background: linear-gradient(180deg, rgba(33, 47, 61, 0.99), rgba(24, 36, 48, 0.99)) !important;
+  border-color: rgba(91, 197, 255, 0.14) !important;
+  box-shadow:
+    0 8px 18px rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+body.dark .lwPoleListItem.isSelected:hover {
+  background: linear-gradient(180deg, rgba(15, 64, 96, 0.64), rgba(11, 49, 73, 0.60)) !important;
+  border-color: rgba(91, 197, 255, 0.28) !important;
+}
+
+body.dark .lwCard:hover,
+body.dark .lwPanel:hover,
+body.dark .lwSummaryCard:hover,
+body.dark .lwOperatorCard:hover,
+body.dark .lwKpiCard:hover,
+body.dark .lwLegendCard:hover,
+body.dark .lwBubbleCard:hover {
+  box-shadow:
+    0 20px 36px rgba(0,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.03) !important;
+  filter: brightness(1.03);
+}
+
+body.dark .lwActivityEmpty:hover {
+  background: linear-gradient(180deg, rgba(30, 43, 56, 0.98), rgba(22, 33, 44, 0.98)) !important;
+  border-color: rgba(91, 197, 255, 0.10) !important;
+  box-shadow:
+    0 8px 18px rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+body.dark .lwActivityFeedStatus:hover {
+  background: rgba(255,255,255,.10);
+  border-color: rgba(91,197,255,.14);
+  box-shadow: 0 8px 16px rgba(0,0,0,.16);
+}

@@ -172,33 +172,10 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
 
   return (
     <div className="analytics-chart-wrap">
-      <div
-        style={{
-          marginBottom: "14px",
-          display: "flex",
-          justifyContent: "space-between",
-          gap: "12px",
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="analytics-chart-header">
         <div>
-          <div
-            style={{
-              fontSize: "18px",
-              fontWeight: 800,
-              color: "#12212a",
-              marginBottom: "4px",
-            }}
-          >
-            {metricMeta.label} Trend
-          </div>
-          <div
-            style={{
-              fontSize: "13px",
-              opacity: 0.78,
-              lineHeight: 1.5,
-            }}
-          >
+          <div className="analytics-chart-title">{metricMeta.label} Trend</div>
+          <div className="analytics-chart-subtext">
             Showing <strong>{metricMeta.label}</strong> values for{" "}
             <strong>{poleId || "selected pole"}</strong> from{" "}
             <strong>{formatTableTimestamp(from)}</strong> to{" "}
@@ -207,19 +184,9 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
           </div>
         </div>
 
-        <div
-          style={{
-            minWidth: "220px",
-            padding: "12px 14px",
-            borderRadius: "14px",
-            background: "rgba(255,255,255,0.65)",
-            border: "1px solid rgba(0,0,0,0.06)",
-          }}
-        >
-          <div style={{ fontSize: "12px", fontWeight: 800, opacity: 0.7 }}>
-            GRAPH GUIDE
-          </div>
-          <div style={{ fontSize: "13px", marginTop: "6px", lineHeight: 1.55 }}>
+        <div className="analytics-graph-guide">
+          <div className="analytics-graph-guide-label">GRAPH GUIDE</div>
+          <div className="analytics-graph-guide-text">
             <strong>X-axis:</strong> Time
             <br />
             <strong>Y-axis:</strong> {metricMeta.label}
@@ -231,7 +198,6 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} className="analytics-chart">
-        {/* horizontal grid + y labels */}
         {yTicks.map((t, i) => (
           <g key={`y-${i}`}>
             <line
@@ -253,7 +219,6 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
           </g>
         ))}
 
-        {/* vertical tick guide lines */}
         {xTickIndexes.map((idx) => (
           <g key={`x-guide-${idx}`}>
             <line
@@ -267,7 +232,6 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
           </g>
         ))}
 
-        {/* y axis */}
         <line
           x1={chartLeft}
           x2={chartLeft}
@@ -277,7 +241,6 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
           style={{ opacity: 0.55 }}
         />
 
-        {/* x axis */}
         <line
           x1={chartLeft}
           x2={chartRight}
@@ -287,10 +250,8 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
           style={{ opacity: 0.55 }}
         />
 
-        {/* line path */}
         <path d={path} className="analytics-line" />
 
-        {/* dots */}
         {points.map((p, i) => (
           <g key={`dot-${i}`}>
             <circle
@@ -306,7 +267,6 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
           </g>
         ))}
 
-        {/* x labels */}
         {xTickIndexes.map((idx) => (
           <g key={`x-label-${idx}`}>
             <text
@@ -320,7 +280,6 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
           </g>
         ))}
 
-        {/* y-axis title */}
         <text
           x="18"
           y={chartTop + chartHeight / 2}
@@ -332,7 +291,6 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
           {metricMeta.unit ? ` (${metricMeta.unit})` : ""}
         </text>
 
-        {/* x-axis title */}
         <text
           x={chartLeft + chartWidth / 2}
           y={height - 18}
@@ -562,15 +520,7 @@ export default function Analytics() {
         </div>
 
         <Card title="Telemetry Trend Graph">
-          <div
-            style={{
-              marginBottom: "14px",
-              fontSize: "14px",
-              lineHeight: 1.6,
-              color: "#24343d",
-              opacity: 0.92,
-            }}
-          >
+          <div className="analytics-graph-explainer">
             This graph shows how <strong>{metricMeta.label.toLowerCase()}</strong> changes over
             time for <strong>{selectedPoleData?.name || selectedPole || "the selected pole"}</strong>.
             The horizontal axis shows <strong>time</strong>, and the vertical axis shows the{" "}
@@ -598,14 +548,7 @@ export default function Analytics() {
         </Card>
 
         <Card title="Recent Telemetry Samples">
-          <div
-            style={{
-              marginBottom: "12px",
-              fontSize: "14px",
-              lineHeight: 1.55,
-              opacity: 0.85,
-            }}
-          >
+          <div className="analytics-table-explainer">
             These are the most recent telemetry readings returned for the current filter
             selection. Each row represents one recorded sample from the selected streetlight.
           </div>

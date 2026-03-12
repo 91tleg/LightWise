@@ -155,6 +155,49 @@
   padding: 10px;
 }
 
+.analytics-chart-header {
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.analytics-chart-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #12212a;
+  margin-bottom: 4px;
+}
+
+.analytics-chart-subtext {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #4c6278;
+}
+
+.analytics-graph-guide {
+  min-width: 220px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.analytics-graph-guide-label {
+  font-size: 12px;
+  font-weight: 800;
+  opacity: 0.7;
+  color: #4c6278;
+}
+
+.analytics-graph-guide-text {
+  font-size: 13px;
+  margin-top: 6px;
+  line-height: 1.55;
+  color: #22324d;
+}
+
 .analytics-chart {
   width: 100%;
   min-width: 820px;
@@ -189,6 +232,14 @@
 }
 
 /* ---------- Table ---------- */
+.analytics-table-explainer {
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.55;
+  opacity: 0.85;
+  color: #36495d;
+}
+
 .analytics-table-wrap {
   overflow-x: auto;
   border: 1px solid #dbe7f6;
@@ -297,6 +348,14 @@
   padding: 20px 12px;
 }
 
+.analytics-graph-explainer {
+  margin-bottom: 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #24343d;
+  opacity: 0.92;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 760px) {
   .analytics-page {
@@ -314,4 +373,215 @@
   .analytics-chart {
     min-width: 720px;
   }
+}
+
+/* =========================================================
+   ANALYTICS DARK MODE
+========================================================= */
+
+body.dark .analytics-field label {
+  color: #bfd0dd;
+}
+
+body.dark .analytics-field select,
+body.dark .analytics-field input {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(26, 38, 50, 0.99), rgba(20, 30, 40, 0.99));
+  color: #eef5fa;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+body.dark .analytics-field select:hover,
+body.dark .analytics-field input:hover {
+  border-color: rgba(122, 182, 255, 0.35);
+}
+
+body.dark .analytics-field select:focus,
+body.dark .analytics-field input:focus {
+  border-color: #7ab6ff;
+  box-shadow:
+    0 0 0 3px rgba(122, 182, 255, 0.18),
+    0 10px 18px rgba(0, 0, 0, 0.22);
+}
+
+body.dark input[type="datetime-local"],
+body.dark select {
+  color-scheme: dark;
+}
+
+body.dark .analytics-presets button {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
+  color: #dff0ff;
+}
+
+body.dark .analytics-presets button:hover {
+  border-color: rgba(143, 196, 255, 0.32);
+  background: linear-gradient(180deg, rgba(34, 48, 63, 0.98), rgba(24, 36, 48, 0.98));
+}
+
+body.dark .analytics-mini-stat,
+body.dark .analytics-chart-wrap,
+body.dark .analytics-table-wrap {
+  background: linear-gradient(180deg, rgba(15, 27, 39, 0.98), rgba(12, 21, 31, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.dark .analytics-mini-label,
+body.dark .analytics-mini-sub {
+  color: #b8c9d6;
+}
+
+body.dark .analytics-mini-value {
+  color: #f4f8fb;
+}
+
+body.dark .analytics-graph-explainer {
+  color: #dce8f1;
+  opacity: 1;
+}
+
+body.dark .analytics-graph-explainer strong {
+  color: #f4f8fb;
+}
+
+body.dark .analytics-chart-title {
+  color: #eef5fa;
+}
+
+body.dark .analytics-chart-subtext {
+  color: #d2e0ea;
+}
+
+body.dark .analytics-chart-subtext strong {
+  color: #f4f8fb;
+}
+
+body.dark .analytics-graph-guide {
+  background: linear-gradient(180deg, rgba(42, 52, 64, 0.98), rgba(34, 43, 54, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #eaf2f8;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+body.dark .analytics-graph-guide-label {
+  color: #b8cad8;
+  opacity: 1;
+}
+
+body.dark .analytics-graph-guide-text {
+  color: #eef5fa;
+}
+
+body.dark .analytics-graph-guide-text strong {
+  color: #ffffff;
+}
+
+body.dark .analytics-grid-line {
+  stroke: rgba(185, 205, 221, 0.12);
+}
+
+body.dark .analytics-axis-text {
+  fill: #b9cddd;
+}
+
+body.dark .analytics-line {
+  stroke: #67d2e3;
+  filter: drop-shadow(0 2px 6px rgba(103, 210, 227, 0.2));
+}
+
+body.dark .analytics-dot {
+  fill: #0f1720;
+  stroke: #67d2e3;
+}
+
+body.dark .analytics-table-explainer {
+  color: #c3d2de;
+  opacity: 1;
+}
+
+body.dark .analytics-table thead th {
+  background: rgba(26, 38, 50, 0.98);
+  color: #cfe0ec;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .analytics-table tbody td {
+  color: #e7f0f7;
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+body.dark .analytics-table tbody tr:hover {
+  background: rgba(38, 54, 69, 0.52);
+}
+
+body.dark .analytics-pill.ok {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+body.dark .analytics-pill.warn {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+body.dark .analytics-pill.bad {
+  color: #ff8c8c;
+  background: rgba(239, 68, 68, 0.16);
+}
+
+body.dark .analytics-pill.motion-on {
+  color: #7dc8ff;
+  background: rgba(59, 130, 246, 0.16);
+}
+
+body.dark .analytics-pill.motion-off {
+  color: #a6b7c8;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+body.dark .analytics-empty,
+body.dark .analytics-no-rows {
+  color: #b8c9d6;
+}
+
+body.dark .analytics-error {
+  color: #ffb1b1;
+  background: linear-gradient(180deg, rgba(80, 24, 24, 0.42), rgba(66, 20, 20, 0.36));
+  border-color: rgba(241, 212, 212, 0.16);
+}
+
+/* =========================================================
+   DROPDOWN OPTION READABILITY FIX
+========================================================= */
+
+.analytics-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+body.dark .analytics-field select {
+  background-color: #162331 !important;
+  color: #eef5fa !important;
+}
+
+body.dark .analytics-field select option {
+  background: #162331 !important;
+  color: #eef5fa !important;
+}
+
+body.dark .analytics-field select option:checked {
+  background: #2d5f95 !important;
+  color: #ffffff !important;
+}
+
+body.dark .analytics-field select option:hover {
+  background: #24486d !important;
+  color: #ffffff !important;
+}
+
+body.dark .analytics-field select optgroup {
+  background: #162331 !important;
+  color: #cfe0ec !important;
 }
