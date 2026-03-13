@@ -1,929 +1,1272 @@
 /* ================= ROOT ================= */
-:root{
-  --railW:86px;
-  --menuW:300px;
-  --topH:72px;
+:root {
+  --railW: 92px;
+  --menuW: 320px;
+  --topH: 72px;
+  --pagePad: 12px;
 
-  --bg:#eef3f7;
-  --card:rgba(255,255,255,.72);
-  --line:rgba(0,0,0,.08);
-  --shadow:0 10px 22px rgba(0,0,0,.08);
+  --bg: #eef3f7;
+  --card: rgba(255, 255, 255, 0.72);
+  --line: rgba(0, 0, 0, 0.08);
+  --shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+
+  --lw-bg: #eef4f8;
+  --lw-bg-dark: #07111d;
+
+  --lw-surface: rgba(255, 255, 255, 0.82);
+  --lw-surface-2: rgba(246, 250, 253, 0.92);
+  --lw-line: rgba(15, 23, 42, 0.08);
+  --lw-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+
+  --lw-surface-dark: rgba(9, 19, 33, 0.88);
+  --lw-surface-dark-2: rgba(12, 25, 42, 0.94);
+  --lw-line-dark: rgba(148, 163, 184, 0.14);
+  --lw-shadow-dark: 0 18px 34px rgba(0, 0, 0, 0.32);
+
+  --lw-text: #0f172a;
+  --lw-text-soft: #516174;
+  --lw-text-dark: #e6edf7;
+  --lw-text-soft-dark: #8ea1b8;
 }
 
 /* ================= BASE ================= */
-body{
-  background:var(--bg);
-  color:#12212a;
-  overflow-x:hidden;
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 
-.lwApp{min-height:100vh;}
-.lwMain{margin-left:var(--railW);padding-top:var(--topH);min-height:100vh;}
-.lwPage{padding:18px;}
-.lwPageHeader{margin-bottom:14px;}
-.lwPageTitle{margin:0 0 6px;font-size:42px;font-weight:1000;}
-.lwPageSubtitle{margin:0;opacity:.75;font-weight:700;}
-.lwSmallText{font-size:12px;opacity:.75;}
-.lwList{margin:0;padding-left:18px;}
+body {
+  margin: 0;
+  background: var(--lw-bg);
+  color: var(--lw-text);
+  overflow-x: hidden;
+}
+
+body.dark {
+  background: var(--lw-bg-dark);
+  color: var(--lw-text-dark);
+}
+
+.lwApp {
+  min-height: 100vh;
+}
+
+.lwAppShell {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.lwMain,
+.lwMainShell {
+  margin-left: var(--railW);
+  padding-top: var(--topH);
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.lwPage {
+  padding: 14px;
+}
+
+.lwPage.lwPageLocked {
+  height: calc(100vh - var(--topH));
+  padding: var(--pagePad);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.lwPageHeader {
+  margin-bottom: 12px;
+}
+
+.lwPageTitle {
+  margin: 0 0 6px;
+  font-size: 28px;
+  font-weight: 1000;
+  line-height: 1.05;
+  color: var(--lw-text);
+}
+
+.lwPageSubtitle {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.75;
+  font-weight: 700;
+}
+
+.lwSmallText {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.lwList {
+  margin: 0;
+  padding-left: 18px;
+}
 
 /* ================= GLASS CARD BASE ================= */
-.lwGlass{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:18px;
-  box-shadow:var(--shadow);
+.lwGlass {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
 }
 
 /* ================= TOPBAR ================= */
-.lwTopbar{
-  position:fixed;
-  left:var(--railW);
-  right:0;
-  top:0;
-  height:var(--topH);
-  padding:10px 14px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  background:linear-gradient(90deg,#0d73a8,#1bb0a3,#2bd46f);
-  box-shadow:0 10px 24px rgba(0,0,0,.12);
-  z-index:10;
+.lwTopbar {
+  position: fixed;
+  top: 0;
+  left: var(--railW);
+  right: 0;
+  height: var(--topH);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 18px 0 24px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0)),
+    linear-gradient(90deg, #0d73a8 0%, #1497bf 45%, #1bb0a3 75%, #2bd46f 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 10px 24px rgba(2, 10, 22, 0.2);
+  overflow: hidden;
+}
+
+.lwTopbarMinimal {
+  justify-content: flex-start;
 }
 
 .lwTopbarBrand,
-.lwTopbarActions{display:flex;align-items:center;gap:10px;}
-
-.lwTopbarBadge{
-  width:54px;height:54px;border-radius:14px;
-  background:#fff;display:flex;align-items:center;justify-content:center;
-  overflow:hidden;box-shadow:0 10px 18px rgba(0,0,0,.12);
-}
-
-.lwTopbarImg{width:48px;height:48px;object-fit:contain;}
-
-.lwTopbarIconBtn{
-  width:40px;height:40px;border:0;border-radius:14px;
-  background:rgba(255,255,255,.25);
-  cursor:pointer;font-size:18px;
-}
-
-/* ================= SIDEBAR ================= */
-.lwSidebarWrap{
-  position:fixed;
-  left:0;top:0;
-  width:calc(var(--railW) + var(--menuW));
-  height:100vh;
-  z-index:999;
-  pointer-events:none;
-}
-
-.lwRail{
-  position:absolute;
-  left:0;top:0;
-  width:var(--railW);height:100vh;
-  background:rgba(255,255,255,.85);
-  backdrop-filter:blur(6px);
-  border-right:1px solid var(--line);
-  z-index:2;
-  pointer-events:auto;
-}
-
-.lwRailStack{
-  margin-top:14px;
-  display:flex;flex-direction:column;
-  gap:14px;align-items:center;
-}
-
-.lwRailBtn,
-.lwRailBackBtn{
-  width:58px;height:58px;border-radius:16px;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(255,255,255,.75);
-  box-shadow:0 10px 18px rgba(0,0,0,.08);
-  border:0;text-decoration:none;cursor:pointer;
-}
-
-.lwRailBtn.isActive{outline:2px solid rgba(13,115,168,.35);}
-.lwRailIcon{font-size:18px;color:#1f2c33;}
-
-.lwRailBackBtn{
-  position:absolute;
-  left:14px;bottom:16px;
-  font-size:20px;
-}
-
-/* ================= MENU ================= */
-.lwMenu{
-  position:absolute;
-  left:var(--railW);top:0;
-  width:var(--menuW);height:100vh;
-  background:#f2f2f2;
-  border-right:1px solid var(--line);
-  box-shadow:18px 0 30px rgba(0,0,0,.10);
-  padding:18px 16px;
-  transform:translateX(-110%);
-  transition:transform .22s ease;
-  z-index:1;
-  pointer-events:auto;
-}
-
-.lwMenu.isOpen{transform:translateX(0);}
-
-.lwMenuTitle{font-weight:900;margin:8px 6px 14px;}
-
-.lwMenuList{display:flex;flex-direction:column;gap:10px;}
-
-.lwMenuItem{
-  display:flex;align-items:center;gap:10px;
-  padding:12px 14px;border-radius:14px;
-  text-decoration:none;background:#fff;color:#1a2a33;
-  border:1px solid var(--line);
-}
-
-.lwMenuItem.isActive{
-  background:#e7f2ff;
-  border-color:rgba(13,115,168,.25);
-}
-
-.lwMenuIcon{width:24px;text-align:center;}
-.lwMenuLabel{font-weight:750;}
-
-/* ================= KPI ================= */
-.lwKpiGrid{
-  display:grid;
-  grid-template-columns:repeat(4,minmax(220px,1fr));
-  gap:14px;margin-bottom:14px;
-}
-
-.lwKpiCard{display:flex;align-items:center;gap:12px;padding:14px;}
-.lwKpiCard,.lwPanel,.lwCard,.lwLegendCard,.lwBubbleCard{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:18px;
-  box-shadow:var(--shadow);
-}
-
-.lwKpiIcon{
-  width:44px;height:44px;border-radius:14px;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(255,255,255,.75);
-  font-size:18px;
-}
-
-.lwKpiLabel{font-size:12px;opacity:.7;font-weight:800;}
-.lwKpiValue{font-size:20px;font-weight:1000;}
-.lwKpiNote{font-size:12px;opacity:.6;}
-.lwKpiDot{width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,.12);}
-
-/* ================= PANELS ================= */
-.lwPanelGrid{
-  display:grid;
-  grid-template-columns:1.1fr 1fr 1fr;
-  gap:14px;margin-bottom:14px;
-}
-
-.lwPanelTitle{
-  font-weight:1000;text-align:center;
-  padding:12px 14px;
-  border-bottom:1px solid var(--line);
-  opacity:.85;
-}
-
-.lwPanelBody{padding:14px;}
-
-/* ================= PLACEHOLDER ================= */
-.lwPlaceholder,
-.lwPlaceholderTall{
-  border-radius:12px;
-  border:1px dashed rgba(0,87,167,.25);
-  display:flex;align-items:center;justify-content:center;
-  opacity:.5;font-weight:900;
-}
-
-.lwPlaceholder{height:110px;}
-.lwPlaceholderTall{height:260px;}
-
-/* ================= BOTTOM GRID ================= */
-.lwBottomGrid{
-  display:grid;
-  grid-template-columns:340px 1fr 340px;
-  gap:14px;
-}
-
-.lwCard{padding:14px;}
-.lwCardTitle{font-weight:1000;margin-bottom:10px;opacity:.85;}
-
-.lwPoleRow{display:flex;gap:12px;}
-.lwPoleAvatar{
-  width:56px;height:56px;border-radius:50%;
-  background:rgba(0,0,0,.12);
-}
-
-.lwPoleMeta{font-weight:750;opacity:.85;}
-.lwPoleMeta b{margin-right:6px;}
-
-/* ================= MAP ================= */
-.lwMapBox{width:100%;border-radius:16px;overflow:hidden;}
-.lwMapFrame{width:100%;height:100%;border:0;}
-
-/* ================= LEGEND ================= */
-.lwLegendCard{padding:14px;}
-.lwLegendTitle{font-weight:1000;margin-bottom:10px;}
-
-.lwLegendRow{
-  display:flex;align-items:center;gap:10px;
-  margin:10px 0;font-weight:850;opacity:.85;
-}
-
-.lwDot{width:12px;height:12px;border-radius:50%;}
-.lwDot.green{background:#19b65b;}
-.lwDot.red{background:#e04343;}
-.lwDot.blue{background:#1e77ff;}
-
-/* ================= PILLS ================= */
-.lwPillRow{display:flex;gap:10px;flex-wrap:wrap;}
-
-.lwPill{
-  padding:6px 10px;
-  border-radius:999px;
-  font-weight:1000;font-size:12px;
-  color:#fff;
-}
-
-.lwPill.green{background:#19b65b;}
-.lwPill.orange{background:#f0a100;}
-.lwPill.red{background:#e04343;}
-
-/* ================= ADMIN ================= */
-.lwBubbleGrid{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(240px,1fr));
-  gap:14px;
-}
-
-.lwBubbleCard{
-  padding:16px;position:relative;overflow:hidden;
-}
-
-.lwBubbleCard::before,
-.lwBubbleCard::after{
-  content:"";
-  position:absolute;
-  width:180px;height:180px;
-  border-radius:999px;
-  background:rgba(13,115,168,.10);
-}
-
-.lwBubbleCard::before{top:-70px;left:-60px;}
-.lwBubbleCard::after{
-  bottom:-80px;right:-70px;
-  background:rgba(43,212,111,.10);
-}
-
-.lwBubbleTop{display:flex;align-items:center;gap:12px;z-index:1;position:relative;}
-.lwBubbleIcon{
-  width:54px;height:54px;border-radius:16px;
-  background:rgba(255,255,255,.85);
-  border:1px solid var(--line);
-  display:flex;align-items:center;justify-content:center;
-  font-size:22px;
-  box-shadow:0 10px 18px rgba(0,0,0,.08);
-}
-
-.lwBubbleTitle{font-weight:1000;font-size:18px;}
-.lwBubbleSub{opacity:.75;font-weight:750;font-size:13px;margin-top:2px;}
-
-.lwBubblePills{
-  display:flex;gap:8px;flex-wrap:wrap;
-  margin-top:12px;z-index:1;position:relative;
-}
-
-.lwBubblePill{
-  padding:6px 10px;border-radius:999px;
-  background:rgba(255,255,255,.85);
-  border:1px solid var(--line);
-  font-weight:900;font-size:12px;opacity:.9;
-}
-
-.lwBubbleBtnRow{
-  display:flex;gap:10px;margin-top:14px;
-  position:relative;z-index:1;
-}
-
-.lwBubbleBtn{
-  border:0;border-radius:999px;
-  padding:10px 14px;
-  font-weight:1000;cursor:pointer;
-  background:#0b63a6;color:#ff7a00;
-  box-shadow:0 10px 18px rgba(0,0,0,.12);
-}
-
-.lwBubbleBtn.ghost{
-  background:rgba(255,255,255,.75);
-  color:#0b63a6;
-  border:1px solid var(--line);
-  box-shadow:none;
-}
-
-/* ================= LOGIN ================= */
-.lwLogin{
-  min-height:100vh;
-  display:flex;align-items:center;justify-content:center;
-  background:#fff;
-}
-
-.lwLoginCard{
-  width:min(980px,92vw);
-  height:min(560px,82vh);
-  border-radius:40px;
-  background:#d8d8d8;
-  box-shadow:0 18px 40px rgba(0,0,0,.25);
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  gap:26px;padding:32px 24px;
-}
-
-.lwLoginBrand{display:flex;gap:18px;}
-.lwLoginLogo{width:120px;height:120px;object-fit:contain;}
-.lwLoginMotto{width:360px;height:90px;object-fit:contain;}
-
-.lwLoginForm{
-  width:min(640px,80vw);
-  display:flex;flex-direction:column;
-  gap:16px;align-items:center;
-}
-
-.lwInput{
-  width:100%;padding:16px 22px;
-  border-radius:40px;
-  border:1px solid rgba(0,0,0,.25);
-  font-size:18px;background:#fff;
-}
-
-.lwPrimaryBtn,
-.lwSecondaryBtn{
-  width:220px;border-radius:40px;
-  font-weight:900;font-size:18px;
-  cursor:pointer;
-}
-
-.lwPrimaryBtn{
-  padding:14px 18px;
-  border:0;
-  background:#0b63a6;
-  color:#ff7a00;
-}
-
-.lwSecondaryBtn{
-  padding:12px 18px;
-  background:transparent;
-  border:1px solid #0b63a6;
-  color:#ff7a00;
-}
-
-.lwLinkBtn{
-  border:0;background:transparent;
-  color:#0b63a6;
-  text-decoration:underline;
-  font-size:16px;cursor:pointer;
-}
-
-.lwErrorBanner{
-  margin-bottom:12px;padding:10px 12px;
-  border-radius:12px;
-  background:rgba(224,67,67,.14);
-  border:1px solid rgba(224,67,67,.25);
-  font-weight:800;
-}
-
-/* ================= RESPONSIVE ================= */
-@media (max-width:1100px){
-  .lwKpiGrid{grid-template-columns:repeat(2,1fr);}
-  .lwPanelGrid,.lwBottomGrid,.lwBubbleGrid{grid-template-columns:1fr;}
-}
-
-@media (max-width:650px){
-  .lwKpiGrid{grid-template-columns:1fr;}
-}
-
-/* ================= CLEAN OPERATOR UI ================= */
-.lwPageTitle{font-size:28px;line-height:1.05;}
-.lwPageSubtitle{font-size:14px;}
-.lwPageHeader{margin-bottom:12px;}
-.lwPage{padding:14px;}
-
-.lwTopbarClean{padding:10px 18px;}
-.lwTopbarBrandClean{gap:12px;}
-.lwTopbarLogoShell{
-  width:56px;height:56px;border-radius:18px;
-  display:flex;align-items:center;justify-content:center;
-  background:transparent;
-}
-.lwTopbarLogoClean{width:40px;height:40px;object-fit:contain;display:block;}
-.lwTopbarBrandText{display:flex;flex-direction:column;gap:2px;color:#fff;}
-.lwTopbarBrandTitle{font-size:20px;font-weight:1000;line-height:1;}
-.lwTopbarBrandSub{font-size:12px;font-weight:700;opacity:.88;}
-.lwTopbarActionsClean{gap:12px;}
-.lwTopbarIconBtnClean{
-  color:#fff;display:flex;align-items:center;justify-content:center;
-  background:rgba(255,255,255,.18);
-}
-.lwTopbarProfileChip{
-  display:flex;align-items:center;gap:10px;
-  background:rgba(255,255,255,.16);color:#fff;
-  border:1px solid rgba(255,255,255,.18);
-  border-radius:16px;padding:8px 12px;
-}
-.lwTopbarProfileAvatar{
-  width:34px;height:34px;border-radius:999px;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(255,255,255,.2);
-}
-.lwTopbarProfileMeta{display:flex;flex-direction:column;line-height:1.05;}
-.lwTopbarProfileMeta strong{font-size:13px;}
-.lwTopbarProfileMeta small{font-size:11px;opacity:.82;}
-.lwTopbarSignOutBtn{
-  border:0;border-radius:14px;padding:10px 14px;
-  display:flex;align-items:center;gap:8px;cursor:pointer;
-  background:rgba(255,255,255,.95);color:#0d73a8;font-weight:900;
-}
-
-.lwOverviewPage{display:grid;gap:14px;}
-.lwSummaryGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
-.lwSummaryCard{padding:14px;min-height:116px;}
-.lwSummaryCardTop{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.lwSummaryCardIcon{
-  width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;
-  background:rgba(11,99,166,.08);color:#0b63a6;
-}
-.lwSummaryCardIcon.healthy{background:rgba(34,197,94,.12);color:#15803d;}
-.lwSummaryCardIcon.warning{background:rgba(245,158,11,.14);color:#b45309;}
-.lwSummaryCardIcon.critical{background:rgba(239,68,68,.14);color:#b91c1c;}
-.lwSummaryCardLabel{font-size:13px;font-weight:850;color:#475569;}
-.lwSummaryCardValue{font-size:28px;font-weight:1000;line-height:1.05;color:#0f172a;}
-.lwSummaryCardNote{margin-top:8px;font-size:13px;color:#64748b;line-height:1.35;}
-
-.lwOverviewMainGrid{
-  display:grid;
-  grid-template-columns:minmax(0,1.7fr) minmax(320px,.95fr);
-  gap:14px;
-  align-items:start;
-}
-.lwMapCardShell{padding:12px;}
-.lwOverviewSideStack{display:grid;gap:14px;}
-.lwOperatorCard{padding:12px;}
-
-.lwSelectedHeaderCompact{
-  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;
-}
-.lwSelectedPoleId{font-size:24px;font-weight:1000;line-height:1.05;color:#0f172a;}
-.lwSelectedPoleName{font-size:14px;font-weight:750;color:#64748b;margin-top:4px;}
-
-.lwSelectedTrendWrap{
-  padding:12px;border-radius:16px;background:rgba(248,250,252,.85);
-  border:1px solid rgba(226,232,240,.95);margin-bottom:12px;
-}
-.lwSelectedTrendHead{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;
-  font-size:13px;font-weight:850;color:#475569;
-}
-.lwMiniTrend{width:100%;height:56px;color:#0b63a6;display:block;}
-.lwTrendEmpty{
-  padding:18px 14px;border-radius:14px;background:rgba(248,250,252,.82);
-  border:1px dashed rgba(148,163,184,.35);color:#64748b;font-weight:800;text-align:center;
-}
-
-/* NEW: richer shaded block for selected pole section */
-.lwSelectedPoleSurface{
-  padding:14px;
-  border-radius:18px;
-  background:linear-gradient(180deg, rgba(244,248,252,.96), rgba(237,243,249,.94));
-  border:1px solid rgba(210,223,235,.95);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.65);
-}
-
-.lwMetricGridCompact{display:grid;gap:10px;}
-.lwMetricRow{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:12px 14px;
-  border-radius:15px;
-  background:linear-gradient(180deg, rgba(246,250,253,.98), rgba(236,242,248,.96));
-  border:1px solid rgba(214,226,237,.98);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.68),
-    0 2px 6px rgba(15,23,42,.03);
-  font-size:13px;font-weight:800;color:#334155;
-  transition:background .18s ease, border-color .18s ease, transform .18s ease;
-}
-.lwMetricRow:hover{
-  background:linear-gradient(180deg, rgba(241,247,252,.99), rgba(230,238,246,.98));
-  border-color:rgba(188,208,226,.98);
-}
-.lwMetricBadge{
-  display:inline-flex;align-items:center;justify-content:center;
-  padding:5px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.22);
-  background:rgba(148,163,184,.14);color:#475569;font-size:12px;font-weight:900;white-space:nowrap;
-}
-.lwMetricBadge.healthy{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.22);color:#166534;}
-.lwMetricBadge.warning{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.22);color:#b45309;}
-.lwMetricBadge.critical{background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.22);color:#b91c1c;}
-
-.lwPoleList{
-  display:grid;
-  gap:10px;
-  max-height:208px;
-  overflow:auto;
-  padding-right:4px;
-}
-.lwPoleListItem{
-  width:100%;
-  text-align:left;
-  border:1px solid rgba(206,221,234,.98);
-  background:linear-gradient(180deg, rgba(245,249,253,.98), rgba(235,242,248,.97));
-  border-radius:16px;
-  padding:12px 14px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  cursor:pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.68),
-    0 2px 6px rgba(15,23,42,.03);
-  transition:background .18s ease, border-color .18s ease, transform .18s ease;
-}
-.lwPoleListItem:hover{
-  background:linear-gradient(180deg, rgba(239,246,252,.99), rgba(228,237,246,.98));
-  border-color:rgba(178,202,224,.98);
-}
-.lwPoleListItem strong{display:block;color:#0f172a;font-size:13px;}
-.lwPoleListItem small{display:block;margin-top:3px;color:#64748b;font-size:12px;font-weight:700;}
-.lwPoleListItem.isSelected{
-  border-color:rgba(11,99,166,.28);
-  background:linear-gradient(180deg, rgba(236,245,252,.99), rgba(225,236,246,.98));
-  box-shadow:
-    inset 0 0 0 1px rgba(11,99,166,.12),
-    0 4px 10px rgba(11,99,166,.06);
-}
-
-.lwInteractiveMap{position:relative;border-radius:18px;overflow:hidden;background:#dde7ef;}
-.lwMapFrameMuted{opacity:.78;pointer-events:none;filter:saturate(.85) contrast(.95);}
-.lwMapMarkerLayer{position:absolute;inset:0;pointer-events:none;}
-.lwMapMarker{
-  position:absolute;transform:translate(-50%,-100%);pointer-events:auto;
-  border:0;background:transparent;padding:0;cursor:pointer;
-}
-.lwMapMarkerCore{
-  display:block;width:18px;height:18px;border-radius:999px;border:3px solid #fff;
-  box-shadow:0 8px 14px rgba(15,23,42,.22);
-}
-.lwMapMarkerLabel{
-  margin-top:6px;display:block;padding:3px 8px;border-radius:999px;
-  background:rgba(15,23,42,.76);color:#fff;font-size:11px;font-weight:900;
-}
-.lwMapMarker-healthy .lwMapMarkerCore{background:#22c55e;}
-.lwMapMarker-warning .lwMapMarkerCore{background:#f59e0b;}
-.lwMapMarker-critical .lwMapMarkerCore{background:#ef4444;}
-.lwMapMarker-motion .lwMapMarkerCore{background:#2563eb;animation:lwPulse 1.6s infinite;}
-.lwMapMarker.isSelected .lwMapMarkerLabel{background:#0b63a6;}
-.lwMapInfoWindow{
-  position:absolute;top:14px;left:14px;display:flex;flex-direction:column;gap:2px;
-  padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.94);
-  border:1px solid rgba(226,232,240,.95);box-shadow:0 10px 18px rgba(15,23,42,.08);
-}
-.lwMapInfoWindow strong{font-size:13px;color:#0f172a;}
-.lwMapInfoWindow span,.lwMapInfoWindow small{color:#64748b;font-weight:800;font-size:12px;}
-.lwMapLegendOverlay{position:absolute;right:12px;bottom:12px;max-width:180px;}
-.lwLegendCompact{background:rgba(255,255,255,.92);box-shadow:0 10px 18px rgba(15,23,42,.08);}
-.lwLegendTitle{font-size:13px;}
-.lwLegendRow{font-size:12px;font-weight:800;color:#334155;}
-.lwDot.amber{background:#f59e0b;}
-.lwDot.blue{background:#2563eb;}
-.lwDot.pulse{box-shadow:0 0 0 0 rgba(37,99,235,.32);animation:lwPulse 1.6s infinite;}
-
-.lwActivityHeaderClean{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;
-}
-.lwActivityHeaderTitle{font-weight:1000;color:#0f172a;}
-.lwStatusDot{display:inline-block;width:10px;height:10px;border-radius:999px;background:#94a3b8;}
-.lwStatusDot.connected{background:#22c55e;box-shadow:0 0 0 6px rgba(34,197,94,.12);}
-.lwStatusDot.idle{background:#94a3b8;}
-.lwActivityItemClean{
-  border-radius:14px;background:rgba(248,250,252,.92);border:1px solid rgba(226,232,240,.95);padding:10px 12px;
-}
-.lwActivityTag{
-  display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:900;color:#0b63a6;
-}
-.lwActivityTime{font-size:11px;color:#64748b;font-weight:800;}
-
-@keyframes lwPulse{
-  0%{box-shadow:0 0 0 0 rgba(37,99,235,.28);}
-  70%{box-shadow:0 0 0 10px rgba(37,99,235,0);}
-  100%{box-shadow:0 0 0 0 rgba(37,99,235,0);}
-}
-
-@media (max-width: 1200px){
-  .lwSummaryGrid{grid-template-columns:repeat(2,minmax(0,1fr));}
-  .lwOverviewMainGrid{grid-template-columns:1fr;}
-}
-
-@media (max-width: 760px){
-  .lwSummaryGrid{grid-template-columns:1fr;}
-  .lwTopbarBrandSub,.lwTopbarProfileChip{display:none;}
-  .lwTopbarSignOutBtn span{display:none;}
-}
-
-.lwMapCardShell {
+.lwTopbarActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lwTopbarBrandLockup {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
   height: 100%;
-  min-height: 560px;
+  min-width: 0;
 }
 
-.lwOverviewSideStack {
-  display: grid;
-  gap: 14px;
-  align-content: start;
-}
-
-.lwOverviewMainGrid {
-  align-items: stretch;
-}
-
-.lwMapBox.lwInteractiveMap {
-  width: 100%;
+.lwTopbarBrandImageWrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   height: 100%;
-  min-height: 100%;
+  width: 270px;
+  min-width: 0;
+  flex: 0 0 270px;
+  overflow: hidden;
+  margin-top: 2px;
 }
 
-.lwMapFrame {
-  width: 100%;
+.lwTopbarBrandImage {
+  height: 76px;
+  max-width: none;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  transform: scale(1.56) translateX(6px);
+  transform-origin: left center;
+}
+
+.lwTopbarLogoMarkWrap {
   height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.lwTopbarLogoMark {
+  height: 54px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.lwTopbarBadge {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.12);
+}
+
+.lwTopbarImg {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.lwTopbarIconBtn {
+  width: 40px;
+  height: 40px;
   border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  font-size: 18px;
 }
 
-@media (max-width: 1200px) {
-  .lwMapCardShell {
-    min-height: 440px;
-  }
+/* ================= CLEAN TOPBAR ================= */
+.lwTopbarClean {
+  padding: 10px 18px;
 }
 
-/* ===== Activity Feed upgraded readable UI ===== */
-
-.lwActivityFeed {
-  display: grid;
+.lwTopbarBrandClean {
   gap: 12px;
 }
 
-.lwActivityFeedHeader {
+.lwTopbarLogoShell {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: center;
+  background: transparent;
 }
 
-.lwActivityFeedTitleRow {
+.lwTopbarLogoClean {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  display: block;
+}
+
+.lwTopbarBrandText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #fff;
+}
+
+.lwTopbarBrandTitle {
+  font-size: 20px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.lwTopbarBrandSub {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.88;
+}
+
+.lwTopbarActionsClean {
+  gap: 12px;
+}
+
+.lwTopbarIconBtnClean {
+  color: #fff;
   display: flex;
   align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.lwTopbarProfileChip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  padding: 8px 12px;
+}
+
+.lwTopbarProfileAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.lwTopbarProfileMeta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.lwTopbarProfileMeta strong {
+  font-size: 13px;
+}
+
+.lwTopbarProfileMeta small {
+  font-size: 11px;
+  opacity: 0.82;
+}
+
+.lwTopbarSignOutBtn {
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0d73a8;
+  font-weight: 900;
+}
+
+/* ================= SIDEBAR ================= */
+.lwSidebarWrap {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: calc(var(--railW) + var(--menuW));
+  height: 100vh;
+  z-index: 999;
+  pointer-events: none;
+}
+
+.lwRail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--railW);
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+  z-index: 2;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 12px 16px;
+  box-sizing: border-box;
+}
+
+.lwRailStack {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+}
+
+.lwRailBtn {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.lwRailBtn:hover {
+  transform: translateY(-1px);
+  background: rgba(233, 243, 250, 0.96);
+}
+
+.lwRailBtn.isActive {
+  outline: 2px solid rgba(13, 115, 168, 0.3);
+  background: linear-gradient(180deg, rgba(13, 115, 168, 0.12), rgba(13, 115, 168, 0.06));
+}
+
+.lwRailIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #223447;
+}
+
+.lwRailBottom {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-bottom: 2px;
+  pointer-events: auto;
+}
+
+.lwRailAccountBtnLegacy {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0d73a8, #1bb0a3);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(13, 115, 168, 0.28);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+}
+
+.lwRailAccountBtnLegacy:hover {
+  transform: translateY(-1px);
+}
+
+.lwRailAccountBtnLegacy.isOpen {
+  box-shadow: 0 0 0 3px rgba(27, 176, 163, 0.18), 0 12px 24px rgba(13, 115, 168, 0.28);
+}
+
+.lwRailAccountInitials {
+  font-size: 13px;
+  font-weight: 1000;
+  letter-spacing: 0.06em;
+}
+
+/* ================= MENU ================= */
+.lwMenu {
+  position: absolute;
+  left: var(--railW);
+  top: 0;
+  width: var(--menuW);
+  height: 100vh;
+  background: #f2f4f7;
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 18px 0 30px rgba(0, 0, 0, 0.1);
+  padding: 24px 18px 18px;
+  transform: translateX(-110%);
+  transition: transform 0.22s ease;
+  z-index: 1;
+  pointer-events: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lwMenu.isOpen {
+  transform: translateX(0);
+}
+
+.lwMenuTop {
+  flex: 0 0 auto;
+}
+
+.lwMenuTitle {
+  font-weight: 1000;
+  margin: 10px 8px 2px;
+  font-size: 18px;
+  color: #12212a;
+}
+
+.lwMenuList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.lwMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  text-decoration: none;
+  background: #fff;
+  color: #1a2a33;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.lwMenuItem:hover {
+  transform: translateY(-1px);
+  background: #f8fbff;
+  border-color: rgba(13, 115, 168, 0.16);
+}
+
+.lwMenuItem.isActive {
+  background: #e7f2ff;
+  border-color: rgba(13, 115, 168, 0.25);
+}
+
+.lwMenuIcon {
+  width: 24px;
+  text-align: center;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.lwMenuLabel {
+  font-weight: 800;
+}
+
+/* ================= ACCOUNT PANEL INSIDE MENU ================= */
+.lwMenuAccountPanel {
+  margin-top: auto;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition:
+    opacity 0.18s ease,
+    visibility 0.18s ease,
+    transform 0.18s ease;
+  pointer-events: auto;
+}
+
+.lwMenuAccountPanel.isOpen {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.lwRailAccountCard {
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+  padding: 14px;
+}
+
+.lwRailAccountIdentity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.lwRailAccountAvatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0d73a8, #1bb0a3);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.lwRailAccountMeta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lwRailAccountMeta strong {
+  font-size: 14px;
+  color: var(--lw-text);
+}
+
+.lwRailAccountMeta small {
+  color: var(--lw-text-soft);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lwRailPopoverSection {
+  margin-bottom: 10px;
+}
+
+.lwRailToggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 82px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(245, 249, 253, 0.98), rgba(234, 241, 248, 0.97));
+  border: 1px solid rgba(212, 224, 236, 0.95);
+  box-sizing: border-box;
+}
+
+.lwRailToggleText {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding-right: 8px;
+}
+
+.lwRailToggleText strong {
+  font-size: 13px;
+  line-height: 1.15;
+  color: #12212a;
+  margin: 0;
+}
+
+.lwRailToggleText span {
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #6a7d90;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.lwThemeModeTabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lwThemeModeTab {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.1);
+  color: #475569;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.lwThemeModeTab:hover {
+  transform: translateY(-1px);
+}
+
+.lwThemeModeTab.isActive {
+  background: rgba(13, 115, 168, 0.14);
+  border-color: rgba(13, 115, 168, 0.28);
+  color: #0b63a6;
+}
+
+.lwRailPopoverAction {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--lw-text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 800;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.lwRailPopoverAction:hover {
+  background: rgba(13, 115, 168, 0.08);
+  transform: translateY(-1px);
+}
+
+.lwRailPopoverActionDanger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.lwRailPopoverActionIcon {
+  width: 18px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+/* ================= TOGGLE SWITCH ================= */
+.lwThemeSwitch {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.lwThemeSwitchTrack {
+  width: 92px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0;
+  background: linear-gradient(180deg, #dfe7ef, #cfd8e3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.06);
+  transition: background 0.22s ease;
+  box-sizing: border-box;
+}
+
+.lwThemeSwitchLabel {
+  position: absolute;
+  right: 12px;
+  font-size: 11px;
+  font-weight: 1000;
+  color: #4a5e73;
+  transition: color 0.22s ease;
+}
+
+.lwThemeSwitchThumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.22s ease,
+    background 0.22s ease;
+}
+
+.lwThemeSwitch.isOn .lwThemeSwitchThumb {
+  transform: translateX(52px);
+  background: #7dd3fc;
+}
+
+.lwThemeSwitch.isAuto .lwThemeSwitchThumb {
+  transform: translateX(52px);
+  background: #c4b5fd;
+}
+
+.lwThemeSwitchLabel {
+  position: absolute;
+  right: 14px;
+  font-size: 12px;
+  font-weight: 1000;
+  color: #4a5e73;
+  transition: color 0.22s ease;
+}
+
+.lwThemeSwitch.isOn .lwThemeSwitchLabel,
+.lwThemeSwitch.isAuto .lwThemeSwitchLabel {
+  color: #ffffff;
+}
+
+.lwThemeSwitchThumb {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.22s ease,
+    background 0.22s ease;
+}
+
+.lwThemeSwitch.isOn .lwThemeSwitchThumb {
+  transform: translateX(54px);
+  background: #7dd3fc;
+}
+
+.lwThemeSwitch.isAuto .lwThemeSwitchThumb {
+  transform: translateX(54px);
+  background: #c4b5fd;
+}
+
+/* ================= KPI / PANELS / CARDS ================= */
+.lwKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.lwKpiCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+
+.lwKpiCard,
+.lwPanel,
+.lwCard,
+.lwLegendCard,
+.lwBubbleCard,
+.lwOperatorCard,
+.lwMapCardShell,
+.lwSummaryCard {
+  background: var(--lw-surface);
+  border: 1px solid var(--lw-line);
+  border-radius: 18px;
+  box-shadow: var(--lw-shadow);
+}
+
+.lwKpiIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 18px;
+}
+
+.lwKpiLabel {
+  font-size: 12px;
+  opacity: 0.7;
+  font-weight: 800;
+}
+
+.lwKpiValue {
+  font-size: 20px;
+  font-weight: 1000;
+}
+
+.lwKpiNote {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.lwKpiDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.lwPanelGrid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.lwPanelTitle {
+  font-weight: 1000;
+  text-align: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  opacity: 0.85;
+}
+
+.lwPanelBody {
+  padding: 14px;
+}
+
+.lwCard {
+  padding: 14px;
+}
+
+.lwCardTitle {
+  font-weight: 1000;
+  margin-bottom: 10px;
+  opacity: 0.85;
+  color: var(--lw-text);
+}
+
+.lwBottomGrid {
+  display: grid;
+  grid-template-columns: 340px 1fr 340px;
+  gap: 14px;
+}
+
+.lwPoleRow {
+  display: flex;
+  gap: 12px;
+}
+
+.lwPoleAvatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.lwPoleMeta {
+  font-weight: 750;
+  opacity: 0.85;
+}
+
+.lwPoleMeta b {
+  margin-right: 6px;
+}
+
+/* ================= PLACEHOLDER ================= */
+.lwPlaceholder,
+.lwPlaceholderTall {
+  border-radius: 12px;
+  border: 1px dashed rgba(0, 87, 167, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  font-weight: 900;
+}
+
+.lwPlaceholder {
+  height: 110px;
+}
+
+.lwPlaceholderTall {
+  height: 260px;
+}
+
+/* ================= MAP / LEGEND / PILLS ================= */
+.lwMapBox {
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.lwLegendCard {
+  padding: 14px;
+}
+
+.lwLegendTitle {
+  font-weight: 1000;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--lw-text);
+}
+
+.lwLegendRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-weight: 850;
+  opacity: 0.85;
+  font-size: 12px;
+  color: #334155;
+}
+
+.lwDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.lwDot.green {
+  background: #19b65b;
+}
+
+.lwDot.red {
+  background: #e04343;
+}
+
+.lwDot.blue {
+  background: #2563eb;
+}
+
+.lwDot.amber {
+  background: #f59e0b;
+}
+
+.lwDot.pulse {
+  box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.32);
+  animation: lwPulse 1.6s infinite;
+}
+
+.lwPillRow {
+  display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.lwActivityFeedStatus {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
+.lwPill {
+  padding: 6px 10px;
   border-radius: 999px;
+  font-weight: 1000;
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  border: 1px solid #d7e3ef;
-  background: #eef3f8;
-  color: #35506b;
+  color: #fff;
 }
 
-.lwActivityFeedStatus.connected {
-  background: #e8f8ef;
-  border-color: #c7ead4;
-  color: #1f7a45;
+.lwPill.green {
+  background: #19b65b;
 }
 
-.lwActivityFeedStatus.connecting {
-  background: #fff4df;
-  border-color: #f2d7a6;
-  color: #9a6500;
+.lwPill.orange {
+  background: #f0a100;
 }
 
-.lwActivityFeedStatus.offline,
-.lwActivityFeedStatus.disconnected,
-.lwActivityFeedStatus.error {
-  background: #fdeaea;
-  border-color: #f1c1c1;
-  color: #b42318;
+.lwPill.red {
+  background: #e04343;
 }
 
-.lwActivityFeedHint {
-  font-size: 12px;
-  color: #6b7c8f;
-}
-
-.lwActivityList {
+/* ================= ADMIN ================= */
+.lwBubbleGrid {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  gap: 14px;
 }
 
-.lwActivityItem {
-  display: grid;
-  grid-template-columns: 42px 1fr;
-  gap: 12px;
-  align-items: start;
-  padding: 14px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(245,249,253,.98), rgba(234,241,248,.97));
-  border: 1px solid #d4e0ec;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.7),
-    0 3px 8px rgba(15,23,42,.03);
-  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+.lwBubbleCard {
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
 }
 
-.lwActivityItem:hover {
-  background: linear-gradient(180deg, rgba(239,246,252,.99), rgba(226,236,245,.98));
-  border-color: #bdd1e4;
-}
-
-.lwActivityItem.healthy {
-  border-left: 4px solid rgba(34,197,94,.6);
-}
-
-.lwActivityItem.warning {
-  border-left: 4px solid rgba(245,158,11,.72);
-}
-
-.lwActivityItem.critical {
-  border-left: 4px solid rgba(239,68,68,.72);
-}
-
-.lwActivityItem.neutral {
-  border-left: 4px solid rgba(59,130,246,.38);
-}
-
-.lwActivityIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: #edf3f8;
-  color: #46607b;
-  margin-top: 1px;
-}
-
-.lwActivityIcon.healthy {
-  background: #e8f8ef;
-  color: #1f7a45;
-}
-
-.lwActivityIcon.warning {
-  background: #fff4df;
-  color: #9a6500;
-}
-
-.lwActivityIcon.critical {
-  background: #fdeaea;
-  color: #b42318;
-}
-
-.lwActivityMain {
-  min-width: 0;
-  display: grid;
-  gap: 7px;
-}
-
-.lwActivityTopRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.lwActivityLabel {
-  font-size: 15px;
-  font-weight: 800;
-  color: #1d3144;
-  line-height: 1.3;
-}
-
-.lwActivityTime {
-  font-size: 12px;
-  color: #60758a;
-  white-space: nowrap;
-  font-weight: 700;
-}
-
-.lwActivityMetaRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.lwActivityPole {
-  font-size: 12px;
-  font-weight: 800;
-  color: #2d567d;
-  padding: 4px 9px;
+.lwBubbleCard::before,
+.lwBubbleCard::after {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
   border-radius: 999px;
-  background: #e2ebf8;
-  border: 1px solid rgba(162,186,215,.45);
+  background: rgba(13, 115, 168, 0.1);
 }
 
-.lwActivityValue {
-  font-size: 12px;
-  font-weight: 800;
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: #edf3f8;
-  color: #33475b;
-  border: 1px solid rgba(194,210,226,.42);
+.lwBubbleCard::before {
+  top: -70px;
+  left: -60px;
 }
 
-.lwActivityValue.healthy {
-  background: #e8f8ef;
-  color: #1f7a45;
-  border-color: rgba(120,201,149,.35);
+.lwBubbleCard::after {
+  bottom: -80px;
+  right: -70px;
+  background: rgba(43, 212, 111, 0.1);
 }
 
-.lwActivityValue.warning {
-  background: #fff4df;
-  color: #9a6500;
-  border-color: rgba(234,188,96,.35);
-}
-
-.lwActivityValue.critical {
-  background: #fdeaea;
-  color: #b42318;
-  border-color: rgba(229,145,145,.35);
-}
-
-.lwActivityNote {
-  font-size: 12px;
-  line-height: 1.45;
-  color: #587086;
-  font-weight: 700;
-}
-
-.lwActivityEmpty {
+.lwBubbleTop {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px;
+  z-index: 1;
+  position: relative;
+}
+
+.lwBubbleIcon {
+  width: 54px;
+  height: 54px;
   border-radius: 16px;
-  background: #f8fbff;
-  border: 1px dashed #d7e3ef;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.08);
 }
 
-.lwActivityEmptyIcon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: #edf3f8;
-  color: #46607b;
+.lwBubbleTitle {
+  font-weight: 1000;
+  font-size: 18px;
 }
 
-.lwActivityEmptyTitle {
-  font-size: 14px;
-  font-weight: 700;
-  color: #243444;
-}
-
-.lwActivityEmptySub {
-  font-size: 12px;
-  color: #6b7c8f;
+.lwBubbleSub {
+  opacity: 0.75;
+  font-weight: 750;
+  font-size: 13px;
   margin-top: 2px;
 }
 
-/* =========================================================
-   DARK MODE + OPERATOR TOGGLE
-   Paste this at the very bottom of lightwise.css
-========================================================= */
-
-/* ---------- shared dark variables ---------- */
-body.dark {
-  --bg: #0f1720;
-  --card: rgba(19, 27, 36, 0.88);
-  --line: rgba(255, 255, 255, 0.08);
-  --shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
-  color: #e8f0f7;
+.lwBubblePills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  z-index: 1;
+  position: relative;
 }
 
-/* keep layout same */
-body.dark .lwMain,
-body.dark .lwPage,
-body.dark .lwApp {
-  color: #e8f0f7;
+.lwBubblePill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--line);
+  font-weight: 900;
+  font-size: 12px;
+  opacity: 0.9;
 }
 
-/* ---------- topbar operator dropdown ---------- */
+.lwBubbleBtnRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.lwBubbleBtn {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 1000;
+  cursor: pointer;
+  background: #0b63a6;
+  color: #ff7a00;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.12);
+}
+
+.lwBubbleBtn.ghost {
+  background: rgba(255, 255, 255, 0.75);
+  color: #0b63a6;
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+
+/* ================= LOGIN ================= */
+.lwLogin {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+
+.lwLoginCard {
+  width: min(980px, 92vw);
+  height: min(560px, 82vh);
+  border-radius: 40px;
+  background: #d8d8d8;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding: 32px 24px;
+}
+
+.lwLoginBrand {
+  display: flex;
+  gap: 18px;
+}
+
+.lwLoginLogo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+
+.lwLoginMotto {
+  width: 360px;
+  height: 90px;
+  object-fit: contain;
+}
+
+.lwLoginForm {
+  width: min(640px, 80vw);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.lwInput {
+  width: 100%;
+  padding: 16px 22px;
+  border-radius: 40px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  font-size: 18px;
+  background: #fff;
+}
+
+.lwPrimaryBtn,
+.lwSecondaryBtn {
+  width: 220px;
+  border-radius: 40px;
+  font-weight: 900;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.lwPrimaryBtn {
+  padding: 14px 18px;
+  border: 0;
+  background: #0b63a6;
+  color: #ff7a00;
+}
+
+.lwSecondaryBtn {
+  padding: 12px 18px;
+  background: transparent;
+  border: 1px solid #0b63a6;
+  color: #ff7a00;
+}
+
+.lwLinkBtn {
+  border: 0;
+  background: transparent;
+  color: #0b63a6;
+  text-decoration: underline;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.lwErrorBanner {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(224, 67, 67, 0.14);
+  border: 1px solid rgba(224, 67, 67, 0.25);
+  font-weight: 800;
+}
+
+.lwLoginCallback {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, #07111d, #0a243d);
+}
+
+.lwLoginCallbackCard {
+  width: min(92vw, 420px);
+  border-radius: 24px;
+  padding: 28px 24px;
+  background: rgba(9, 20, 35, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.lwLoginCallbackBrand {
+  width: min(260px, 100%);
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 18px;
+}
+
+.lwLoginCallbackTitle {
+  color: #eef6ff;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+/* ================= OPERATOR MENU / THEME TOGGLE ================= */
 .lwTopbarProfileWrap {
   position: relative;
 }
@@ -1013,78 +1356,107 @@ body.dark .lwApp {
   color: #6a7d90;
 }
 
-/* ---------- toggle switch like your image ---------- */
-.lwThemeSwitch {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
+@media (max-width: 1100px) {
+  .lwKpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .lwPanelGrid,
+  .lwBottomGrid,
+  .lwBubbleGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.lwThemeSwitchTrack {
-  width: 96px;
-  height: 46px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  position: relative;
-  padding: 0 10px;
-  background: linear-gradient(180deg, #1d2329, #2e363f);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
-  transition: background 0.22s ease;
+@media (max-width: 900px) {
+  .lwTopbarBrandImageWrap {
+    width: 236px;
+    flex-basis: 236px;
+  }
+
+  .lwTopbarBrandImage {
+    height: 68px;
+  }
+
+  .lwTopbarLogoMark {
+    height: 46px;
+  }
 }
 
-.lwThemeSwitch.isOn .lwThemeSwitchTrack {
-  background: linear-gradient(180deg, #72d9e9, #63cfe1);
+@media (max-width: 760px) {
+  .lwTopbar {
+    padding: 0 14px 0 18px;
+  }
+
+  .lwTopbarBrandLockup {
+    gap: 12px;
+  }
+
+  .lwTopbarBrandImage {
+    height: 58px;
+  }
+
+  .lwTopbarBrandImageWrap {
+    width: 194px;
+    flex-basis: 194px;
+  }
+
+  .lwTopbarLogoMark {
+    height: 38px;
+  }
+
+  .lwTopbarBrandSub,
+  .lwTopbarProfileChip {
+    display: none;
+  }
+
+  .lwTopbarSignOutBtn span {
+    display: none;
+  }
+
+  .lwMenu {
+    width: min(260px, calc(100vw - var(--railW) - 8px));
+  }
 }
 
-.lwThemeSwitchLabel {
-  font-size: 14px;
-  font-weight: 900;
-  color: #ffffff;
-  margin-left: 10px;
-  transition: opacity 0.22s ease, transform 0.22s ease;
+@media (max-width: 650px) {
+  .lwKpiGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.lwThemeSwitch.isOn .lwThemeSwitchLabel {
-  color: #ffffff;
-}
-
-.lwThemeSwitchThumb {
-  position: absolute;
-  top: 7px;
-  left: 7px;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: #000;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
-  transition: transform 0.22s ease;
-}
-
-.lwThemeSwitch.isOn .lwThemeSwitchThumb {
-  transform: translateX(50px);
-}
-
-/* ---------- dark mode general surfaces ---------- */
+/* ================= DARK MODE ================= */
 body.dark {
-  background: var(--bg);
+  --bg: #0f1720;
+  --card: rgba(19, 27, 36, 0.88);
+  --line: rgba(255, 255, 255, 0.08);
+  --shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
+  color: #e8f0f7;
+  background: var(--lw-bg-dark);
+}
+
+body.dark .lwMain,
+body.dark .lwMainShell,
+body.dark .lwPage,
+body.dark .lwApp,
+body.dark .lwAppShell {
+  color: #e8f0f7;
 }
 
 body.dark .lwRail {
-  background: rgba(14, 21, 29, 0.92);
-  border-right: 1px solid rgba(255,255,255,.07);
+  background: rgba(14, 21, 29, 0.94);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-body.dark .lwRailBtn,
-body.dark .lwRailBackBtn {
-  background: rgba(30, 41, 53, 0.9);
-  box-shadow: 0 12px 20px rgba(0,0,0,.18);
+body.dark .lwRailBtn {
+  background: rgba(30, 41, 53, 0.92);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.18);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 body.dark .lwRailBtn.isActive {
   outline: 2px solid rgba(91, 197, 255, 0.35);
+  background: linear-gradient(180deg, rgba(41, 143, 255, 0.18), rgba(41, 143, 255, 0.08));
 }
 
 body.dark .lwRailIcon {
@@ -1093,8 +1465,8 @@ body.dark .lwRailIcon {
 
 body.dark .lwMenu {
   background: #131c25;
-  border-right: 1px solid rgba(255,255,255,.07);
-  box-shadow: 18px 0 30px rgba(0,0,0,.24);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 18px 0 30px rgba(0, 0, 0, 0.24);
 }
 
 body.dark .lwMenuTitle,
@@ -1105,7 +1477,7 @@ body.dark .lwMenuLabel {
 body.dark .lwMenuItem {
   background: rgba(24, 34, 45, 0.96);
   color: #dbe8f2;
-  border: 1px solid rgba(255,255,255,.07);
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 body.dark .lwMenuItem.isActive {
@@ -1118,162 +1490,36 @@ body.dark .lwPanel,
 body.dark .lwLegendCard,
 body.dark .lwBubbleCard,
 body.dark .lwKpiCard,
-body.dark .lwSummaryCard,
-body.dark .lwOperatorCard {
-  background: rgba(19, 27, 36, 0.92);
-  border-color: rgba(255,255,255,.08);
-  box-shadow: var(--shadow);
+body.dark .lwOperatorCard,
+body.dark .lwMapCardShell,
+body.dark .lwSummaryCard {
+  background: var(--lw-surface-dark);
+  border-color: var(--lw-line-dark);
+  box-shadow: var(--lw-shadow-dark);
   color: #e8f0f7;
 }
 
 body.dark .lwCardTitle,
 body.dark .lwPanelTitle,
 body.dark .lwLegendTitle,
-body.dark .lwSummaryCardValue,
-body.dark .lwSelectedPoleId,
-body.dark .lwActivityHeaderTitle,
-body.dark .lwOperatorMenuTitle {
+body.dark .lwOperatorMenuTitle,
+body.dark .lwPageTitle {
   color: #f4f8fb;
 }
 
-body.dark .lwPageTitle,
 body.dark .lwPageSubtitle,
 body.dark .lwSmallText,
-body.dark .lwSummaryCardLabel,
-body.dark .lwSummaryCardNote,
-body.dark .lwSelectedPoleName,
-body.dark .lwLegendRow,
-body.dark .lwActivityTime,
-body.dark .lwActivityHint,
 body.dark .lwOperatorMenuSub {
   color: #aebfcd;
 }
 
-/* ---------- overview specific ---------- */
-body.dark .lwSelectedPoleSurface {
-  background: linear-gradient(180deg, rgba(25, 35, 46, 0.98), rgba(18, 27, 36, 0.97));
-  border: 1px solid rgba(255,255,255,.07);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
-}
-
-body.dark .lwMetricRow {
-  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
-  border: 1px solid rgba(255,255,255,.06);
-  color: #d4e3ee;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
-}
-
-body.dark .lwMetricRow:hover {
-  background: linear-gradient(180deg, rgba(32, 44, 57, 0.99), rgba(24, 35, 46, 0.99));
-  border-color: rgba(255,255,255,.1);
-}
-
-body.dark .lwMetricBadge {
-  background: rgba(148, 163, 184, 0.14);
-  color: #d1dde7;
-  border-color: rgba(255,255,255,.08);
-}
-
-body.dark .lwPoleListItem {
-  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
-  border: 1px solid rgba(255,255,255,.07);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
-}
-
-body.dark .lwPoleListItem strong {
-  color: #f2f7fb;
-}
-
-body.dark .lwPoleListItem small {
-  color: #9fb2c2;
-}
-
-body.dark .lwPoleListItem:hover {
-  background: linear-gradient(180deg, rgba(32, 44, 57, 0.99), rgba(24, 35, 46, 0.99));
-  border-color: rgba(255,255,255,.11);
-}
-
-body.dark .lwPoleListItem.isSelected {
-  border-color: rgba(91, 197, 255, 0.25);
-  background: linear-gradient(180deg, rgba(17, 54, 74, 0.52), rgba(18, 40, 56, 0.48));
-  box-shadow:
-    inset 0 0 0 1px rgba(91, 197, 255, 0.08),
-    0 4px 12px rgba(0,0,0,.16);
-}
-
-body.dark .lwMapInfoWindow,
-body.dark .lwLegendCompact {
-  background: rgba(19, 27, 36, 0.96);
-  border-color: rgba(255,255,255,.08);
-  color: #e8f0f7;
-}
-
-body.dark .lwMapInfoWindow strong,
-body.dark .lwMapInfoWindow span,
-body.dark .lwMapInfoWindow small {
-  color: #d7e4ee;
-}
-
-/* ---------- activity feed ---------- */
-body.dark .lwActivityItem,
-body.dark .lwActivityItemClean {
-  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
-  border: 1px solid rgba(255,255,255,.07);
-}
-
-body.dark .lwActivityItem:hover {
-  background: linear-gradient(180deg, rgba(32, 44, 57, 0.99), rgba(24, 35, 46, 0.99));
-  border-color: rgba(255,255,255,.11);
-}
-
-body.dark .lwActivityLabel,
-body.dark .lwActivityHeaderTitle,
-body.dark .lwActivityEmptyTitle {
-  color: #edf4f9;
-}
-
-body.dark .lwActivityNote,
-body.dark .lwActivityHint,
-body.dark .lwActivityEmptySub {
-  color: #9fb2c2;
-}
-
-body.dark .lwActivityPole {
-  background: rgba(29, 69, 104, 0.36);
-  color: #b9dcff;
-  border-color: rgba(91, 197, 255, 0.16);
-}
-
-body.dark .lwActivityValue {
-  background: rgba(148, 163, 184, 0.12);
-  color: #d8e2ea;
-  border-color: rgba(255,255,255,.07);
-}
-
-body.dark .lwActivityIcon,
-body.dark .lwActivityEmptyIcon {
-  background: rgba(148, 163, 184, 0.12);
-  color: #d8e5ee;
-}
-
-body.dark .lwActivityFeedStatus {
-  background: rgba(148, 163, 184, 0.12);
-  color: #d8e5ee;
-  border-color: rgba(255,255,255,.08);
-}
-
-body.dark .lwActivityFeedHint {
-  color: #9cb1c1;
-}
-
-/* ---------- inputs / forms ---------- */
 body.dark .lwInput,
 body.dark select,
 body.dark input,
 body.dark textarea {
   background: rgba(24, 34, 45, 0.96);
   color: #e9f2f8;
-  border: 1px solid rgba(255,255,255,.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 body.dark .lwInput::placeholder,
@@ -1282,26 +1528,21 @@ body.dark textarea::placeholder {
   color: #8ea3b5;
 }
 
-body.dark .lwFieldHint {
-  color: #9db1c1;
-}
-
-body.dark .lwFieldError {
-  color: #ff9d9d;
-}
-
-body.dark .lwLabel {
-  color: #dce8f1;
-}
-
-/* ---------- buttons ---------- */
 body.dark .lwTopbarSignOutBtn {
-  background: rgba(255,255,255,.92);
+  background: rgba(255, 255, 255, 0.92);
   color: #0d73a8;
 }
 
+body.dark .lwTopbar {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+    linear-gradient(90deg, #061d36 0%, #084c76 48%, #0b6f79 78%, #13885a 100%);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
 body.dark .lwTopbarIconBtnClean {
-  background: rgba(255,255,255,.16);
+  background: rgba(255, 255, 255, 0.16);
   color: #fff;
 }
 
@@ -1316,19 +1557,18 @@ body.dark .lwSecondaryBtn {
 }
 
 body.dark .lwBubbleBtn.ghost {
-  background: rgba(255,255,255,.08);
+  background: rgba(255, 255, 255, 0.08);
   color: #d9e9f5;
-  border-color: rgba(255,255,255,.08);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* ---------- login ---------- */
 body.dark .lwLogin {
   background: #0f1720;
 }
 
 body.dark .lwLoginCard {
   background: linear-gradient(180deg, #18222d, #121b24);
-  box-shadow: 0 18px 40px rgba(0,0,0,.4);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
 }
 
 body.dark .lwLinkBtn {
@@ -1336,12 +1576,11 @@ body.dark .lwLinkBtn {
 }
 
 body.dark .lwErrorBanner {
-  background: rgba(224,67,67,.16);
-  border-color: rgba(224,67,67,.28);
+  background: rgba(224, 67, 67, 0.16);
+  border-color: rgba(224, 67, 67, 0.28);
   color: #ffd1d1;
 }
 
-/* ---------- analytics shared overrides ---------- */
 body.dark .analytics-page,
 body.dark .analytics-top,
 body.dark .analytics-chart-wrap,
@@ -1351,7 +1590,7 @@ body.dark .analytics-table-wrap {
 
 body.dark .analytics-mini-stat {
   background: rgba(19, 27, 36, 0.92);
-  border: 1px solid rgba(255,255,255,.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: var(--shadow);
 }
 
@@ -1367,7 +1606,7 @@ body.dark .analytics-mini-value {
 }
 
 body.dark .analytics-grid-line {
-  stroke: rgba(255,255,255,.12);
+  stroke: rgba(255, 255, 255, 0.12);
 }
 
 body.dark .analytics-line {
@@ -1389,7 +1628,7 @@ body.dark .analytics-table thead th {
 
 body.dark .analytics-table tbody td {
   background: rgba(19, 27, 36, 0.92);
-  border-color: rgba(255,255,255,.06);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 body.dark .analytics-empty,
@@ -1399,375 +1638,124 @@ body.dark .analytics-no-rows {
 
 body.dark .analytics-error {
   color: #ffb4b4;
-  background: rgba(239,68,68,.12);
-  border: 1px solid rgba(239,68,68,.24);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.24);
 }
 
-/* ---------- operator dropdown in dark mode ---------- */
-body.dark .lwOperatorMenu {
+body.dark .lwOperatorMenu,
+body.dark .lwRailAccountCard {
   background: rgba(18, 27, 36, 0.98);
-  border: 1px solid rgba(255,255,255,.08);
-  box-shadow: 0 18px 40px rgba(0,0,0,.34);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-body.dark .lwOperatorToggleRow {
+body.dark .lwOperatorToggleRow,
+body.dark .lwRailToggleRow {
   background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
-  border: 1px solid rgba(255,255,255,.07);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  min-height: 82px;
 }
 
-body.dark .lwOperatorToggleText strong {
-  color: #edf5fa;
+body.dark .lwOperatorToggleText strong,
+body.dark .lwRailAccountMeta strong,
+body.dark .lwRailToggleText strong {
+  color: #ecf4f9;
+  font-size: 13px;
+  line-height: 1.15;
 }
 
-body.dark .lwOperatorToggleText span {
+body.dark .lwOperatorToggleText span,
+body.dark .lwRailAccountMeta small,
+body.dark .lwRailToggleText span {
   color: #9fb2c2;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
-/* ---------- topbar chip stays same but slightly richer in dark ---------- */
-body.dark .lwTopbarProfileChip {
-  background: rgba(255,255,255,.17);
-  border-color: rgba(255,255,255,.2);
+body.dark .lwRailPopoverAction {
+  color: var(--lw-text-dark);
 }
 
-/* ---------- small screens ---------- */
-@media (max-width: 760px) {
-  .lwOperatorMenu {
-    right: -8px;
-    width: min(290px, 90vw);
-  }
-
-  .lwThemeSwitchTrack {
-    width: 88px;
-    height: 42px;
-  }
-
-  .lwThemeSwitchThumb {
-    width: 28px;
-    height: 28px;
-    top: 7px;
-    left: 7px;
-  }
-
-  .lwThemeSwitch.isOn .lwThemeSwitchThumb {
-    transform: translateX(46px);
-  }
+body.dark .lwRailPopoverAction:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
-/* =========================================================
-   DARK MODE READABILITY FIXES
-========================================================= */
-
-/* ---------- sidebar logout button ---------- */
-body.dark .lwRailBackBtn {
-  background: rgba(32, 44, 58, 0.96);
-  border: 1px solid rgba(255,255,255,.08);
-  box-shadow: 0 10px 20px rgba(0,0,0,.24);
+body.dark .lwThemeModeTab {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.16);
+  color: #dbe7f6;
 }
 
-body.dark .lwRailBackBtn .lwRailIcon,
-body.dark .lwRailBackBtn svg,
-body.dark .lwRailBackBtn {
-  color: #e8f0f7 !important;
-  fill: #e8f0f7 !important;
+body.dark .lwThemeModeTab.isActive {
+  background: rgba(91, 197, 255, 0.16);
+  border-color: rgba(91, 197, 255, 0.3);
+  color: #7fd3ff;
 }
 
-/* ---------- overview/admin/analytics consistency ---------- */
-body.dark .lwSummaryCard,
-body.dark .lwOperatorCard,
-body.dark .lwCard,
-body.dark .lwPanel,
-body.dark .lwBubbleCard,
-body.dark .lwKpiCard {
-  background: linear-gradient(180deg, rgba(15, 27, 39, 0.98), rgba(12, 21, 31, 0.98)) !important;
-  border: 1px solid rgba(255,255,255,.08) !important;
+body.dark .lwThemeSwitchTrack {
+  background: linear-gradient(180deg, #d8e4ef, #c8d5e3);
 }
 
-body.dark .lwSelectedPoleSurface {
-  background: linear-gradient(180deg, rgba(22, 37, 51, 0.98), rgba(16, 27, 38, 0.98)) !important;
-  border: 1px solid rgba(255,255,255,.08) !important;
+body.dark .lwThemeSwitch.isOn .lwThemeSwitchTrack {
+  background: linear-gradient(180deg, #0b63a6, #063f6a);
 }
 
-body.dark .lwMetricRow,
-body.dark .lwPoleListItem,
-body.dark .lwActivityItem,
-body.dark .lwActivityItemClean,
-body.dark .lwSensorRow,
-body.dark .lwAdminMetricList > div {
-  background: linear-gradient(180deg, rgba(24, 38, 52, 0.98), rgba(17, 28, 39, 0.98)) !important;
-  border: 1px solid rgba(255,255,255,.08) !important;
+body.dark .lwThemeSwitch.isAuto .lwThemeSwitchTrack {
+  background: linear-gradient(180deg, #6d5efc, #4338ca);
 }
 
-body.dark .lwPoleListItem.isSelected {
-  background: linear-gradient(180deg, rgba(12, 52, 79, 0.62), rgba(10, 40, 61, 0.58)) !important;
-  border-color: rgba(91, 197, 255, 0.24) !important;
+body.dark .lwThemeSwitchLabel {
+  color: #42596f;
 }
 
-/* ---------- stronger readable text ---------- */
-body.dark .lwPageTitle,
-body.dark .lwCardTitle,
-body.dark .lwPanelTitle,
-body.dark .lwSelectedPoleId,
-body.dark .lwBubbleTitle,
-body.dark .lwActivityLabel,
-body.dark .analytics-mini-value {
-  color: #f4f8fb !important;
+body.dark .lwThemeSwitch.isOn .lwThemeSwitchLabel,
+body.dark .lwThemeSwitch.isAuto .lwThemeSwitchLabel {
+  color: #ffffff;
 }
 
-body.dark .lwPageSubtitle,
-body.dark .lwSelectedPoleName,
-body.dark .lwBubbleSub,
-body.dark .lwFieldHint,
-body.dark .lwActivityNote,
-body.dark .analytics-mini-sub,
-body.dark .analytics-mini-label {
-  color: #b8c9d6 !important;
+body.dark .lwThemeSwitchThumb {
+  background: #ffffff;
 }
 
-/* ---------- empty recent activity box ---------- */
-body.dark .lwActivityEmpty {
-  background: linear-gradient(180deg, rgba(25, 38, 52, 0.98), rgba(18, 28, 39, 0.98)) !important;
-  border: 1px solid rgba(255,255,255,.08) !important;
+body.dark .lwThemeSwitch.isOn .lwThemeSwitchThumb {
+  background: #67d2e3;
 }
 
-body.dark .lwActivityEmptyIcon {
-  background: rgba(255,255,255,.08) !important;
-  color: #e8f0f7 !important;
+body.dark .lwThemeSwitch.isAuto .lwThemeSwitchThumb {
+  background: #c4b5fd;
 }
 
-body.dark .lwActivityEmptyTitle {
-  color: #eef5fa !important;
+.lwMapFrameDark {
+  filter: grayscale(0.1) invert(0.92) hue-rotate(180deg) saturate(0.72) brightness(0.82)
+    contrast(0.96);
 }
 
-body.dark .lwActivityEmptySub {
-  color: #b3c3cf !important;
+.lwMapFrameLight {
+  filter: none;
 }
 
-/* ---------- badges / pills clearer ---------- */
-body.dark .lwMetricBadge,
-body.dark .lwActivityPole,
-body.dark .lwActivityValue {
-  background: rgba(255,255,255,.08) !important;
-  color: #e9f2f8 !important;
-  border-color: rgba(255,255,255,.08) !important;
+.lwInteractiveMap {
+  border-radius: 18px;
+  overflow: hidden;
 }
 
-body.dark .lwMetricBadge.healthy,
-body.dark .lwActivityValue.healthy {
-  background: rgba(34,197,94,.16) !important;
-  color: #7ef0a8 !important;
-  border-color: rgba(34,197,94,.18) !important;
+.lwMapInfoWindow {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  color: var(--lw-text);
 }
 
-body.dark .lwMetricBadge.warning,
-body.dark .lwActivityValue.warning {
-  background: rgba(245,158,11,.16) !important;
-  color: #ffd37a !important;
-  border-color: rgba(245,158,11,.18) !important;
+body.dark .lwMapInfoWindow {
+  background: rgba(8, 18, 30, 0.94);
+  border-color: rgba(148, 163, 184, 0.16);
+  color: var(--lw-text-dark);
 }
 
-body.dark .lwMetricBadge.critical,
-body.dark .lwActivityValue.critical {
-  background: rgba(239,68,68,.16) !important;
-  color: #ff9c9c !important;
-  border-color: rgba(239,68,68,.18) !important;
-}
-/* =========================================================
-   GLOBAL HOVER SHADE / CURSOR FEEDBACK
-   Keeps layout + colors same, adds subtle hover shading
-   for both light mode and dark mode
-========================================================= */
-
-/* ---------- shared smooth hover transitions ---------- */
-.lwRailBtn,
-.lwRailBackBtn,
-.lwMenuItem,
-.lwMetricRow,
-.lwPoleListItem,
-.lwActivityItem,
-.lwActivityEmpty,
-.lwActivityFeedStatus,
-.lwCard,
-.lwPanel,
-.lwBubbleCard,
-.lwSummaryCard,
-.lwOperatorCard,
-.lwKpiCard,
-.lwLegendCard {
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease,
-    filter 0.18s ease;
+.lwMapMarkerLabel {
+  background: rgba(255, 255, 255, 0.94);
+  color: #0f172a;
 }
 
-/* ---------- sidebar rail buttons ---------- */
-.lwRailBtn:hover,
-.lwRailBackBtn:hover {
-  background: rgba(236, 243, 249, 0.96);
-  border-color: rgba(13, 115, 168, 0.18);
-  box-shadow:
-    0 12px 22px rgba(0,0,0,.10),
-    inset 0 1px 0 rgba(255,255,255,.85);
-  transform: translateY(-1px);
-}
-
-/* make active + hover feel richer but same style */
-.lwRailBtn.isActive:hover {
-  background: rgba(231, 242, 255, 0.98);
-  box-shadow:
-    0 14px 24px rgba(13,115,168,.12),
-    inset 0 1px 0 rgba(255,255,255,.88);
-}
-
-/* ---------- sidebar menu items ---------- */
-.lwMenuItem:hover {
-  background: linear-gradient(180deg, #f7fbff 0%, #edf5fc 100%);
-  border-color: rgba(13, 115, 168, 0.18);
-  box-shadow:
-    0 10px 20px rgba(13,115,168,.06),
-    inset 0 1px 0 rgba(255,255,255,.85);
-  transform: translateX(2px);
-}
-
-.lwMenuItem.isActive:hover {
-  background: linear-gradient(180deg, #eaf4ff 0%, #deefff 100%);
-  border-color: rgba(13,115,168,.26);
-}
-
-/* ---------- overview selected pole rows ---------- */
-.lwMetricRow:hover {
-  background: linear-gradient(180deg, rgba(239,246,252,.99), rgba(228,237,246,.98));
-  border-color: rgba(178,202,224,.98);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.72),
-    0 4px 10px rgba(15,23,42,.05);
-}
-
-/* ---------- pole list hover ---------- */
-.lwPoleListItem:hover {
-  background: linear-gradient(180deg, rgba(239,246,252,.99), rgba(228,237,246,.98));
-  border-color: rgba(178,202,224,.98);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.72),
-    0 4px 10px rgba(15,23,42,.05);
-}
-
-/* ---------- generic card hover ---------- */
-.lwCard:hover,
-.lwPanel:hover,
-.lwSummaryCard:hover,
-.lwOperatorCard:hover,
-.lwKpiCard:hover,
-.lwLegendCard:hover {
-  box-shadow:
-    0 14px 28px rgba(0,0,0,.10),
-    inset 0 1px 0 rgba(255,255,255,.55);
-}
-
-/* bubble cards like Admin cards */
-.lwBubbleCard:hover {
-  box-shadow:
-    0 18px 34px rgba(57, 86, 114, 0.12) !important;
-  filter: brightness(1.01);
-}
-
-/* ---------- activity feed hover ---------- */
-.lwActivityItem:hover {
-  background: linear-gradient(180deg, rgba(239,246,252,.99), rgba(226,236,245,.98));
-  border-color: #bdd1e4;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.72),
-    0 4px 10px rgba(15,23,42,.05);
-}
-
-.lwActivityEmpty:hover {
-  background: linear-gradient(180deg, #fbfdff 0%, #f1f7fc 100%);
-  border-color: #cddceb;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.72),
-    0 4px 10px rgba(15,23,42,.04);
-}
-
-.lwActivityFeedStatus:hover {
-  filter: brightness(0.98);
-  box-shadow: 0 6px 14px rgba(15,23,42,.06);
-}
-
-/* =========================================================
-   DARK MODE HOVER SHADE
-========================================================= */
-
-body.dark .lwRailBtn:hover,
-body.dark .lwRailBackBtn:hover {
-  background: linear-gradient(180deg, rgba(36, 49, 63, 0.98), rgba(28, 39, 51, 0.98));
-  border-color: rgba(91, 197, 255, 0.16);
-  box-shadow:
-    0 14px 24px rgba(0,0,0,.24),
-    inset 0 1px 0 rgba(255,255,255,.04);
-  transform: translateY(-1px);
-}
-
-body.dark .lwRailBtn.isActive:hover {
-  background: linear-gradient(180deg, rgba(18, 59, 88, 0.48), rgba(18, 47, 70, 0.42));
-  border-color: rgba(91, 197, 255, 0.24);
-}
-
-body.dark .lwMenuItem:hover {
-  background: linear-gradient(180deg, rgba(30, 44, 58, 0.99), rgba(23, 35, 46, 0.99));
-  border-color: rgba(91, 197, 255, 0.16);
-  box-shadow:
-    0 10px 22px rgba(0,0,0,.22),
-    inset 0 1px 0 rgba(255,255,255,.03);
-  transform: translateX(2px);
-}
-
-body.dark .lwMenuItem.isActive:hover {
-  background: linear-gradient(180deg, rgba(18, 62, 92, 0.44), rgba(17, 50, 74, 0.40));
-  border-color: rgba(91, 197, 255, 0.24);
-}
-
-body.dark .lwMetricRow:hover,
-body.dark .lwPoleListItem:hover,
-body.dark .lwActivityItem:hover,
-body.dark .lwActivityItemClean:hover,
-body.dark .lwSensorRow:hover,
-body.dark .lwAdminMetricList > div:hover {
-  background: linear-gradient(180deg, rgba(33, 47, 61, 0.99), rgba(24, 36, 48, 0.99)) !important;
-  border-color: rgba(91, 197, 255, 0.14) !important;
-  box-shadow:
-    0 8px 18px rgba(0,0,0,.18),
-    inset 0 1px 0 rgba(255,255,255,.03);
-}
-
-body.dark .lwPoleListItem.isSelected:hover {
-  background: linear-gradient(180deg, rgba(15, 64, 96, 0.64), rgba(11, 49, 73, 0.60)) !important;
-  border-color: rgba(91, 197, 255, 0.28) !important;
-}
-
-body.dark .lwCard:hover,
-body.dark .lwPanel:hover,
-body.dark .lwSummaryCard:hover,
-body.dark .lwOperatorCard:hover,
-body.dark .lwKpiCard:hover,
-body.dark .lwLegendCard:hover,
-body.dark .lwBubbleCard:hover {
-  box-shadow:
-    0 20px 36px rgba(0,0,0,.28),
-    inset 0 1px 0 rgba(255,255,255,.03) !important;
-  filter: brightness(1.03);
-}
-
-body.dark .lwActivityEmpty:hover {
-  background: linear-gradient(180deg, rgba(30, 43, 56, 0.98), rgba(22, 33, 44, 0.98)) !important;
-  border-color: rgba(91, 197, 255, 0.10) !important;
-  box-shadow:
-    0 8px 18px rgba(0,0,0,.18),
-    inset 0 1px 0 rgba(255,255,255,.03);
-}
-
-body.dark .lwActivityFeedStatus:hover {
-  background: rgba(255,255,255,.10);
-  border-color: rgba(91,197,255,.14);
-  box-shadow: 0 8px 16px rgba(0,0,0,.16);
+body.dark .lwMapMarkerLabel {
+  background: rgba(8, 18, 30, 0.94);
+  color: #e8eef8;
 }

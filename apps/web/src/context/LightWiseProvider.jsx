@@ -19,6 +19,85 @@ function clampPct(x) {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
+function toFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function readMotionCoordPair(candidate) {
+  if (!candidate || typeof candidate !== "object") return null;
+
+  const lat = toFiniteNumber(
+    candidate?.lat ??
+      candidate?.latitude ??
+      candidate?.motion_lat ??
+      candidate?.motionLat ??
+      candidate?.motion_latitude ??
+      candidate?.motionLatitude ??
+      candidate?.detected_lat ??
+      candidate?.detectedLat
+  );
+
+  const lng = toFiniteNumber(
+    candidate?.lng ??
+      candidate?.lon ??
+      candidate?.longitude ??
+      candidate?.motion_lng ??
+      candidate?.motionLng ??
+      candidate?.motion_longitude ??
+      candidate?.motionLongitude ??
+      candidate?.detected_lng ??
+      candidate?.detectedLng
+  );
+
+  if (lat == null || lng == null) return null;
+  return { lat, lng };
+}
+
+function extractMotionFocus(source) {
+  const directPair = readMotionCoordPair({
+    motion_lat: source?.motion_focus_lat ?? source?.motion_lat ?? source?.detected_lat,
+    motion_lng: source?.motion_focus_lng ?? source?.motion_lng ?? source?.detected_lng,
+  });
+
+  const nestedPair =
+    readMotionCoordPair(source?.motion_location) ||
+    readMotionCoordPair(source?.motionLocation) ||
+    readMotionCoordPair(source?.detected_location) ||
+    readMotionCoordPair(source?.detectedLocation) ||
+    readMotionCoordPair(source?.focus_location) ||
+    readMotionCoordPair(source?.focusLocation) ||
+    readMotionCoordPair(source?.motion_point) ||
+    readMotionCoordPair(source?.motionPoint) ||
+    readMotionCoordPair(source?.data?.motion_location) ||
+    readMotionCoordPair(source?.data?.motionLocation) ||
+    readMotionCoordPair(source?.data?.detected_location) ||
+    readMotionCoordPair(source?.data?.detectedLocation);
+
+  const pair = directPair || nestedPair;
+  const radius =
+    toFiniteNumber(
+      source?.motion_focus_radius_m ??
+        source?.motion_radius_m ??
+        source?.motionRadiusM ??
+        source?.motion_distance_m ??
+        source?.motionDistanceM ??
+        source?.data?.motion_focus_radius_m ??
+        source?.data?.motion_radius_m ??
+        source?.data?.motionRadiusM ??
+        source?.data?.motion_distance_m ??
+        source?.data?.motionDistanceM
+    ) ?? null;
+
+  if (!pair) return null;
+
+  return {
+    motion_focus_lat: pair.lat,
+    motion_focus_lng: pair.lng,
+    motion_focus_radius_m: radius,
+  };
+}
+
 function normalizePole(pole, index = 0) {
   const id =
     pole?.streetlight_id ||
@@ -30,6 +109,7 @@ function normalizePole(pole, index = 0) {
 
   return {
     streetlight_id: id,
+    tenant_id: pole?.tenant_id || pole?.tenantId || pole?.tenant || null,
     name: pole?.name || pole?.label || pole?.display_name || null,
     health: pole?.health || pole?.status || "OK",
     lat:
@@ -72,12 +152,14 @@ function normalizePole(pole, index = 0) {
     temp_c: pole?.temp_c ?? null,
     humidity: pole?.humidity ?? null,
     lux: pole?.lux ?? null,
+    ...(extractMotionFocus(pole) || {}),
   };
 }
 
 function mergeLiveIntoPole(existing, message) {
   const data = message?.data || {};
   const diagnostics = message?.diagnostics || {};
+  const motionFocus = extractMotionFocus(message);
 
   return {
     ...existing,
@@ -136,7 +218,41 @@ function mergeLiveIntoPole(existing, message) {
         : typeof data?.lux === "number"
         ? data.lux
         : existing?.lux ?? null,
+    ...(motionFocus || {}),
   };
+}
+
+function readOperator() {
+  try {
+    const raw = localStorage.getItem("lightwise_operator");
+    if (!raw) {
+      return {
+        name: "Operator",
+        email: "operator@lightwise.local",
+        role: "operator",
+      };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      name: parsed?.name || "Operator",
+      email: parsed?.email || "operator@lightwise.local",
+      role: parsed?.role || "operator",
+    };
+  } catch {
+    return {
+      name: "Operator",
+      email: "operator@lightwise.local",
+      role: "operator",
+    };
+  }
+}
+
+function getInitials(name = "") {
+  const clean = String(name).trim();
+  if (!clean) return "OP";
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
 }
 
 export function LightWiseProvider({ children }) {
@@ -150,6 +266,7 @@ export function LightWiseProvider({ children }) {
   const [poles, setPoles] = useState(() => loadPoles());
   const [streetlights, setStreetlights] = useState([]);
   const [events, setEvents] = useState([]);
+  const [operator, setOperator] = useState(() => readOperator());
 
   const [darkMode, setDarkMode] = useState(() => {
     try {
@@ -163,12 +280,30 @@ export function LightWiseProvider({ children }) {
     setDarkMode((prev) => !prev);
   }, []);
 
+  const signOut = useCallback(() => {
+    try {
+      localStorage.removeItem("lightwise_operator");
+      localStorage.removeItem("lightwise_auth");
+    } catch {}
+
+    window.location.href = "/login";
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem("lightwise_dark_mode", String(darkMode));
     } catch {}
+
     document.body.classList.toggle("dark", darkMode);
+    document.body.classList.toggle("light", !darkMode);
+    document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("lightwise_operator", JSON.stringify(operator));
+    } catch {}
+  }, [operator]);
 
   const { status: wsStatus, error: wsError, lastMessage, send, subscribe } =
     useLightWiseWS(WS_URL, {
@@ -316,6 +451,12 @@ export function LightWiseProvider({ children }) {
       darkMode,
       setDarkMode,
       toggleDarkMode,
+      operator: {
+        ...operator,
+        initials: getInitials(operator?.name),
+      },
+      setOperator,
+      signOut,
     }),
     [
       WS_URL,
@@ -339,6 +480,9 @@ export function LightWiseProvider({ children }) {
       darkMode,
       setDarkMode,
       toggleDarkMode,
+      operator,
+      setOperator,
+      signOut,
     ]
   );
 

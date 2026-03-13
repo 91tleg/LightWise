@@ -3,7 +3,7 @@ import Layout from "../components/Layout";
 import ActivityFeed from "../components/ActivityFeed";
 import BubbleCard from "../components/BubbleCard";
 import AdminWsControls from "../components/AdminWsControls";
-import MapEmbed from "../components/MapEmbed";
+import MapEmbed from "../components/MapEmbed.js";
 import UiIcon from "../components/UiIcon";
 import { LightWiseContext } from "../context/LightWiseProvider";
 import {
@@ -11,6 +11,7 @@ import {
   getStreetlightTelemetry,
 } from "../services/api";
 import { loadPoleMetaMap, upsertPoleMeta } from "../services/poleStorage";
+import { writeActivePoleId } from "../services/activePoleStorage";
 import { normalizeTelemetryRows } from "./analytics.helpers";
 import "../styles/lightwise.css";
 import "../styles/admin.css";
@@ -134,6 +135,10 @@ export default function Admin() {
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (selectedId) writeActivePoleId(selectedId);
   }, [selectedId]);
 
   useEffect(() => {
@@ -413,9 +418,7 @@ export default function Admin() {
         ? "Detected"
         : "Clear"
       : "Clear";
-
   const loadingSensors = telemetryLoading && !live;
-  const mapHeight = 640;
   const mapKey = `${selectedId}-${mapLat}-${mapLng}`;
 
   return (
@@ -632,8 +635,7 @@ export default function Admin() {
                 <MapEmbed
                   key={mapKey}
                   title="Selected pole location"
-                  height={mapHeight}
-                  fillHeight={false}
+                  fillHeight
                   lat={mapLat}
                   lng={mapLng}
                   poles={mapPoles}

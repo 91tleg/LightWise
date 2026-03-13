@@ -1,14 +1,35 @@
-import React, { useMemo, useState } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import UiIcon from "./UiIcon";
+import { LightWiseContext } from "../context/LightWiseProvider";
 import "../styles/lightwise.css";
+
+const THEME_MODE_KEY = "lightwise_theme_mode";
+
+function getAutoDarkMode() {
+  const hour = new Date().getHours();
+  return hour >= 19 || hour < 7;
+}
+
+function readThemeMode() {
+  try {
+    const saved = localStorage.getItem(THEME_MODE_KEY);
+    if (saved === "light" || saved === "dark" || saved === "auto") return saved;
+  } catch {}
+  return "auto";
+}
 
 export default function Sidebar() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const { operator, darkMode, setDarkMode, signOut } = useContext(LightWiseContext);
 
-  const isOnLogin = location.pathname === "/";
+  const [open, setOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [themeMode, setThemeModeState] = useState(() => readThemeMode());
+
+  const closeTimerRef = useRef(null);
+
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/";
 
   const items = useMemo(
     () => [
@@ -20,13 +41,78 @@ export default function Sidebar() {
     []
   );
 
-  if (isOnLogin) return null;
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_MODE_KEY, themeMode);
+    } catch {}
+
+    if (themeMode === "light") {
+      setDarkMode(false);
+      return;
+    }
+
+    if (themeMode === "dark") {
+      setDarkMode(true);
+      return;
+    }
+
+    const applyAuto = () => {
+      setDarkMode(getAutoDarkMode());
+    };
+
+    applyAuto();
+    const interval = window.setInterval(applyAuto, 60 * 1000);
+
+    return () => window.clearInterval(interval);
+  }, [themeMode, setDarkMode]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  function openAccountPanel() {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setAccountOpen(true);
+  }
+
+  function closeAccountPanelSoon() {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = window.setTimeout(() => {
+      setAccountOpen(false);
+    }, 180);
+  }
+
+  function setThemeMode(mode) {
+    setThemeModeState(mode);
+  }
+
+  function handleQuickToggle() {
+    if (themeMode === "auto") {
+      setThemeMode("dark");
+      return;
+    }
+    setThemeMode(darkMode ? "light" : "dark");
+  }
+
+  if (isAuthPage) return null;
 
   return (
     <div
       className="lwSidebarWrap"
       onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseLeave={() => {
+        setOpen(false);
+        closeAccountPanelSoon();
+      }}
     >
       <aside className="lwRail">
         <div className="lwRailStack">
@@ -39,24 +125,37 @@ export default function Sidebar() {
               onClick={() => setOpen(false)}
             >
               <span className="lwRailIcon">
-                <UiIcon name={item.icon} size={20} />
+                <UiIcon name={item.icon} size={22} />
               </span>
             </NavLink>
           ))}
         </div>
 
-        <button
-          type="button"
-          className="lwRailBackBtn"
-          title="Back to Login"
-          onClick={() => navigate("/")}
+        <div
+          className="lwRailBottom"
+          onMouseEnter={openAccountPanel}
+          onMouseLeave={closeAccountPanelSoon}
         >
-          <UiIcon name="logout" size={20} />
-        </button>
+          <button
+            type="button"
+            className={`lwRailAccountBtnLegacy${accountOpen ? " isOpen" : ""}`}
+            title="Account"
+            aria-haspopup="menu"
+            aria-expanded={accountOpen}
+            onClick={() => setAccountOpen((prev) => !prev)}
+          >
+            <span className="lwRailAccountInitials">{operator?.initials || "OP"}</span>
+          </button>
+        </div>
       </aside>
 
-      <aside className={`lwMenu${open ? " isOpen" : ""}`}>
-        <div className="lwMenuTitle">Menu</div>
+      <aside
+        className={`lwMenu${open ? " isOpen" : ""}`}
+        onMouseEnter={() => setOpen(true)}
+      >
+        <div className="lwMenuTop">
+          <div className="lwMenuTitle">Menu</div>
+        </div>
 
         <nav className="lwMenuList">
           {items.map((item) => (
@@ -67,12 +166,101 @@ export default function Sidebar() {
               onClick={() => setOpen(false)}
             >
               <span className="lwMenuIcon">
-                <UiIcon name={item.icon} size={18} />
+                <UiIcon name={item.icon} size={20} />
               </span>
               <span className="lwMenuLabel">{item.label}</span>
             </NavLink>
           ))}
         </nav>
+
+        <div
+          className={`lwMenuAccountPanel${accountOpen ? " isOpen" : ""}`}
+          onMouseEnter={openAccountPanel}
+          onMouseLeave={closeAccountPanelSoon}
+        >
+          <div className="lwRailAccountCard">
+            <div className="lwRailAccountIdentity">
+              <div className="lwRailAccountAvatar">{operator?.initials || "OP"}</div>
+              <div className="lwRailAccountMeta">
+                <strong>{operator?.name || "Operator"}</strong>
+                <small>{operator?.email || "operator@lightwise.local"}</small>
+              </div>
+            </div>
+
+            <div className="lwRailPopoverSection">
+              <div className="lwRailToggleRow">
+                <div className="lwRailToggleText">
+                  <strong>
+                    {themeMode === "auto"
+                      ? "Auto mode"
+                      : darkMode
+                      ? "Dark mode"
+                      : "Light mode"}
+                  </strong>
+                  <span>
+                    {themeMode === "auto"
+                      ? "Switches by time of day"
+                      : darkMode
+                      ? "Night theme enabled"
+                      : "Day theme enabled"}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  className={`lwThemeSwitch ${darkMode ? "isOn" : ""}${
+                    themeMode === "auto" ? " isAuto" : ""
+                  }`}
+                  onClick={handleQuickToggle}
+                  aria-label="Quick toggle theme"
+                  aria-pressed={darkMode}
+                >
+                  <span className="lwThemeSwitchTrack">
+                    <span className="lwThemeSwitchThumb" />
+                    <span className="lwThemeSwitchLabel">
+                      {themeMode === "auto" ? "AUTO" : darkMode ? "ON" : "OFF"}
+                    </span>
+                  </span>
+                </button>
+              </div>
+
+              <div className="lwThemeModeTabs">
+                <button
+                  type="button"
+                  className={`lwThemeModeTab${themeMode === "light" ? " isActive" : ""}`}
+                  onClick={() => setThemeMode("light")}
+                >
+                  Light
+                </button>
+                <button
+                  type="button"
+                  className={`lwThemeModeTab${themeMode === "dark" ? " isActive" : ""}`}
+                  onClick={() => setThemeMode("dark")}
+                >
+                  Dark
+                </button>
+                <button
+                  type="button"
+                  className={`lwThemeModeTab${themeMode === "auto" ? " isActive" : ""}`}
+                  onClick={() => setThemeMode("auto")}
+                >
+                  Auto
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="lwRailPopoverAction lwRailPopoverActionDanger"
+              onClick={signOut}
+            >
+              <span className="lwRailPopoverActionIcon">
+                <UiIcon name="logout" size={14} />
+              </span>
+              <span>Sign out</span>
+            </button>
+          </div>
+        </div>
       </aside>
     </div>
   );

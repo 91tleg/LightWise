@@ -1,7 +1,7 @@
 # System Architecture
 
 **Architecture Diagram**:
-![System Architecture](assets/architecture-v2.0.png)
+![System Architecture](assets/system-architecture.png)
 
 ---
 
@@ -90,14 +90,14 @@ Process incoming telemetry events.
 - Apply pagination and result limits
 - Format response according to API contract
 
-#### AWS TimeStream (Time-Series Data)
+#### InfluxDB (Time-Series Data)
 **Purpose**: Store telemetry records with high throughput  
 **Responsibilities**:
 - Store all telemetry and event data
 - Enable efficient time-range and device-based queries
 - Enforce data retention and TTL policies
 
-#### API Gateway
+#### REST API Gateway
 **Purpose**: REST API frontend for dashboard and integrations  
 **Responsibilities**:
 - Accept HTTP requests from frontend with JWT tokens
@@ -106,18 +106,17 @@ Process incoming telemetry events.
 - Enforce rate limiting and throttling
 - Log requests and responses
 
+#### WebSocket API Gateway
+**Purpose**: WebSocket API frontend for dashboard and integrations  
+**Responsibilities**:
+- Push real-time data to frontend
+
 #### AWS Cognito
 **Purpose**: Manage user authentication and authorization  
 **Responsibilities**:
 - User sign-up, sign-in, and password management
 - Issue JWT tokens for authenticated requests
 - Manage user attributes (organization, role, permissions)
-
-**Configuration**:
-- **User Pool**: LightWiseUsers
-- **Clients**: React dashboard
-- **Attributes**: email, phone, organization_id, role
-- **Token Expiry**: 1 hour (access), 30 days (refresh)
 
 #### DynamoDB (Business Data)
 **Purpose**: Store organization and user data
@@ -179,36 +178,8 @@ Trigger: Sensor events (motion detected, light turned on/off, dimmed).
 12. Lambda logs metrics to CloudWatch (event counts, latencies)
 ```
 
-**Latency**: ~2-5 seconds (LoRa + MQTT + Lambda)  
+**Latency**: ~1-5 seconds (LoRaWAN + MQTT + Lambda)  
 **Throughput**: 1000+ msgs/sec (with auto-scaling)
-
-### Scenario 2: Downlink Control (User Overrides / Configuration)
-Downlink Control (User Overrides / Configuration)
-```
-1. User opens dashboard
-2. User authenticates via Cognito (OAuth2 flow)
-3. JWT access token issued (1-hour expiry)
-4. User selects a pole or global setting:
-   - Change default brightness
-   - Force light level override (e.g., 100%)
-5. Frontend calls API Gateway:
-   - Endpoint: POST /control
-   - Payload includes target pole, new setting, JWT auth
-6. API Gateway validates JWT with Cognito authorizer
-7. API Gateway invokes Lambda:control_node
-8. Lambda:
-   - Updates configuration in DynamoDB
-   - Publishes downlink command to MQTT topic: lightwise/control/<pole_id>
-9. ESP32 Node subscribes to control topic
-10. Node receives downlink:
-    - Updates local configuration
-    - Applies forced brightness override if present
-11. Node responds with acknowledgment to gateway
-12. Lambda logs control event in CloudWatch
-```
-
-**Latency**: ~500ms-2s (authentication + query + render)  
-**Typical Query**: 100-1000 records per request
 
 ---
 
@@ -234,5 +205,5 @@ Downlink Control (User Overrides / Configuration)
 
 ---
 
-**Document Version**: 2.0  
-**Last Updated**: February 17, 2026  
+**Document Version**: 2.1  
+**Last Updated**: March 10, 2026  
