@@ -318,7 +318,7 @@ Resources:
   AuthMeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.api.auth.me.handler
+      Handler: services.api.auth.handler.handler
       Events:
         AuthMe:
           Type: Api
