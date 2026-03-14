@@ -25,9 +25,17 @@ Parameters:
 Globals:
   Api:
     Cors:
-      AllowMethods: "'GET,PUT,OPTIONS'"
+      AllowMethods: "'GET,PUT,POST,OPTIONS'"
       AllowHeaders: "'Content-Type,Authorization'"
       AllowOrigin: "'*'"
+    Auth:
+      DefaultAuthorizer: CognitoAuthorizer
+      AddDefaultAuthorizerToCorsPreflight: false
+      Authorizers:
+        CognitoAuthorizer:
+          UserPoolArn: !GetAtt CognitoUserPool.Arn
+          Identity:
+            Header: Authorization
   Function:
     Runtime: python3.11
     Timeout: 15
@@ -36,7 +44,9 @@ Globals:
     Environment:
       Variables:
         ENV: !Ref Env
-        AUTH_ENABLED: false
+        AUTH_ENABLED: !Ref AuthEnabled
+        COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+        COGNITO_CLIENT_ID: !Ref CognitoAppClient
         WS_ENDPOINT: !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}"
         WS_MANAGEMENT_URL: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}"
         DYNAMO_ENDPOINT: !Ref DynamoEndpoint
@@ -51,6 +61,132 @@ Globals:
         INFLUX_BUCKET: streetlight-telemetry
 
 Resources:
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "lightwise-${Env}"
+
+      UsernameAttributes:
+        - email
+
+      AutoVerifiedAttributes:
+        - email
+
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+        InviteMessageTemplate:
+          EmailMessage: |
+            You have been invited to LightWise.
+            Your username is {username} and your temporary password is {####}.
+            Please sign in and change your password.
+          EmailSubject: "Your LightWise account"
+
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 7
+
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+
+        - Name: given_name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+
+        - Name: family_name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+
+        - Name: tenant_id
+          AttributeDataType: String
+          Required: false
+          Mutable: false
+
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+
+      MfaConfiguration: "OFF"
+
+  CognitoAdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admin
+      UserPoolId: !Ref CognitoUserPool
+      Description: "Full access — LightWise team and system administrators"
+      Precedence: 0
+
+  CognitoOperatorGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: operators
+      UserPoolId: !Ref CognitoUserPool
+      Description: "Read and control access — municipal operators"
+      Precedence: 1
+
+  CognitoAppClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "lightwise-frontend-${Env}"
+      UserPoolId: !Ref CognitoUserPool
+
+      GenerateSecret: false
+
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - phone
+        - profile
+
+      CallbackURLs:
+        - http://localhost:3001/
+
+      LogoutURLs:
+        - http://localhost:3001/login
+
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+      ReadAttributes:
+        - email
+        - given_name
+        - family_name
+        - custom:tenant_id
+
+      WriteAttributes:
+        - email
+        - given_name
+        - family_name
+
+      PreventUserExistenceErrors: ENABLED
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub "lightwise-${Env}-${AWS::AccountId}"
+      UserPoolId: !Ref CognitoUserPool
+
   WebSocketApi:
     Type: AWS::ApiGatewayV2::Api
     Properties:
@@ -178,6 +314,19 @@ Resources:
             TableName: !Ref WebSocketConnections
         - DynamoDBReadPolicy:
             TableName: !Ref UsersAndTenants
+
+  AuthMeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.api.auth.me.handler
+      Events:
+        AuthMe:
+          Type: Api
+          Properties:
+            Path: /auth/me
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
 
   ListStreetlightsFunction:
     Type: AWS::Serverless::Function
@@ -340,3 +489,12 @@ Outputs:
   RestApiEndpoint:
     Description: REST API base URL
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+  CognitoClientId:
+    Description: Cognito App Client ID
+    Value: !Ref CognitoAppClient
+  CognitoHostedUiDomain:
+    Description: Cognito Hosted UI base URL
+    Value: !Sub "https://${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
