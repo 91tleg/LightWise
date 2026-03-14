@@ -4,28 +4,13 @@ import UiIcon from "./UiIcon";
 import { LightWiseContext } from "../context/LightWiseProvider";
 import "../styles/lightwise.css";
 
-const THEME_MODE_KEY = "lightwise_theme_mode";
-
-function getAutoDarkMode() {
-  const hour = new Date().getHours();
-  return hour >= 19 || hour < 7;
-}
-
-function readThemeMode() {
-  try {
-    const saved = localStorage.getItem(THEME_MODE_KEY);
-    if (saved === "light" || saved === "dark" || saved === "auto") return saved;
-  } catch {}
-  return "auto";
-}
-
-export default function Sidebar() {
+export default function Sidebar({ theme }) {
   const location = useLocation();
-  const { operator, darkMode, setDarkMode, signOut } = useContext(LightWiseContext);
+  const { operator, signOut } = useContext(LightWiseContext);
+  const { darkMode, themeMode, setThemeMode } = theme;
 
   const [open, setOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [themeMode, setThemeModeState] = useState(() => readThemeMode());
 
   const closeTimerRef = useRef(null);
 
@@ -40,31 +25,6 @@ export default function Sidebar() {
     ],
     []
   );
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(THEME_MODE_KEY, themeMode);
-    } catch {}
-
-    if (themeMode === "light") {
-      setDarkMode(false);
-      return;
-    }
-
-    if (themeMode === "dark") {
-      setDarkMode(true);
-      return;
-    }
-
-    const applyAuto = () => {
-      setDarkMode(getAutoDarkMode());
-    };
-
-    applyAuto();
-    const interval = window.setInterval(applyAuto, 60 * 1000);
-
-    return () => window.clearInterval(interval);
-  }, [themeMode, setDarkMode]);
 
   useEffect(() => {
     return () => {
@@ -89,10 +49,6 @@ export default function Sidebar() {
     closeTimerRef.current = window.setTimeout(() => {
       setAccountOpen(false);
     }, 180);
-  }
-
-  function setThemeMode(mode) {
-    setThemeModeState(mode);
   }
 
   function handleQuickToggle() {

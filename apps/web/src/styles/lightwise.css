@@ -1724,13 +1724,9 @@ body.dark .lwThemeSwitch.isAuto .lwThemeSwitchThumb {
   background: #c4b5fd;
 }
 
-.lwMapFrameDark {
+body.dark .lwMapFrame {
   filter: grayscale(0.1) invert(0.92) hue-rotate(180deg) saturate(0.72) brightness(0.82)
     contrast(0.96);
-}
-
-.lwMapFrameLight {
-  filter: none;
 }
 
 .lwInteractiveMap {

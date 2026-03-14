@@ -1,16 +1,7 @@
-import React, { useContext, useMemo } from "react";
+import React, { useMemo } from "react";
 import Legend from "./Legend";
 import { DEFAULT_CENTER, isValidCoord, pickBestCenter } from "../utils/poleHelpers";
-import { LightWiseContext } from "../context/LightWiseProvider";
-
-function toneForPole(pole) {
-  if (pole?.motion_detected) return "motion";
-
-  const health = String(pole?.health || "").toUpperCase();
-  if (health === "CRITICAL") return "critical";
-  if (health === "WARNING" || health === "DEGRADED") return "warning";
-  return "healthy";
-}
+import { toneForPole } from "../utils/poleState";
 
 function buildMapBounds(validPoles, center) {
   const coords = [
@@ -69,12 +60,8 @@ function getMotionFocusPoint(pole, focusLat, focusLng) {
     return { lat: directLat, lng: directLng };
   }
 
-  const poleLat = toFiniteNumber(
-    pole?.motion_focus_lat ?? pole?.motion_lat ?? pole?.detected_lat
-  );
-  const poleLng = toFiniteNumber(
-    pole?.motion_focus_lng ?? pole?.motion_lng ?? pole?.detected_lng
-  );
+  const poleLat = toFiniteNumber(pole?.motion_focus_lat);
+  const poleLng = toFiniteNumber(pole?.motion_focus_lng);
 
   if (poleLat != null && poleLng != null) {
     return { lat: poleLat, lng: poleLng };
@@ -110,8 +97,6 @@ export default function MapEmbed({
   focusRadiusMeters = 30,
   forceNativePin = false,
 }) {
-  const { darkMode } = useContext(LightWiseContext);
-
   const validPoles = useMemo(() => {
     return (Array.isArray(poles) ? poles : []).filter(
       (pole) => isValidCoord(pole?.lat) && isValidCoord(pole?.lng)
@@ -182,10 +167,7 @@ export default function MapEmbed({
 
   const zoomLevel = useMemo(() => {
     if (hasMotionFocus) {
-      const radius =
-        activePole?.motion_focus_radius_m ??
-        activePole?.motion_radius_m ??
-        focusRadiusMeters;
+      const radius = activePole?.motion_focus_radius_m ?? focusRadiusMeters;
       return getMotionZoom(radius);
     }
 
@@ -194,7 +176,6 @@ export default function MapEmbed({
     return validPoles.length > 1 ? 13 : 16;
   }, [
     activePole?.motion_focus_radius_m,
-    activePole?.motion_radius_m,
     focusRadiusMeters,
     forceNativePin,
     hasMotionFocus,
@@ -221,7 +202,7 @@ export default function MapEmbed({
         <>
           <iframe
             title={title}
-            className={`lwMapFrame ${darkMode ? "lwMapFrameDark" : "lwMapFrameLight"}`}
+            className="lwMapFrame"
             src={mapSrc}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"

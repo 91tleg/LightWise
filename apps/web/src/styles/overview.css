@@ -212,6 +212,12 @@
   color: #b91c1c;
 }
 
+.lwMetricBadge.active {
+  background: rgba(14, 116, 144, 0.14);
+  border-color: rgba(14, 116, 144, 0.22);
+  color: #0f5f78;
+}
+
 /* ================= POLE LIST ================= */
 .lwPoleList {
   display: grid;
@@ -340,6 +346,10 @@
   background: #22c55e;
 }
 
+.lwMapMarker-neutral .lwMapMarkerCore {
+  background: #94a3b8;
+}
+
 .lwMapMarker-warning .lwMapMarkerCore {
   background: #f59e0b;
 }
@@ -348,7 +358,7 @@
   background: #ef4444;
 }
 
-.lwMapMarker-motion .lwMapMarkerCore {
+.lwMapMarker-active .lwMapMarkerCore {
   background: #2563eb;
   animation: lwPulse 1.6s infinite;
 }
@@ -584,6 +594,11 @@
   color: #b42318;
 }
 
+.lwActivityIcon.active {
+  background: #e3f4fb;
+  color: #0b63a6;
+}
+
 .lwActivityMain {
   min-width: 0;
   display: grid;
@@ -647,6 +662,12 @@
   background: #fdeaea;
   color: #b42318;
   border-color: rgba(229, 145, 145, 0.35);
+}
+
+.lwActivityValue.active {
+  background: #e3f4fb;
+  color: #0b63a6;
+  border-color: rgba(81, 154, 207, 0.35);
 }
 
 .lwActivityNote {
@@ -960,6 +981,12 @@ body.dark .lwMetricBadge.critical {
   color: #ff9a9a;
 }
 
+body.dark .lwMetricBadge.active {
+  background: rgba(34, 211, 238, 0.16);
+  border-color: rgba(34, 211, 238, 0.24);
+  color: #89e5f4;
+}
+
 body.dark .lwPoleListItem {
   background: linear-gradient(180deg, rgba(12, 25, 41, 0.98), rgba(9, 20, 33, 0.97));
   border-color: rgba(148, 163, 184, 0.12);
@@ -1045,6 +1072,11 @@ body.dark .lwActivityIcon.critical {
   color: #ff9a9a;
 }
 
+body.dark .lwActivityIcon.active {
+  background: rgba(34, 211, 238, 0.16);
+  color: #89e5f4;
+}
+
 body.dark .lwActivityLabel {
   color: #eef5ff;
 }
@@ -1077,6 +1109,12 @@ body.dark .lwActivityValue.critical {
   background: rgba(239, 68, 68, 0.16);
   color: #ff9a9a;
   border-color: rgba(239, 68, 68, 0.22);
+}
+
+body.dark .lwActivityValue.active {
+  background: rgba(34, 211, 238, 0.16);
+  color: #89e5f4;
+  border-color: rgba(34, 211, 238, 0.22);
 }
 
 body.dark .lwActivityNote {

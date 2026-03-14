@@ -1,9 +1,11 @@
 import React from "react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
+import { useDarkMode } from "../hooks/useDarkMode";
 import "../styles/lightwise.css";
 
 export default function Layout({ title, subtitle, children, backgroundImage }) {
+  const theme = useDarkMode();
   const pageStyle = backgroundImage
     ? {
         backgroundImage: `url(${backgroundImage})`,
@@ -22,7 +24,7 @@ export default function Layout({ title, subtitle, children, backgroundImage }) {
 
   return (
     <div className="lwAppShell">
-      <Sidebar />
+      <Sidebar theme={theme} />
       <TopBar />
 
       <div className="lwMainShell">

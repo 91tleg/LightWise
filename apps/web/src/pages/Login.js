@@ -94,7 +94,7 @@ export default function Login({ mode = "page" }) {
 
         const email = claims?.email || "operator@lightwise.local";
 
-        localStorage.setItem(
+        sessionStorage.setItem(
           "lightwise_auth",
           JSON.stringify({
             isAuthenticated: true,
@@ -104,7 +104,7 @@ export default function Login({ mode = "page" }) {
           })
         );
 
-        localStorage.setItem(
+        sessionStorage.setItem(
           "lightwise_operator",
           JSON.stringify({
             name,

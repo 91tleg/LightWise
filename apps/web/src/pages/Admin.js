@@ -1,425 +1,79 @@
-import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import ActivityFeed from "../components/ActivityFeed";
 import BubbleCard from "../components/BubbleCard";
 import AdminWsControls from "../components/AdminWsControls";
 import MapEmbed from "../components/MapEmbed.js";
 import UiIcon from "../components/UiIcon";
-import { LightWiseContext } from "../context/LightWiseProvider";
-import {
-  updateStreetlightMetadata,
-  getStreetlightTelemetry,
-} from "../services/api";
-import { loadPoleMetaMap, upsertPoleMeta } from "../services/poleStorage";
-import { writeActivePoleId } from "../services/activePoleStorage";
-import { normalizeTelemetryRows } from "./analytics.helpers";
+import SkeletonValue from "../components/SkeletonValue";
+import { useLightWise } from "../hooks/useLightWise";
+import { useLivePoleData } from "../hooks/useLivePoleData";
+import { usePoleMetadata } from "../hooks/usePoleMetadata";
+import { readActivePoleId } from "../services/activePoleStorage";
+import { motionLabel } from "../utils/poleState";
+import { formatTimestamp } from "../utils/formatters";
 import "../styles/lightwise.css";
 import "../styles/admin.css";
 
-const DEFAULT_POLE_ID = "LW-00042";
-
-function clampPct(x) {
-  const n = Number(x);
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-function asNumberOrNull(v) {
-  if (v === "" || v === null || v === undefined) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function formatTimestamp(ts) {
-  if (!ts) return "Waiting for data";
-  const d = new Date(ts);
-  if (!Number.isFinite(d.getTime())) return String(ts);
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function validateCoordinate(value, type) {
-  if (!String(value || "").trim()) return "";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return `${type} must be a valid number.`;
-  if (type === "Latitude" && (num < -90 || num > 90)) {
-    return "Latitude must be between -90 and 90.";
-  }
-  if (type === "Longitude" && (num < -180 || num > 180)) {
-    return "Longitude must be between -180 and 180.";
-  }
-  return "";
-}
-
-function SkeletonValue({ active, value }) {
-  if (active) return <span className="lwSkeletonLine" aria-hidden="true" />;
-  return <span className="lwSensorValue">{value}</span>;
-}
-
-function hasOwn(obj, key) {
-  return Object.prototype.hasOwnProperty.call(obj || {}, key);
-}
-
-function mergeLocalMeta(pole, localMeta) {
-  const local = localMeta[pole.streetlight_id] || {};
-  return {
-    ...pole,
-    name: hasOwn(local, "name") ? local.name : pole.name,
-    lat: hasOwn(local, "lat") ? local.lat : pole.lat,
-    lng: hasOwn(local, "lng") ? local.lng : pole.lng,
-  };
-}
-
-function buildFallbackPole(id = DEFAULT_POLE_ID, localMeta = {}) {
-  const local = localMeta[id] || {};
-  return {
-    streetlight_id: id,
-    name: hasOwn(local, "name") ? local.name : null,
-    health: "OK",
-    lat: hasOwn(local, "lat") ? local.lat : 47.6101,
-    lng: hasOwn(local, "lng") ? local.lng : -122.2015,
-    motion_detected: false,
-    light_level: 0,
-    last_seen: null,
-    temp_c: null,
-    humidity: null,
-    lux: null,
-  };
-}
-
-function getFormValuesForPole(pole, metaMap) {
-  const local = metaMap[pole?.streetlight_id] || {};
-  return {
-    name: hasOwn(local, "name") ? local.name || "" : pole?.name || "",
-    lat: hasOwn(local, "lat")
-      ? local.lat == null
-        ? ""
-        : String(local.lat)
-      : pole?.lat != null
-      ? String(pole.lat)
-      : "",
-    lng: hasOwn(local, "lng")
-      ? local.lng == null
-        ? ""
-        : String(local.lng)
-      : pole?.lng != null
-      ? String(pole.lng)
-      : "",
-  };
-}
-
 export default function Admin() {
-  const { wsStatus, lastMessage, subscribe, streetlights, applyStreetlightLocalPatch } =
-    useContext(LightWiseContext);
-
-  const [selectedId, setSelectedId] = useState(DEFAULT_POLE_ID);
-  const [metaMap, setMetaMap] = useState(() => loadPoleMetaMap());
-  const [events, setEvents] = useState([]);
-  const [latestTelemetry, setLatestTelemetry] = useState(null);
-  const [telemetryLoading, setTelemetryLoading] = useState(false);
-
-  const [nameInput, setNameInput] = useState("");
-  const [latInput, setLatInput] = useState("");
-  const [lngInput, setLngInput] = useState("");
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [saveState, setSaveState] = useState("idle");
-  const [saveMsg, setSaveMsg] = useState("");
-
-  const selectedIdRef = useRef(DEFAULT_POLE_ID);
-  const lastLoadedPoleIdRef = useRef(null);
-
-  useEffect(() => {
-    selectedIdRef.current = selectedId;
-  }, [selectedId]);
-
-  useEffect(() => {
-    if (selectedId) writeActivePoleId(selectedId);
-  }, [selectedId]);
+  const { wsStatus, subscribe } = useLightWise();
+  const [selectedId, setSelectedId] = useState(() => readActivePoleId(null));
+  const {
+    mapPoles,
+    selectedBase,
+    nameInput,
+    setNameInput,
+    latInput,
+    setLatInput,
+    lngInput,
+    setLngInput,
+    setIsEditing,
+    saveState,
+    saveMsg,
+    latError,
+    lngError,
+    formValid,
+    previewLat,
+    previewLng,
+    handleSaveMetadata,
+    handleClearCoords,
+  } = usePoleMetadata(selectedId);
+  const { live, events, telemetryLoading, telemetryError } = useLivePoleData(selectedId);
 
   useEffect(() => {
-    const refreshLocal = () => setMetaMap(loadPoleMetaMap());
-    window.addEventListener("focus", refreshLocal);
-    return () => window.removeEventListener("focus", refreshLocal);
-  }, []);
-
-  const mapPoles = useMemo(() => {
-    const base = streetlights.length
-      ? streetlights
-      : [buildFallbackPole(selectedId, metaMap)];
-
-    return base.map((pole) => mergeLocalMeta(pole, metaMap));
-  }, [streetlights, selectedId, metaMap]);
-
-  useEffect(() => {
-    if (!mapPoles.length) return;
-
-    if (!mapPoles.some((row) => row.streetlight_id === selectedIdRef.current)) {
-      setSelectedId(mapPoles[0]?.streetlight_id || DEFAULT_POLE_ID);
-    }
-  }, [mapPoles]);
-
-  const selectedBase = useMemo(() => {
-    return (
-      mapPoles.find((pole) => pole.streetlight_id === selectedId) ||
-      mapPoles[0] ||
-      buildFallbackPole(selectedId, metaMap)
-    );
-  }, [mapPoles, selectedId, metaMap]);
-
-  useEffect(() => {
-    if (!selectedBase) return;
-
-    const selectedPoleId = selectedBase.streetlight_id;
-    const poleChanged = lastLoadedPoleIdRef.current !== selectedPoleId;
-
-    if (poleChanged || !isEditing) {
-      const formValues = getFormValuesForPole(selectedBase, metaMap);
-      setNameInput(formValues.name);
-      setLatInput(formValues.lat);
-      setLngInput(formValues.lng);
-      lastLoadedPoleIdRef.current = selectedPoleId;
-      setIsEditing(false);
-    }
-  }, [selectedBase?.streetlight_id, metaMap]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadLatestTelemetry() {
-      if (!selectedId) {
-        setLatestTelemetry(null);
-        return;
-      }
-
-      setTelemetryLoading(true);
-
-      const to = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-      const from = new Date(Date.now() - 24 * 60 * 60 * 1000)
-        .toISOString()
-        .replace(/\.\d{3}Z$/, "Z");
-
-      try {
-        const payload = await getStreetlightTelemetry(selectedId, {
-          from,
-          to,
-          interval: "1h",
-        });
-
-        if (cancelled) return;
-
-        const rows = normalizeTelemetryRows(payload);
-        const latest = rows.length ? rows[rows.length - 1] : null;
-        setLatestTelemetry(latest);
-      } catch {
-        if (!cancelled) setLatestTelemetry(null);
-      } finally {
-        if (!cancelled) setTelemetryLoading(false);
-      }
+    if (!mapPoles.length) {
+      if (selectedId !== null) setSelectedId(null);
+      return;
     }
 
-    loadLatestTelemetry();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
-
-  const live = useMemo(() => {
-    const wsForSelected =
-      lastMessage && lastMessage.streetlight_id === selectedId ? lastMessage : null;
-
-    if (wsForSelected) {
-      return {
-        motion:
-          typeof wsForSelected?.data?.motion === "boolean"
-            ? wsForSelected.data.motion
-            : typeof wsForSelected?.motion === "boolean"
-            ? wsForSelected.motion
-            : null,
-        lightPct: clampPct(
-          wsForSelected?.data?.light_level ??
-            wsForSelected?.light_level ??
-            selectedBase?.light_level ??
-            latestTelemetry?.light_level ??
-            0
-        ),
-        lux:
-          wsForSelected?.data?.lux ??
-          wsForSelected?.lux ??
-          latestTelemetry?.lux ??
-          selectedBase?.lux ??
-          null,
-        tempC:
-          wsForSelected?.data?.temp_c ??
-          wsForSelected?.temp_c ??
-          latestTelemetry?.temp_c ??
-          selectedBase?.temp_c ??
-          null,
-        humidity:
-          wsForSelected?.data?.humidity ??
-          wsForSelected?.humidity ??
-          latestTelemetry?.humidity ??
-          selectedBase?.humidity ??
-          null,
-        health: wsForSelected?.health || selectedBase?.health || "OK",
-        timestamp:
-          wsForSelected?.timestamp ||
-          latestTelemetry?.timestamp ||
-          selectedBase?.last_seen ||
-          null,
-      };
+    if (!mapPoles.some((pole) => pole.streetlight_id === selectedId)) {
+      setSelectedId(mapPoles[0]?.streetlight_id || null);
     }
+  }, [mapPoles, selectedId]);
 
-    if (latestTelemetry || selectedBase) {
-      return {
-        motion:
-          typeof latestTelemetry?.motion === "boolean"
-            ? latestTelemetry.motion
-            : typeof selectedBase?.motion_detected === "boolean"
-            ? selectedBase.motion_detected
-            : null,
-        lightPct: clampPct(
-          latestTelemetry?.light_level ?? selectedBase?.light_level ?? 0
-        ),
-        lux: latestTelemetry?.lux ?? selectedBase?.lux ?? null,
-        tempC: latestTelemetry?.temp_c ?? selectedBase?.temp_c ?? null,
-        humidity: latestTelemetry?.humidity ?? selectedBase?.humidity ?? null,
-        health: latestTelemetry?.health || selectedBase?.health || "OK",
-        timestamp: latestTelemetry?.timestamp || selectedBase?.last_seen || null,
-      };
-    }
-
-    return null;
-  }, [lastMessage, selectedId, selectedBase, latestTelemetry]);
-
-  useEffect(() => {
-    if (!lastMessage || lastMessage.streetlight_id !== selectedId) return;
-
-    const item = {
-      id: `${selectedId}-${lastMessage.timestamp || Date.now()}`,
-      type: "update",
-      label:
-        typeof live?.motion === "boolean"
-          ? live.motion
-            ? "Motion detected"
-            : "Motion cleared"
-          : "Sensor update",
-      streetlightId: selectedId,
-      timestamp: lastMessage.timestamp || new Date().toISOString(),
-      value:
-        typeof live?.lightPct === "number" ? `${live.lightPct}%` : "Updated",
-      note: live?.health ? `Health ${live.health}` : undefined,
-    };
-
-    setEvents((prev) => [item, ...prev].slice(0, 15));
-  }, [lastMessage, selectedId, live]);
-
-  const latError = validateCoordinate(latInput, "Latitude");
-  const lngError = validateCoordinate(lngInput, "Longitude");
-  const formValid = !latError && !lngError;
-
-  async function handleSaveMetadata() {
-    if (!selectedId || !formValid) return;
-
-    setSaveState("saving");
-    setSaveMsg("");
-
-    const patch = {
-      name: nameInput.trim() || null,
-      lat: latInput.trim() ? Number(latInput) : null,
-      lng: lngInput.trim() ? Number(lngInput) : null,
-    };
-
-    upsertPoleMeta(selectedId, patch);
-    const nextMeta = loadPoleMetaMap();
-    setMetaMap(nextMeta);
-    applyStreetlightLocalPatch(selectedId, patch);
-
-    try {
-      await updateStreetlightMetadata(selectedId, patch);
-      setSaveState("saved");
-      setSaveMsg("Changes saved");
-    } catch {
-      setSaveState("saved");
-      setSaveMsg("Saved locally · server sync unavailable");
-    }
-
-    setIsEditing(false);
-
-    setTimeout(() => {
-      setSaveState("idle");
-      setSaveMsg("");
-    }, 1600);
-  }
-
-  async function handleClearCoords() {
-    if (!selectedId) return;
-
-    setSaveState("saving");
-    setSaveMsg("");
-
-    const existing = metaMap[selectedId] || {};
-    const patch = {
-      name: hasOwn(existing, "name")
-        ? existing.name
-        : selectedBase?.name || null,
-      lat: null,
-      lng: null,
-    };
-
-    upsertPoleMeta(selectedId, patch);
-    const nextMeta = loadPoleMetaMap();
-    setMetaMap(nextMeta);
-
-    setLatInput("");
-    setLngInput("");
-    setIsEditing(false);
-
-    applyStreetlightLocalPatch(selectedId, { lat: null, lng: null });
-
-    try {
-      await updateStreetlightMetadata(selectedId, { lat: null, lng: null });
-      setSaveState("saved");
-      setSaveMsg("Coordinates cleared");
-    } catch {
-      setSaveState("saved");
-      setSaveMsg("Coordinates cleared locally");
-    }
-
-    setTimeout(() => {
-      setSaveState("idle");
-      setSaveMsg("");
-    }, 1600);
-  }
-
-  const mapLat = isEditing
-    ? asNumberOrNull(latInput) ?? selectedBase?.lat ?? 47.6101
-    : selectedBase?.lat ?? 47.6101;
-
-  const mapLng = isEditing
-    ? asNumberOrNull(lngInput) ?? selectedBase?.lng ?? -122.2015
-    : selectedBase?.lng ?? -122.2015;
-
-  const lightPct = live?.lightPct ?? selectedBase?.light_level ?? 0;
-  const healthText = live?.health || selectedBase?.health || "OK";
-
-  const motionText =
+  const motionState =
     typeof live?.motion === "boolean"
       ? live.motion
-        ? "Detected"
-        : "Clear"
       : typeof selectedBase?.motion_detected === "boolean"
       ? selectedBase.motion_detected
-        ? "Detected"
-        : "Clear"
-      : "Clear";
+      : null;
+  const motionText =
+    typeof motionState === "boolean" ? motionLabel(motionState) : "Waiting for data";
+  const lightPct = live?.lightPct ?? selectedBase?.light_level ?? 0;
+  const lightText =
+    live?.lightPct != null || selectedBase?.light_level != null
+      ? `${lightPct}%`
+      : "Waiting for data";
+  const healthText = live?.health || selectedBase?.health || "Waiting for data";
   const loadingSensors = telemetryLoading && !live;
-  const mapKey = `${selectedId}-${mapLat}-${mapLng}`;
+  const sensorSubtitle = telemetryError
+    ? "Telemetry fetch failed. Waiting for live updates."
+    : live
+    ? "Active sensor stream"
+    : "Waiting for sensor updates";
+  const selectedLabel = useMemo(() => {
+    return nameInput || selectedBase?.name || "Unnamed pole";
+  }, [nameInput, selectedBase?.name]);
 
   return (
     <Layout title="Admin" subtitle="Configuration and rules for active devices.">
@@ -451,9 +105,9 @@ export default function Admin() {
                 <label className="lwLabel">Streetlight</label>
                 <select
                   className="lwInput lwAdminInput"
-                  value={selectedId}
+                  value={selectedId || ""}
                   onChange={(e) => {
-                    setSelectedId(e.target.value);
+                    setSelectedId(e.target.value || null);
                     setIsEditing(false);
                   }}
                 >
@@ -524,7 +178,7 @@ export default function Admin() {
                   className="lwAdminPrimaryBtn"
                   type="button"
                   onClick={handleSaveMetadata}
-                  disabled={saveState === "saving" || !formValid}
+                  disabled={saveState === "saving" || !formValid || !selectedId}
                 >
                   <UiIcon name="save" size={16} />
                   <span>{saveState === "saving" ? "Saving..." : "Save Changes"}</span>
@@ -534,7 +188,7 @@ export default function Admin() {
                   className="lwAdminSecondaryBtn"
                   type="button"
                   onClick={handleClearCoords}
-                  disabled={saveState === "saving"}
+                  disabled={saveState === "saving" || !selectedId}
                 >
                   Clear Coordinates
                 </button>
@@ -548,14 +202,14 @@ export default function Admin() {
             <BubbleCard
               icon={<UiIcon name="activity" size={22} />}
               title="Live Sensor Readings"
-              sub={live ? "Active sensor stream" : "Waiting for sensor updates"}
+              sub={sensorSubtitle}
             >
               <div className="lwSensorGrid">
                 <div className="lwSensorRow">
                   <span>Lux</span>
                   <SkeletonValue
                     active={loadingSensors}
-                    value={live?.lux ?? "Waiting for data"}
+                    value={live?.lux ?? (telemetryError ? "Unavailable" : "Waiting for data")}
                   />
                 </div>
 
@@ -563,7 +217,13 @@ export default function Admin() {
                   <span>Temperature</span>
                   <SkeletonValue
                     active={loadingSensors}
-                    value={live?.tempC != null ? `${live.tempC}°C` : "Waiting for data"}
+                    value={
+                      live?.tempC != null
+                        ? `${live.tempC}°C`
+                        : telemetryError
+                        ? "Unavailable"
+                        : "Waiting for data"
+                    }
                   />
                 </div>
 
@@ -571,7 +231,13 @@ export default function Admin() {
                   <span>Humidity</span>
                   <SkeletonValue
                     active={loadingSensors}
-                    value={live?.humidity != null ? `${live.humidity}%` : "Waiting for data"}
+                    value={
+                      live?.humidity != null
+                        ? `${live.humidity}%`
+                        : telemetryError
+                        ? "Unavailable"
+                        : "Waiting for data"
+                    }
                   />
                 </div>
 
@@ -583,6 +249,13 @@ export default function Admin() {
                   />
                 </div>
               </div>
+
+              {telemetryError ? (
+                <div className="lwAdminStatusMsg error">
+                  Telemetry history is unavailable right now. Live WebSocket updates will still
+                  appear here.
+                </div>
+              ) : null}
             </BubbleCard>
 
             <BubbleCard
@@ -602,16 +275,16 @@ export default function Admin() {
             >
               <div className="lwAdminMetricList">
                 <div>
-                  <b>Streetlight:</b> {selectedId}
+                  <b>Streetlight:</b> {selectedId || "Waiting for selection"}
                 </div>
                 <div>
-                  <b>Display Name:</b> {nameInput || selectedBase?.name || "Unnamed pole"}
+                  <b>Display Name:</b> {selectedLabel}
                 </div>
                 <div>
                   <b>Motion:</b> {motionText}
                 </div>
                 <div>
-                  <b>Brightness Level:</b> {lightPct}%
+                  <b>Brightness Level:</b> {lightText}
                 </div>
                 <div>
                   <b>Health:</b> {healthText}
@@ -633,11 +306,10 @@ export default function Admin() {
             >
               <div className="lwAdminMapShell">
                 <MapEmbed
-                  key={mapKey}
                   title="Selected pole location"
                   fillHeight
-                  lat={mapLat}
-                  lng={mapLng}
+                  lat={previewLat}
+                  lng={previewLng}
                   poles={mapPoles}
                   selectedId={selectedId}
                   onSelectPole={(pole) => setSelectedId(pole.streetlight_id)}
