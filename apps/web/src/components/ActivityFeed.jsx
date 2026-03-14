@@ -3,11 +3,13 @@ import UiIcon from "./UiIcon";
 import { formatTimestamp } from "../utils/formatters";
 
 function getEventTone(event) {
+  if (event?.tone) return event.tone;
+
   const text = `${event?.label || ""} ${event?.note || ""}`.toLowerCase();
 
   if (text.includes("critical") || text.includes("fault")) return "critical";
   if (text.includes("warning") || text.includes("degraded")) return "warning";
-  if (text.includes("motion detected")) return "warning";
+  if (text.includes("motion detected")) return "active";
   if (text.includes("motion cleared")) return "healthy";
   if (text.includes("connected")) return "healthy";
   return "neutral";

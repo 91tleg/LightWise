@@ -17,22 +17,39 @@ export function isValidCoord(value) {
  * Keep this strict so the frontend matches the Lambda response schema.
  */
 export function normalizeStreetlightFromApi(pole, index = 0) {
-  const id =
-    pole?.streetlight_id || `LW-${String(index + 1).padStart(5, "0")}`;
+  const id = pole?.streetlight_id || `LW-${String(index + 1).padStart(5, "0")}`;
 
   return {
     streetlight_id: id,
+    tenant_id: pole?.tenant_id ?? null,
     name: pole?.name ?? null,
-    health: pole?.health ?? "OK",
+    health: pole?.health ?? null,
     lat: pole?.lat ?? null,
     lng: pole?.lng ?? null,
     motion_detected:
       typeof pole?.motion_detected === "boolean" ? pole.motion_detected : null,
     light_level:
-      typeof pole?.light_level === "number" ? pole.light_level : 0,
+      typeof pole?.light_level === "number" ? pole.light_level : null,
     last_seen: pole?.last_seen ?? null,
+    ambient_primary_ok:
+      typeof pole?.ambient_primary_ok === "boolean" ? pole.ambient_primary_ok : null,
+    ambient_secondary_ok:
+      typeof pole?.ambient_secondary_ok === "boolean"
+        ? pole.ambient_secondary_ok
+        : null,
+    th_ok: typeof pole?.th_ok === "boolean" ? pole.th_ok : null,
+    motion_primary_ok:
+      typeof pole?.motion_primary_ok === "boolean" ? pole.motion_primary_ok : null,
+    motion_secondary_ok:
+      typeof pole?.motion_secondary_ok === "boolean"
+        ? pole.motion_secondary_ok
+        : null,
     temp_c: pole?.temp_c ?? null,
     humidity: pole?.humidity ?? null,
+    lux: pole?.lux ?? null,
+    motion_focus_lat: pole?.motion_focus_lat ?? null,
+    motion_focus_lng: pole?.motion_focus_lng ?? null,
+    motion_focus_radius_m: pole?.motion_focus_radius_m ?? null,
   };
 }
 
@@ -47,20 +64,21 @@ export function mergeLocalMetaIntoPole(pole, localMeta = {}) {
   };
 }
 
-export function buildFallbackPole(id = "LW-00042", localMeta = {}) {
+export function buildFallbackPole(id, localMeta = {}) {
   const local = localMeta[id] || {};
 
   return {
-    streetlight_id: id,
+    streetlight_id: id || "",
     name: hasOwn(local, "name") ? local.name : null,
-    health: "OK",
-    lat: hasOwn(local, "lat") ? local.lat : DEFAULT_CENTER.lat,
-    lng: hasOwn(local, "lng") ? local.lng : DEFAULT_CENTER.lng,
-    motion_detected: false,
-    light_level: 0,
+    health: null,
+    lat: hasOwn(local, "lat") ? local.lat : null,
+    lng: hasOwn(local, "lng") ? local.lng : null,
+    motion_detected: null,
+    light_level: null,
     last_seen: null,
     temp_c: null,
     humidity: null,
+    lux: null,
   };
 }
 
@@ -93,14 +111,15 @@ export function buildLocalOnlyPoles(localMeta = {}) {
     return {
       streetlight_id: id,
       name: hasOwn(local, "name") ? local.name : "Unnamed pole",
-      health: "OK",
+      health: null,
       lat: hasOwn(local, "lat") ? local.lat : null,
       lng: hasOwn(local, "lng") ? local.lng : null,
-      light_level: 0,
-      motion_detected: false,
+      light_level: null,
+      motion_detected: null,
       last_seen: null,
       temp_c: null,
       humidity: null,
+      lux: null,
     };
   });
 }

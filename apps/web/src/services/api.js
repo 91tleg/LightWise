@@ -1,4 +1,5 @@
 import { loadPoleMetaMap } from "./poleStorage";
+import { normalizeStreetlightFromApi } from "../utils/poleHelpers";
 
 function env() {
   return {
@@ -100,49 +101,7 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
 }
 
 function normalizeStreetlight(row, index = 0) {
-  const id =
-    row?.streetlight_id ||
-    row?.id ||
-    row?.pole_id ||
-    row?.device_id ||
-    row?.streetlightId ||
-    `LW-${String(index + 1).padStart(5, "0")}`;
-
-  return {
-    ...row,
-    streetlight_id: id,
-    tenant_id: row?.tenant_id || null,
-    health: row?.health || row?.status || "OK",
-    lat:
-      row?.lat ??
-      row?.latitude ??
-      row?.location?.lat ??
-      row?.location?.latitude ??
-      null,
-    lng:
-      row?.lng ??
-      row?.longitude ??
-      row?.location?.lng ??
-      row?.location?.longitude ??
-      null,
-    name: row?.name || row?.display_name || row?.label || null,
-    last_seen: row?.last_seen || row?.timestamp || row?.updated_at || null,
-    motion_detected:
-      typeof row?.motion_detected === "boolean"
-        ? row.motion_detected
-        : typeof row?.motion === "boolean"
-        ? row.motion
-        : false,
-    ambient_primary_ok:
-      typeof row?.ambient_primary_ok === "boolean" ? row.ambient_primary_ok : true,
-    ambient_secondary_ok:
-      typeof row?.ambient_secondary_ok === "boolean" ? row.ambient_secondary_ok : true,
-    th_ok: typeof row?.th_ok === "boolean" ? row.th_ok : true,
-    motion_primary_ok:
-      typeof row?.motion_primary_ok === "boolean" ? row.motion_primary_ok : true,
-    motion_secondary_ok:
-      typeof row?.motion_secondary_ok === "boolean" ? row.motion_secondary_ok : true,
-  };
+  return normalizeStreetlightFromApi(row, index);
 }
 
 function mergeLocalMeta(streetlights) {

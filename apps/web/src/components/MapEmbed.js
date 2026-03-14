@@ -1,167 +1,260 @@
 import React, { useMemo } from "react";
 import Legend from "./Legend";
+import { DEFAULT_CENTER, isValidCoord, pickBestCenter } from "../utils/poleHelpers";
+import { toneForPole } from "../utils/poleState";
 
-function toNumber(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+function buildMapBounds(validPoles, center) {
+  const coords = [
+    ...validPoles.map((pole) => ({
+      lat: Number(pole.lat),
+      lng: Number(pole.lng),
+    })),
+    center,
+  ];
 
-function normalizeMarkers(poles = [], fallbackLat, fallbackLng) {
-  const valid = (Array.isArray(poles) ? poles : [])
-    .map((pole) => ({
-      ...pole,
-      lat: toNumber(pole?.lat),
-      lng: toNumber(pole?.lng),
-    }))
-    .filter((pole) => pole.lat != null && pole.lng != null);
+  const minLat = Math.min(...coords.map((item) => item.lat));
+  const maxLat = Math.max(...coords.map((item) => item.lat));
+  const minLng = Math.min(...coords.map((item) => item.lng));
+  const maxLng = Math.max(...coords.map((item) => item.lng));
 
-  if (!valid.length && toNumber(fallbackLat) != null && toNumber(fallbackLng) != null) {
-    return [
-      {
-        streetlight_id: "selected",
-        name: "Selected pole",
-        lat: toNumber(fallbackLat),
-        lng: toNumber(fallbackLng),
-        health: "OK",
-      },
-    ];
-  }
-
-  return valid;
-}
-
-function getBounds(markers, lat, lng) {
-  const all = normalizeMarkers(markers, lat, lng);
-
-  if (!all.length) {
-    return {
-      markers: [],
-      minLat: 47.603,
-      maxLat: 47.617,
-      minLng: -122.209,
-      maxLng: -122.191,
-    };
-  }
-
-  const lats = all.map((m) => m.lat);
-  const lngs = all.map((m) => m.lng);
+  const latPad = Math.max((maxLat - minLat) * 0.18, 0.0035);
+  const lngPad = Math.max((maxLng - minLng) * 0.18, 0.0035);
 
   return {
-    markers: all,
-    minLat: Math.min(...lats) - 0.002,
-    maxLat: Math.max(...lats) + 0.002,
-    minLng: Math.min(...lngs) - 0.002,
-    maxLng: Math.max(...lngs) + 0.002,
+    minLat: minLat - latPad,
+    maxLat: maxLat + latPad,
+    minLng: minLng - lngPad,
+    maxLng: maxLng + lngPad,
   };
 }
 
-function markerTone(health, motion) {
-  const value = String(health || "").toUpperCase();
-  if (motion) return "motion";
-  if (value === "CRITICAL") return "critical";
-  if (value === "DEGRADED" || value === "WARNING") return "warning";
-  return "healthy";
+function getMarkerPosition(pole, bounds) {
+  const lat = Number(pole?.lat);
+  const lng = Number(pole?.lng);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { left: "50%", top: "50%" };
+  }
+
+  const latSpan = Math.max(bounds.maxLat - bounds.minLat, 0.0001);
+  const lngSpan = Math.max(bounds.maxLng - bounds.minLng, 0.0001);
+
+  const left = ((lng - bounds.minLng) / lngSpan) * 100;
+  const top = (1 - (lat - bounds.minLat) / latSpan) * 100;
+
+  return {
+    left: `${Math.min(94, Math.max(6, left)).toFixed(2)}%`,
+    top: `${Math.min(92, Math.max(10, top)).toFixed(2)}%`,
+  };
+}
+
+function toFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function getMotionFocusPoint(pole, focusLat, focusLng) {
+  const directLat = toFiniteNumber(focusLat);
+  const directLng = toFiniteNumber(focusLng);
+  if (directLat != null && directLng != null) {
+    return { lat: directLat, lng: directLng };
+  }
+
+  const poleLat = toFiniteNumber(pole?.motion_focus_lat);
+  const poleLng = toFiniteNumber(pole?.motion_focus_lng);
+
+  if (poleLat != null && poleLng != null) {
+    return { lat: poleLat, lng: poleLng };
+  }
+
+  return null;
+}
+
+function getMotionZoom(radiusMeters = 30) {
+  const radius = Number(radiusMeters);
+  if (!Number.isFinite(radius) || radius <= 20) return 21;
+  if (radius <= 35) return 20;
+  if (radius <= 70) return 19;
+  if (radius <= 150) return 18;
+  return 17;
 }
 
 export default function MapEmbed({
-  title = "Map",
-  height = 360,
-  lat = null,
-  lng = null,
-  zoom = 16,
+  title = "Network map",
+  height = 560,
+  fillHeight = true,
+  lat,
+  lng,
   poles = [],
-  selectedId,
+  selectedId = null,
   onSelectPole,
+  interactive = false,
   showLegend = false,
   showInfo = true,
-  interactive = false,
-  fillHeight = false,
+  motionDetected = false,
+  focusLat = null,
+  focusLng = null,
+  focusRadiusMeters = 30,
+  forceNativePin = false,
 }) {
-  const bounds = useMemo(() => getBounds(poles, lat, lng), [poles, lat, lng]);
-
-  const src = useMemo(() => {
-    const baseLat = toNumber(lat) ?? 47.6101;
-    const baseLng = toNumber(lng) ?? -122.2015;
-    return `https://www.google.com/maps?q=${encodeURIComponent(
-      `${baseLat},${baseLng}`
-    )}&z=${encodeURIComponent(String(zoom))}&output=embed`;
-  }, [lat, lng, zoom]);
+  const validPoles = useMemo(() => {
+    return (Array.isArray(poles) ? poles : []).filter(
+      (pole) => isValidCoord(pole?.lat) && isValidCoord(pole?.lng)
+    );
+  }, [poles]);
 
   const selectedPole = useMemo(() => {
     return (
-      bounds.markers.find((pole) => pole.streetlight_id === selectedId) ||
-      bounds.markers[0] ||
+      validPoles.find((pole) => pole?.streetlight_id === selectedId) ||
       null
     );
-  }, [bounds.markers, selectedId]);
+  }, [validPoles, selectedId]);
+
+  const fallbackCenter = useMemo(() => {
+    if (isValidCoord(lat) && isValidCoord(lng)) {
+      return { lat: Number(lat), lng: Number(lng), selectedId: selectedId || null };
+    }
+
+    return pickBestCenter(validPoles);
+  }, [lat, lng, selectedId, validPoles]);
+
+  const center = useMemo(() => {
+    if (selectedPole) {
+      return {
+        lat: Number(selectedPole.lat),
+        lng: Number(selectedPole.lng),
+      };
+    }
+
+    return {
+      lat: Number(fallbackCenter.lat ?? DEFAULT_CENTER.lat),
+      lng: Number(fallbackCenter.lng ?? DEFAULT_CENTER.lng),
+    };
+  }, [fallbackCenter.lat, fallbackCenter.lng, selectedPole]);
+
+  const bounds = useMemo(() => buildMapBounds(validPoles, center), [validPoles, center]);
+
+  const activePole =
+    selectedPole ||
+    validPoles.find((pole) => pole?.streetlight_id === fallbackCenter.selectedId) ||
+    validPoles[0] ||
+    null;
+
+  const motionFocusPoint = useMemo(() => {
+    if (!motionDetected || !activePole) return null;
+    return getMotionFocusPoint(activePole, focusLat, focusLng);
+  }, [activePole, focusLat, focusLng, motionDetected]);
+  const hasMotionFocus = Boolean(motionFocusPoint);
+
+  const explicitPinPoint = useMemo(() => {
+    if (isValidCoord(lat) && isValidCoord(lng)) {
+      return { lat: Number(lat), lng: Number(lng) };
+    }
+    return null;
+  }, [lat, lng]);
+
+  const mapPinPoint = useMemo(() => {
+    if (motionFocusPoint) return motionFocusPoint;
+    if (explicitPinPoint) return explicitPinPoint;
+    if (activePole && isValidCoord(activePole?.lat) && isValidCoord(activePole?.lng)) {
+      return { lat: Number(activePole.lat), lng: Number(activePole.lng) };
+    }
+    return null;
+  }, [activePole, explicitPinPoint, motionFocusPoint]);
+
+  const nativePinMode =
+    forceNativePin || !interactive || hasMotionFocus || validPoles.length <= 1;
+
+  const zoomLevel = useMemo(() => {
+    if (hasMotionFocus) {
+      const radius = activePole?.motion_focus_radius_m ?? focusRadiusMeters;
+      return getMotionZoom(radius);
+    }
+
+    if (forceNativePin) return mapPinPoint ? 18 : 15;
+    if (!interactive) return mapPinPoint ? 18 : 15;
+    return validPoles.length > 1 ? 13 : 16;
+  }, [
+    activePole?.motion_focus_radius_m,
+    focusRadiusMeters,
+    forceNativePin,
+    hasMotionFocus,
+    interactive,
+    mapPinPoint,
+    validPoles.length,
+  ]);
+
+  const mapHeightStyle = fillHeight
+    ? { minHeight: 0, height: "100%" }
+    : { minHeight: height, height };
+
+  const mapSrc = nativePinMode && mapPinPoint
+    ? `https://maps.google.com/maps?ll=${encodeURIComponent(
+        `${mapPinPoint.lat},${mapPinPoint.lng}`
+      )}&q=${encodeURIComponent(`${mapPinPoint.lat},${mapPinPoint.lng}`)}&z=${zoomLevel}&output=embed`
+    : `https://maps.google.com/maps?ll=${encodeURIComponent(
+        `${center.lat},${center.lng}`
+      )}&z=${zoomLevel}&output=embed`;
 
   return (
-    <div
-      className="lwMapBox lwInteractiveMap"
-      style={{ height: fillHeight ? "100%" : height, minHeight: height }}
-    >
-      <iframe
-        title={title}
-        src={src}
-        className={`lwMapFrame ${interactive ? "" : "lwMapFrameMuted"}`}
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-        style={{ pointerEvents: interactive ? "auto" : "none" }}
-      />
+    <div className="lwMapBox lwInteractiveMap" style={mapHeightStyle}>
+      {validPoles.length ? (
+        <>
+          <iframe
+            title={title}
+            className="lwMapFrame"
+            src={mapSrc}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+            style={{ pointerEvents: interactive ? "auto" : "none" }}
+          />
 
-      {!interactive && (
-        <div className="lwMapMarkerLayer">
-          {bounds.markers.map((pole) => {
-            const left =
-              ((pole.lng - bounds.minLng) /
-                Math.max(bounds.maxLng - bounds.minLng, 0.0001)) *
-              100;
-            const top =
-              (1 -
-                (pole.lat - bounds.minLat) /
-                  Math.max(bounds.maxLat - bounds.minLat, 0.0001)) *
-              100;
+          {!nativePinMode ? (
+            <div className="lwMapMarkerLayer">
+              {validPoles.map((pole) => {
+                const tone = toneForPole(pole);
+                const isSelected = pole?.streetlight_id === activePole?.streetlight_id;
 
-            const tone = markerTone(pole.health, pole.motion_detected);
-            const isSelected = pole.streetlight_id === selectedId;
+                return (
+                  <button
+                    key={pole.streetlight_id}
+                    type="button"
+                    className={`lwMapMarker lwMapMarker-${tone}${isSelected ? " isSelected" : ""}`}
+                    style={getMarkerPosition(pole, bounds)}
+                    onClick={() => onSelectPole?.(pole)}
+                    aria-label={`Select pole ${pole.streetlight_id}`}
+                  >
+                    <span className="lwMapMarkerCore" />
+                    <span className="lwMapMarkerLabel">{pole.streetlight_id}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
-            return (
-              <button
-                key={pole.streetlight_id}
-                type="button"
-                className={`lwMapMarker lwMapMarker-${tone}${
-                  isSelected ? " isSelected" : ""
-                }`}
-                style={{ left: `${left}%`, top: `${top}%` }}
-                title={pole.streetlight_id}
-                onClick={() => onSelectPole?.(pole)}
-              >
-                <span className="lwMapMarkerCore" />
-                <span className="lwMapMarkerLabel">{pole.streetlight_id}</span>
-              </button>
-            );
-          })}
+          {showInfo && activePole ? (
+            <div className="lwMapInfoWindow">
+              <strong>{activePole.streetlight_id}</strong>
+              <span>{activePole.name || "Unnamed pole"}</span>
+              {hasMotionFocus ? (
+                <small>Motion focus view · {activePole?.motion_focus_radius_m || focusRadiusMeters}m</small>
+              ) : null}
+              <small>{activePole.health || "OK"}</small>
+            </div>
+          ) : null}
+
+          {showLegend ? (
+            <div className="lwMapLegendOverlay">
+              <Legend compact title="Map Key" />
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <div className="lwTrendEmpty" style={{ margin: 12 }}>
+          No saved coordinates yet. Add pole latitude and longitude in Admin to show them here.
         </div>
       )}
-
-      {showInfo && selectedPole && !interactive ? (
-        <div className="lwMapInfoWindow">
-          <strong>{selectedPole.streetlight_id}</strong>
-          <span>{selectedPole.name || "Selected pole"}</span>
-          <small>
-            Brightness{" "}
-            {typeof selectedPole.light_level === "number"
-              ? `${selectedPole.light_level}%`
-              : "Waiting for data"}
-          </small>
-        </div>
-      ) : null}
-
-      {showLegend ? (
-        <div className="lwMapLegendOverlay">
-          <Legend compact />
-        </div>
-      ) : null}
     </div>
   );
 }

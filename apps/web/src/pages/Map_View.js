@@ -1,9 +1,10 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import Card from "../components/Card";
-import MapEmbed from "../components/MapEmbed";
+import MapEmbed from "../components/MapEmbed.js";
 import { LightWiseContext } from "../context/LightWiseProvider";
 import { loadPoleMetaMap } from "../services/poleStorage";
+import { readActivePoleId, writeActivePoleId } from "../services/activePoleStorage";
 import {
   DEFAULT_CENTER,
   isValidCoord,
@@ -16,7 +17,7 @@ export default function MapView() {
   const { streetlights } = useContext(LightWiseContext);
 
   const [localMeta, setLocalMeta] = useState(() => loadPoleMetaMap());
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(() => readActivePoleId());
 
   useEffect(() => {
     const onFocus = () => {
@@ -41,6 +42,10 @@ export default function MapView() {
       return center.selectedId;
     });
   }, [mergedPoles]);
+
+  useEffect(() => {
+    if (selectedId) writeActivePoleId(selectedId);
+  }, [selectedId]);
 
   const validPoles = useMemo(() => {
     return mergedPoles.filter(
@@ -92,8 +97,8 @@ export default function MapView() {
             selectedId={selectedPole?.streetlight_id}
             onSelectPole={(pole) => setSelectedId(pole.streetlight_id)}
             interactive
+            forceNativePin
             showLegend
-            showInfo={false}
           />
         </div>
       </Card>
