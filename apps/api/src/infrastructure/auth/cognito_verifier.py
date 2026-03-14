@@ -1,30 +1,14 @@
+from __future__ import annotations
 import json
 import urllib.request
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cached_property
 
-import jwt  # PyJWT
+import jwt
 from jwt.algorithms import RSAAlgorithm
 
 from domain.error import AuthError
-
-
-@dataclass(frozen=True)
-class CognitoConfig:
-    region: str
-    user_pool_id: str
-    client_id: str
-
-    @property
-    def issuer(self) -> str:
-        return (
-            f"https://cognito-idp.{self.region}.amazonaws.com/"
-            f"{self.user_pool_id}"
-        )
-
-    @property
-    def jwks_url(self) -> str:
-        return f"{self.issuer}/.well-known/jwks.json"
+from infrastructure.auth.cognito_config import CognitoConfig
 
 
 @dataclass(frozen=True)
@@ -34,27 +18,38 @@ class VerifiedClaims:
     email: str | None
     groups: list[str]
     client_id: str
+    given_name: str
+    family_name: str
+
+    def to_claims_dict(self) -> dict:
+        return {
+            "sub": self.sub,
+            "custom:tenant_id": self.tenant_id,
+            "email": self.email,
+            "cognito:groups": self.groups,
+            "client_id": self.client_id,
+            "given_name": self.given_name,
+            "family_name": self.family_name,
+        }
 
 
 class CognitoVerifier:
     def __init__(self, config: CognitoConfig) -> None:
         self._config = config
 
-    @lru_cache(maxsize=1)
-    def _get_jwks(self) -> dict:
+    @cached_property
+    def _jwks(self) -> dict:
         """
         Fetch and cache JWKS from Cognito.
-        Cached for the lifetime of the Lambda container.
+        Cached for the lifetime of the Lambda container via cached_property.
+        lru_cache is intentionally avoided on instance methods — it holds
+        a strong reference to self and prevents GC.
         """
-        with urllib.request.urlopen(
-            self._config.jwks_url,
-            timeout=5
-        ) as response:
-            return json.loads(response.read())
+        with urllib.request.urlopen(self._config.jwks_url, timeout=5) as r:
+            return json.loads(r.read())
 
     def _get_public_key(self, kid: str):
-        jwks = self._get_jwks()
-        for key in jwks.get("keys", []):
+        for key in self._jwks.get("keys", []):
             if key["kid"] == kid:
                 return RSAAlgorithm.from_jwk(json.dumps(key))
         raise AuthError(f"No matching key found for kid: {kid}")
@@ -63,6 +58,10 @@ class CognitoVerifier:
         """
         Verify a Cognito JWT and return typed claims.
         Raises AuthError on any failure.
+
+        Note: verify_aud is disabled because Cognito access tokens
+        populate `client_id` rather than `aud` — client is validated
+        manually below.
         """
         try:
             header = jwt.get_unverified_header(token)
@@ -99,33 +98,34 @@ class CognitoVerifier:
         except jwt.DecodeError as e:
             raise AuthError("Token decode failed") from e
 
-        # Validate token use
         token_use = claims.get("token_use")
         if token_use not in ("access", "id"):
             raise AuthError(f"Unexpected token_use: {token_use}")
 
-        # Validate client
-        if claims.get("client_id") != self._config.client_id:
+        client_id = claims.get("client_id")
+        if not client_id:
+            raise AuthError("Token missing client_id claim")
+        if client_id != self._config.client_id:
             raise AuthError("Token client_id mismatch")
 
         tenant_id = claims.get("custom:tenant_id")
         if not tenant_id:
             raise AuthError("Token missing custom:tenant_id claim")
 
+        raw_groups = claims.get("cognito:groups", [])
+        if isinstance(raw_groups, list):
+            groups = [str(g).strip() for g in raw_groups if g]
+        elif isinstance(raw_groups, str) and raw_groups:
+            groups = [raw_groups]
+        else:
+            groups = []
+
         return VerifiedClaims(
             sub=claims["sub"],
             tenant_id=tenant_id,
             email=claims.get("email"),
-            groups=claims.get("cognito:groups", []),
-            client_id=claims["client_id"],
+            groups=groups,
+            client_id=client_id,
+            given_name=claims.get("given_name") or "",
+            family_name=claims.get("family_name") or "",
         )
-
-
-def extract_bearer_token(authorization_header: str | None) -> str:
-    """Pull the raw JWT out of an Authorization: Bearer <token> header."""
-    if not authorization_header:
-        raise AuthError("Missing Authorization header")
-    parts = authorization_header.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise AuthError("Authorization header must be 'Bearer <token>'")
-    return parts[1]
