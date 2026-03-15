@@ -7,12 +7,19 @@ _service = get_list_streetlights()
 
 
 def handler(event, context):
-    tenant_id = (
-        event.get("queryStringParameters") or {}
-    ).get("tenant_id")
+    claims = (
+        event
+        .get("requestContext", {})
+        .get("authorizer", {})
+        .get("claims", {})
+    )
+    tenant_id = claims.get("custom:tenant_id") or claims.get("tenant_id")
 
     if not tenant_id:
-        return error(400, "tenant_id is required")
+        logger.warning(
+            "Missing tenant_id in claims for event=%s", event.get("requestContext")
+        )
+        return error(401, "Unauthorized: missing tenant context")
 
     try:
         streetlights = _service.execute(tenant_id)
