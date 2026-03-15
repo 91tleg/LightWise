@@ -19,7 +19,8 @@ def handler(event, context):
 
     if not tenant_id:
         logger.warning(
-            "Missing tenant_id in claims for event=%s", event.get("requestContext")
+            "Missing tenant_id in claims for event=%s",
+            event.get("requestContext")
         )
         return error(401, "Unauthorized: missing tenant context")
 
