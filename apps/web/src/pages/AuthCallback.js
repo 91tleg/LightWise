@@ -24,7 +24,7 @@ export default function AuthCallback() {
     }
 
     handleCallback();
-  }, []);
+  }, [navigate, setOperator]);
 
   if (error) {
     return (
