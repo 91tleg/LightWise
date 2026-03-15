@@ -1,86 +1,43 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import AuthScreen from "../components/AuthScreen";
+import { useNavigate } from "react-router-dom";
 import { useLightWise } from "../hooks/useLightWise";
-
-function getCallbackErrorMessage(error, errorDescription) {
-  if (errorDescription) {
-    return decodeURIComponent(String(errorDescription).replace(/\+/g, " "));
-  }
-
-  if (error) {
-    return `Cognito returned "${error}".`;
-  }
-
-  return "Sign-in did not complete. Redirecting back to Cognito.";
-}
+import AuthScreen from "../components/AuthScreen";
+import { getOperatorProfile } from "../services/api";
+import { waitForIdToken, redirectToSignIn, redirectToSignOut } from "../services/auth";
 
 export default function AuthCallback() {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { completeAuthentication, redirectToSignIn } = useLightWise();
-  const [screen, setScreen] = useState({
-    title: "Signing you in...",
-    message: "Completing the Cognito code exchange.",
-    actionLabel: "",
-  });
+  const { setOperator } = useLightWise();
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const code = params.get("code");
-    const error = params.get("error");
-    const errorDescription = params.get("error_description");
-    let active = true;
-
-    (async () => {
-      if (error) {
-        if (!active) return;
-        setScreen({
-          title: "Redirecting to sign in...",
-          message: getCallbackErrorMessage(error, errorDescription),
-          actionLabel: "",
-        });
-        await redirectToSignIn();
-        return;
-      }
-
-      if (!code) {
-        if (!active) return;
-        setScreen({
-          title: "Redirecting to sign in...",
-          message: "No authorization code was returned to /callback.",
-          actionLabel: "",
-        });
-        await redirectToSignIn();
-        return;
-      }
-
+    async function handleCallback() {
       try {
-        await completeAuthentication();
-        if (!active) return;
-        window.history.replaceState(null, document.title, window.location.pathname);
+        const token = await waitForIdToken();
+        const profile = await getOperatorProfile(token);
+        setOperator(profile);
         navigate("/overview", { replace: true });
-      } catch (authError) {
-        if (!active) return;
-        setScreen({
-          title: "Redirecting to sign in...",
-          message: authError?.message || "Unable to complete authentication.",
-          actionLabel: "",
-        });
-        await redirectToSignIn();
+      } catch (err) {
+        console.error("AuthCallback failed:", err?.message, err?.status, err);
+        setError(err?.message || "Sign-in failed");
       }
-    })();
+    }
 
-    return () => {
-      active = false;
-    };
-  }, [completeAuthentication, location.search, navigate, redirectToSignIn]);
+    handleCallback();
+  }, []);
 
-  return (
-    <AuthScreen
-      title={screen.title}
-      message={screen.message}
-      actionLabel={screen.actionLabel}
-    />
-  );
+  if (error) {
+    return (
+      <AuthScreen
+        title="Sign-in failed"
+        subtitle={error}
+        action={{ label: "Try again", onClick: async () => {
+          try { await redirectToSignOut(); } catch {}
+          await redirectToSignIn();
+        }}}
+      />
+    );
+  }
+
+  return <AuthScreen title="Signing you in..." />;
 }
