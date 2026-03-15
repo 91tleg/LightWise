@@ -5,7 +5,7 @@ import "../styles/lightwise.css";
 export default function TopBar() {
   const location = useLocation();
 
-  if (location.pathname === "/login") return null;
+  if (location.pathname === "/" || location.pathname === "/callback") return null;
 
   return (
     <header className="lwTopbar lwTopbarMinimal">

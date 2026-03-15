@@ -14,7 +14,7 @@ export default function Sidebar({ theme }) {
 
   const closeTimerRef = useRef(null);
 
-  const isAuthPage = location.pathname === "/login" || location.pathname === "/";
+  const isAuthPage = location.pathname === "/" || location.pathname === "/callback";
 
   const items = useMemo(
     () => [

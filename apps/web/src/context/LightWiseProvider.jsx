@@ -1,40 +1,35 @@
 import React, {
   createContext,
+  useCallback,
   useEffect,
   useMemo,
-  useCallback,
   useRef,
   useState,
 } from "react";
-import { useLightWiseWS } from "../services/useLightWiseWS";
-import { normalizeEvent } from "../utils/normalizeEvent";
-import { listStreetlights } from "../services/api";
-import { loadPoles, savePoles } from "../services/poleStorage";
+import { getOperatorProfile, listStreetlights } from "../services/api";
 import { CONTEXT_ENV, LIGHTWISE_ENV } from "../config/env";
-import { mergePoleSnapshot, snapshotFromWsMessage } from "../utils/poleState";
+import { useLightWiseWS } from "../services/useLightWiseWS";
+import { loadPoles, savePoles } from "../services/poleStorage";
+import {
+  fetchAccessToken,
+  redirectToHostedLogin,
+  signOutFromHostedUi,
+  subscribeToAuthRequired,
+  waitForAccessToken,
+} from "../services/authSession";
+import { normalizeEvent } from "../utils/normalizeEvent";
 import { normalizeStreetlightFromApi } from "../utils/poleHelpers";
+import { mergePoleSnapshot, snapshotFromWsMessage } from "../utils/poleState";
 
 export const LightWiseContext = createContext(null);
 
-function readOperator() {
+function clearLegacyAuthStorage() {
   try {
-    const raw = sessionStorage.getItem("lightwise_operator");
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-
-    if (!parsed?.name || !parsed?.email || !parsed?.role) {
-      return null;
-    }
-
-    return {
-      name: String(parsed.name),
-      email: String(parsed.email),
-      role: String(parsed.role).toLowerCase(),
-    };
-  } catch {
-    return null;
-  }
+    sessionStorage.removeItem("lightwise_operator");
+    sessionStorage.removeItem("lightwise_auth");
+    localStorage.removeItem("lightwise_operator");
+    localStorage.removeItem("lightwise_auth");
+  } catch {}
 }
 
 function getInitials(name = "") {
@@ -49,43 +44,127 @@ export function LightWiseProvider({ children }) {
   const [poles, setPoles] = useState(() => loadPoles());
   const [streetlights, setStreetlights] = useState([]);
   const [events, setEvents] = useState([]);
-  const [operator, setOperator] = useState(() => readOperator());
+  const [operator, setOperator] = useState(null);
+  const [authStatus, setAuthStatus] = useState("idle");
+  const [authError, setAuthError] = useState(null);
 
-  const signOut = useCallback(() => {
-    try {
-      sessionStorage.removeItem("lightwise_operator");
-      sessionStorage.removeItem("lightwise_auth");
-      localStorage.removeItem("lightwise_operator");
-      localStorage.removeItem("lightwise_auth");
-    } catch {}
-
-    window.location.href = "/login";
-  }, []);
+  const isAuthenticated = authStatus === "authenticated" && Boolean(operator);
+  const authRequestRef = useRef(null);
+  const hasLoadedOnceRef = useRef(false);
+  const prevWsStatusRef = useRef("idle");
 
   useEffect(() => {
-    try {
-      if (operator) {
-        sessionStorage.setItem("lightwise_operator", JSON.stringify(operator));
-      } else {
-        sessionStorage.removeItem("lightwise_operator");
+    clearLegacyAuthStorage();
+
+    return subscribeToAuthRequired(() => {
+      setOperator(null);
+      setAuthStatus("unauthenticated");
+      setAuthError(null);
+      setStreetlights([]);
+      setEvents([]);
+      hasLoadedOnceRef.current = false;
+      prevWsStatusRef.current = "idle";
+    });
+  }, []);
+
+  const clearAuthState = useCallback(() => {
+    clearLegacyAuthStorage();
+    setOperator(null);
+    setAuthStatus("unauthenticated");
+    setAuthError(null);
+    setStreetlights([]);
+    setEvents([]);
+    hasLoadedOnceRef.current = false;
+    prevWsStatusRef.current = "idle";
+  }, []);
+
+  const loadOperatorProfile = useCallback(
+    async ({ accessToken = "", force = false } = {}) => {
+      if (!force && operator) {
+        setAuthStatus("authenticated");
+        setAuthError(null);
+        return operator;
       }
-    } catch {}
-  }, [operator]);
+
+      if (!force && authRequestRef.current) {
+        return authRequestRef.current;
+      }
+
+      let promise;
+      promise = (async () => {
+        setAuthStatus("loading");
+        setAuthError(null);
+
+        const token = String(accessToken || "").trim() || (await fetchAccessToken());
+        if (!token) {
+          clearAuthState();
+          return null;
+        }
+
+        try {
+          const profile = await getOperatorProfile(token);
+          setOperator(profile);
+          setAuthStatus("authenticated");
+          return profile;
+        } catch (error) {
+          if (error?.status === 401) {
+            clearAuthState();
+            return null;
+          }
+
+          setOperator(null);
+          setAuthStatus("error");
+          setAuthError(error);
+          throw error;
+        }
+      })().finally(() => {
+        if (authRequestRef.current === promise) {
+          authRequestRef.current = null;
+        }
+      });
+
+      authRequestRef.current = promise;
+      return promise;
+    },
+    [clearAuthState, operator]
+  );
+
+  const ensureAuthenticated = useCallback(
+    async (options = {}) => loadOperatorProfile(options),
+    [loadOperatorProfile]
+  );
+
+  const completeAuthentication = useCallback(async () => {
+    const accessToken = await waitForAccessToken();
+    return loadOperatorProfile({ accessToken, force: true });
+  }, [loadOperatorProfile]);
+
+  const redirectToSignIn = useCallback(async () => {
+    clearAuthState();
+    await redirectToHostedLogin();
+  }, [clearAuthState]);
+
+  const signOut = useCallback(async () => {
+    clearAuthState();
+    await signOutFromHostedUi();
+  }, [clearAuthState]);
 
   const { status: wsStatus, error: wsError, lastMessage, send, subscribe } =
-    useLightWiseWS(LIGHTWISE_ENV.WS_URL, {
+    useLightWiseWS(isAuthenticated ? LIGHTWISE_ENV.WS_URL : "", {
       debug: false,
       autoReconnect: true,
     });
-
-  const hasLoadedOnceRef = useRef(false);
-  const prevWsStatusRef = useRef(wsStatus);
 
   useEffect(() => {
     savePoles(poles);
   }, [poles]);
 
   const refreshStreetlights = useCallback(async () => {
+    if (!isAuthenticated) {
+      setStreetlights([]);
+      return;
+    }
+
     try {
       const raw = await listStreetlights();
       const rows = (Array.isArray(raw) ? raw : []).map(normalizeStreetlightFromApi);
@@ -93,21 +172,31 @@ export function LightWiseProvider({ children }) {
       setStreetlights(rows);
 
       if (rows.length) {
-        const ids = rows.map((r) => r.streetlight_id).filter(Boolean);
+        const ids = rows.map((row) => row.streetlight_id).filter(Boolean);
         setPoles((prev) => [...new Set([...(prev || []), ...ids])]);
       }
-
-      hasLoadedOnceRef.current = true;
-    } catch {
+    } finally {
       hasLoadedOnceRef.current = true;
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      hasLoadedOnceRef.current = false;
+      prevWsStatusRef.current = "idle";
+      setStreetlights([]);
+      setEvents([]);
+      return;
+    }
+
     refreshStreetlights();
-  }, [refreshStreetlights]);
+  }, [isAuthenticated, refreshStreetlights]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     const prev = prevWsStatusRef.current;
 
     if (
@@ -119,14 +208,15 @@ export function LightWiseProvider({ children }) {
     }
 
     prevWsStatusRef.current = wsStatus;
-  }, [wsStatus, refreshStreetlights]);
+  }, [isAuthenticated, refreshStreetlights, wsStatus]);
 
   useEffect(() => {
-    if (wsStatus !== "connected") return;
+    if (!isAuthenticated || wsStatus !== "connected") return;
     poles.forEach((id) => subscribe(id));
-  }, [wsStatus, poles, subscribe]);
+  }, [isAuthenticated, poles, subscribe, wsStatus]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (!lastMessage || typeof lastMessage !== "object") return;
 
     const streetlightId = String(lastMessage?.streetlight_id || "").trim();
@@ -138,11 +228,13 @@ export function LightWiseProvider({ children }) {
       const snapshot = snapshotFromWsMessage(lastMessage);
 
       if (index === -1) {
-        const created = mergePoleSnapshot(
-          normalizeStreetlightFromApi({ streetlight_id: streetlightId }),
-          snapshot
-        );
-        return [created, ...list];
+        return [
+          mergePoleSnapshot(
+            normalizeStreetlightFromApi({ streetlight_id: streetlightId }),
+            snapshot
+          ),
+          ...list,
+        ];
       }
 
       return list.map((row) =>
@@ -152,11 +244,11 @@ export function LightWiseProvider({ children }) {
 
     setPoles((prev) => (prev.includes(streetlightId) ? prev : [...prev, streetlightId]));
 
-    const ev = normalizeEvent(lastMessage);
-    if (ev) {
-      setEvents((prev) => [ev, ...prev].slice(0, 200));
+    const event = normalizeEvent(lastMessage);
+    if (event) {
+      setEvents((prev) => [event, ...prev].slice(0, 200));
     }
-  }, [lastMessage]);
+  }, [isAuthenticated, lastMessage]);
 
   const addPole = useCallback((streetlightId) => {
     const id = String(streetlightId || "").trim();
@@ -167,7 +259,7 @@ export function LightWiseProvider({ children }) {
   const removePole = useCallback((streetlightId) => {
     const id = String(streetlightId || "").trim();
     if (!id) return;
-    setPoles((prev) => prev.filter((p) => p !== id));
+    setPoles((prev) => prev.filter((poleId) => poleId !== id));
   }, []);
 
   const clearPoles = useCallback(() => setPoles([]), []);
@@ -182,10 +274,7 @@ export function LightWiseProvider({ children }) {
       const exists = list.some((row) => row.streetlight_id === id);
 
       if (!exists) {
-        return [
-          normalizeStreetlightFromApi({ streetlight_id: id, ...patch }),
-          ...list,
-        ];
+        return [normalizeStreetlightFromApi({ streetlight_id: id, ...patch }), ...list];
       }
 
       return list.map((row) =>
@@ -215,6 +304,9 @@ export function LightWiseProvider({ children }) {
       clearPoles,
       events,
       clearEvents,
+      authStatus,
+      authError,
+      isAuthenticated,
       operator: operator
         ? {
             ...operator,
@@ -222,26 +314,37 @@ export function LightWiseProvider({ children }) {
           }
         : null,
       setOperator,
+      ensureAuthenticated,
+      completeAuthentication,
+      clearAuthState,
+      redirectToSignIn,
       signOut,
     }),
     [
-      wsStatus,
-      wsError,
-      lastMessage,
-      send,
-      subscribe,
-      poles,
-      streetlights,
-      refreshStreetlights,
-      applyStreetlightLocalPatch,
       addPole,
-      removePole,
-      clearPoles,
-      events,
+      applyStreetlightLocalPatch,
+      authError,
+      authStatus,
+      clearAuthState,
       clearEvents,
+      clearPoles,
+      completeAuthentication,
+      ensureAuthenticated,
+      events,
+      isAuthenticated,
+      lastMessage,
       operator,
+      poles,
+      redirectToSignIn,
+      refreshStreetlights,
+      removePole,
+      send,
       setOperator,
       signOut,
+      streetlights,
+      subscribe,
+      wsError,
+      wsStatus,
     ]
   );
 

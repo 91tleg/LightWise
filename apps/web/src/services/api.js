@@ -1,5 +1,6 @@
 import { loadPoleMetaMap } from "./poleStorage";
 import { normalizeStreetlightFromApi } from "../utils/poleHelpers";
+import { authFetch } from "./authSession";
 
 function env() {
   return {
@@ -54,10 +55,13 @@ function buildUrl(path, API_BASE, TENANT_ID, extraQuery = {}) {
   return url.toString();
 }
 
-async function request(path, { method = "GET", body, headers, query } = {}) {
+async function request(
+  path,
+  { method = "GET", body, headers, query, includeTenantId = true, accessToken } = {}
+) {
   const { API_BASE, API_KEY, TENANT_ID } = env();
 
-  const url = buildUrl(path, API_BASE, TENANT_ID, query || {});
+  const url = buildUrl(path, API_BASE, includeTenantId ? TENANT_ID : "", query || {});
   if (!url) {
     throw new Error("Missing REACT_APP_API_BASE in .env");
   }
@@ -76,12 +80,20 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
 
   let res;
   try {
-    res = await fetch(url, {
-      method,
-      headers: finalHeaders,
-      body: hasBody ? JSON.stringify(body) : undefined,
-    });
+    res = await authFetch(
+      url,
+      {
+        method,
+        headers: finalHeaders,
+        body: hasBody ? JSON.stringify(body) : undefined,
+      },
+      { accessToken }
+    );
   } catch (cause) {
+    if (cause?.status) {
+      throw cause;
+    }
+
     const err = new Error(`Failed to fetch (${method} ${url}). Check API URL, backend, or CORS.`);
     err.cause = cause;
     throw err;
@@ -144,6 +156,58 @@ function normalizeTelemetryResponse(data) {
   if (Array.isArray(data?.data)) return data.data;
   if (Array.isArray(data?.telemetry)) return data.telemetry;
   return [];
+}
+
+function normalizeOperatorProfile(data) {
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid operator profile response");
+  }
+
+  const firstName = String(data.first_name || "").trim();
+  const lastName = String(data.last_name || "").trim();
+  const name =
+    String(data.name || "").trim() || [firstName, lastName].filter(Boolean).join(" ");
+  const email = String(data.email || "").trim();
+  const role = String(data.role || "operator").trim().toLowerCase();
+  const tenantId = String(data.tenant_id || "").trim();
+  const sub = String(data.sub || "").trim();
+
+  if (!name || !email || !role) {
+    throw new Error("Incomplete operator profile response");
+  }
+
+  return {
+    sub,
+    tenant_id: tenantId,
+    first_name: firstName,
+    last_name: lastName,
+    name,
+    email,
+    role,
+  };
+}
+
+export async function getOperatorProfile(accessToken) {
+  const { USE_MOCK } = env();
+
+  if (USE_MOCK) {
+    return normalizeOperatorProfile({
+      sub: "mock-user",
+      tenant_id: "tenant-001",
+      first_name: "Demo",
+      last_name: "Operator",
+      name: "Demo Operator",
+      email: "operator@lightwise.local",
+      role: "operator",
+    });
+  }
+
+  const data = await request("/auth/me", {
+    method: "GET",
+    includeTenantId: false,
+    accessToken,
+  });
+  return normalizeOperatorProfile(data);
 }
 
 export async function listStreetlights() {
@@ -305,6 +369,7 @@ export async function updateStreetlightMetadata(id, body) {
 }
 
 const api = {
+  getOperatorProfile,
   listStreetlights,
   getStreetlight,
   getStreetlightTelemetry,
