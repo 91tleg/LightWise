@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import Card from "../components/Card";
-import { LightWiseContext } from "../context/LightWiseProvider";
+import { useLightWise } from "../hooks/useLightWise";
 import { getStreetlightTelemetry } from "../services/api";
 import {
   formatDateTimeLocal,
@@ -313,7 +313,7 @@ function getHealthClass(health) {
 }
 
 export default function Analytics() {
-  const { streetlights } = useContext(LightWiseContext);
+  const { streetlights } = useLightWise();
 
   const initialRange = getPresetRange("7d");
 

@@ -1,12 +1,12 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import UiIcon from "./UiIcon";
-import { LightWiseContext } from "../context/LightWiseProvider";
+import { useLightWise } from "../hooks/useLightWise";
 import "../styles/lightwise.css";
 
 export default function Sidebar({ theme }) {
   const location = useLocation();
-  const { operator, signOut } = useContext(LightWiseContext);
+  const { operator, signOut } = useLightWise();
   const { darkMode, themeMode, setThemeMode } = theme;
 
   const [open, setOpen] = useState(false);
