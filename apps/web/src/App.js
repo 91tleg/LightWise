@@ -5,7 +5,7 @@ import { HostedUiEntryRoute, ProtectedRoute } from "./components/AuthGuard";
 import AuthCallback from "./pages/AuthCallback";
 import Overview from "./pages/Overview";
 import Analytics from "./pages/Analytics";
-import MapView from "./pages/Map_View";
+import MapView from "./pages/MapView";
 import Admin from "./pages/Admin";
 
 export default function App() {
