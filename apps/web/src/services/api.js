@@ -1,84 +1,55 @@
 import { loadPoleMetaMap } from "./poleStorage";
 import { normalizeStreetlightFromApi } from "../utils/poleHelpers";
-
-function env() {
-  return {
-    USE_MOCK: String(process.env.REACT_APP_USE_MOCK || "false").toLowerCase() === "true",
-    API_BASE: (process.env.REACT_APP_API_BASE || "").trim(),
-    API_KEY: (process.env.REACT_APP_API_KEY || "").trim(),
-    TENANT_ID: (process.env.REACT_APP_TENANT_ID || "tenant-001").trim(),
-  };
-}
+import { fetchIdTokenSilently, emitAuthRequired, redirectToSignIn } from "./auth";
+import { LIGHTWISE_ENV } from "../config/env";
+import {
+  normalizeOperatorProfile,
+  normalizeStreetlightListResponse,
+  normalizeTelemetryResponse,
+} from "../utils/normalizers";
+import {
+  MOCK_PROFILE,
+  mockListStreetlights,
+  mockGetStreetlight,
+  mockGetTelemetry,
+  mockUpdateMetadata,
+} from "./api.mock";
 
 const ALLOWED_INTERVALS = new Set([
-  "1m",
-  "5m",
-  "10m",
-  "15m",
-  "30m",
-  "1h",
-  "6h",
-  "12h",
-  "1d",
-  "7d",
-  "30d",
+  "1m", "5m", "10m", "15m", "30m",
+  "1h", "6h", "12h", "1d", "7d", "30d",
 ]);
 
-async function parseJsonSafely(res) {
-  const text = await res.text();
-  if (!text) return null;
+/**
+ * Authenticated fetch against the LightWise REST API.
+ * - Injects idToken into Authorization header (no Bearer prefix — API GW Cognito authorizer)
+ * - Handles 401 by emitting auth-required and redirecting to sign-in
+ * - Accepts an optional pre-fetched token (e.g. from AuthCallback)
+ */
+async function apiFetch(path, { method = "GET", body, headers, query } = {}, { token } = {}) {
+  const { API_BASE } = LIGHTWISE_ENV;
+  if (!API_BASE) throw new Error("Missing REACT_APP_API_BASE in .env");
 
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
+  const url      = buildUrl(path, query);
+  const idToken  = String(token || "").trim() || (await fetchIdTokenSilently());
+
+  if (!idToken) {
+    emitAuthRequired("missing_token");
+    await redirectToSignIn();
+    throw apiError("Unauthenticated", 401);
   }
-}
-
-function buildUrl(path, API_BASE, TENANT_ID, extraQuery = {}) {
-  const base = (API_BASE || "").replace(/\/$/, "");
-  if (!base) return null;
-
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  const url = new URL(`${base}${cleanPath}`);
-
-  if (TENANT_ID) {
-    url.searchParams.set("tenant_id", TENANT_ID);
-  }
-
-  Object.entries(extraQuery).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === "") return;
-    url.searchParams.set(key, String(value));
-  });
-
-  return url.toString();
-}
-
-async function request(path, { method = "GET", body, headers, query } = {}) {
-  const { API_BASE, API_KEY, TENANT_ID } = env();
-
-  const url = buildUrl(path, API_BASE, TENANT_ID, query || {});
-  if (!url) {
-    throw new Error("Missing REACT_APP_API_BASE in .env");
-  }
-
-  const finalHeaders = {
-    ...(headers || {}),
-    ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
-  };
 
   const hasBody = body !== undefined && body !== null;
-  if (hasBody) {
-    finalHeaders["Content-Type"] = "application/json";
-  }
-
-  console.log("🌐 HTTP", method, url);
 
   let res;
   try {
     res = await fetch(url, {
       method,
-      headers: finalHeaders,
+      headers: {
+        ...(hasBody ? { "Content-Type": "application/json" } : {}),
+        ...(headers || {}),
+        Authorization: idToken,
+      },
       body: hasBody ? JSON.stringify(body) : undefined,
     });
   } catch (cause) {
@@ -87,228 +58,120 @@ async function request(path, { method = "GET", body, headers, query } = {}) {
     throw err;
   }
 
+  if (res.status === 401) {
+    emitAuthRequired("http_401");
+    await redirectToSignIn();
+    throw apiError("Unauthorized", 401);
+  }
+
+  if (res.status === 403) throw apiError("Forbidden: insufficient permissions", 403);
+  if (res.status === 404) throw apiError("Resource not found", 404);
+
   const data = await parseJsonSafely(res);
 
   if (!res.ok) {
     const msg = data?.error || data?.message || `API error ${res.status}`;
-    const err = new Error(msg);
-    err.status = res.status;
-    err.payload = data;
-    throw err;
+    throw apiError(msg, res.status, data);
   }
 
   return data;
 }
 
-function normalizeStreetlight(row, index = 0) {
-  return normalizeStreetlightFromApi(row, index);
+function apiError(message, status, payload) {
+  return Object.assign(new Error(message), { status, payload });
+}
+
+function buildUrl(path, extraQuery = {}) {
+  const { API_BASE } = LIGHTWISE_ENV;
+  const base      = API_BASE.replace(/\/$/, "");
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const url       = new URL(`${base}${cleanPath}`);
+
+  Object.entries(extraQuery).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
+  });
+
+  return url.toString();
+}
+
+async function parseJsonSafely(res) {
+  const text = await res.text();
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 function mergeLocalMeta(streetlights) {
-  const list = Array.isArray(streetlights) ? streetlights : [];
+  const list    = Array.isArray(streetlights) ? streetlights : [];
   const metaMap = loadPoleMetaMap() || {};
 
   return list.map((raw, index) => {
-    const row = normalizeStreetlight(raw, index);
-    const id = row?.streetlight_id;
+    const row  = normalizeStreetlightFromApi(raw, index);
+    const id   = row?.streetlight_id;
     const meta = id ? metaMap[id] : null;
-
     if (!meta) return row;
 
     return {
       ...row,
-      ...(typeof meta?.name === "string" && meta.name.trim()
-        ? { name: meta.name.trim() }
-        : {}),
-      ...(typeof meta?.lat === "number" && Number.isFinite(meta.lat)
-        ? { lat: meta.lat }
-        : {}),
-      ...(typeof meta?.lng === "number" && Number.isFinite(meta.lng)
-        ? { lng: meta.lng }
-        : {}),
+      ...(typeof meta?.name === "string" && meta.name.trim() ? { name: meta.name.trim() } : {}),
+      ...(typeof meta?.lat  === "number" && Number.isFinite(meta.lat)  ? { lat: meta.lat }  : {}),
+      ...(typeof meta?.lng  === "number" && Number.isFinite(meta.lng)  ? { lng: meta.lng }  : {}),
     };
   });
 }
 
-function normalizeStreetlightListResponse(data) {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.items)) return data.items;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.streetlights)) return data.streetlights;
-  return [];
+export async function getOperatorProfile(token) {
+  if (LIGHTWISE_ENV.USE_MOCK) return normalizeOperatorProfile(MOCK_PROFILE);
+  const data = await apiFetch("/auth/me", { method: "GET" }, { token });
+  return normalizeOperatorProfile(data);
 }
 
-function normalizeTelemetryResponse(data) {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.items)) return data.items;
-  if (Array.isArray(data?.data)) return data.data;
-  if (Array.isArray(data?.telemetry)) return data.telemetry;
-  return [];
-}
 
 export async function listStreetlights() {
-  const { USE_MOCK, TENANT_ID } = env();
-
-  if (USE_MOCK) {
-    const mock = [
-      {
-        streetlight_id: "LW-00042",
-        tenant_id: TENANT_ID,
-        health: "OK",
-        lat: 47.6101,
-        lng: -122.2015,
-        name: "main",
-        last_seen: new Date().toISOString(),
-        motion_detected: true,
-        ambient_primary_ok: true,
-        ambient_secondary_ok: true,
-        th_ok: true,
-        motion_primary_ok: true,
-        motion_secondary_ok: true,
-      },
-      {
-        streetlight_id: "LW-00043",
-        tenant_id: TENANT_ID,
-        health: "OK",
-        lat: 47.6112,
-        lng: -122.2025,
-        name: "secondary",
-        last_seen: new Date().toISOString(),
-        motion_detected: false,
-        ambient_primary_ok: true,
-        ambient_secondary_ok: true,
-        th_ok: true,
-        motion_primary_ok: true,
-        motion_secondary_ok: true,
-      },
-    ];
-
-    return mergeLocalMeta(mock);
-  }
-
-  const data = await request("/streetlights", { method: "GET" });
-  const rows = normalizeStreetlightListResponse(data);
-  return mergeLocalMeta(rows);
+  const { USE_MOCK, TENANT_ID } = LIGHTWISE_ENV;
+  if (USE_MOCK) return mergeLocalMeta(mockListStreetlights(TENANT_ID));
+  const data = await apiFetch("/streetlights", { method: "GET" });
+  return mergeLocalMeta(normalizeStreetlightListResponse(data));
 }
 
 export async function getStreetlight(id) {
-  const { USE_MOCK, TENANT_ID } = env();
-
-  if (!id) {
-    throw new Error("streetlight id is required");
-  }
-
-  if (USE_MOCK) {
-    const mock = {
-      streetlight_id: id,
-      tenant_id: TENANT_ID,
-      health: "OK",
-      lat: 47.6101,
-      lng: -122.2015,
-      name: `Streetlight ${id}`,
-      last_seen: new Date().toISOString(),
-      motion_detected: false,
-      ambient_primary_ok: true,
-      ambient_secondary_ok: true,
-      th_ok: true,
-      motion_primary_ok: true,
-      motion_secondary_ok: true,
-    };
-
-    return mergeLocalMeta([mock])[0];
-  }
-
-  const data = await request(`/streetlights/${encodeURIComponent(id)}`, {
-    method: "GET",
-  });
-
+  if (!id) throw new Error("streetlight id is required");
+  const { USE_MOCK, TENANT_ID } = LIGHTWISE_ENV;
+  if (USE_MOCK) return mergeLocalMeta([mockGetStreetlight(id, TENANT_ID)])[0];
+  const data = await apiFetch(`/streetlights/${encodeURIComponent(id)}`, { method: "GET" });
   return mergeLocalMeta([data])[0];
 }
 
 export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } = {}) {
-  const { USE_MOCK } = env();
-
-  if (!id) {
-    throw new Error("streetlight id is required");
-  }
-
-  if (!from || !to) {
-    throw new Error("from and to are required");
-  }
-
+  if (!id)          throw new Error("streetlight id is required");
+  if (!from || !to) throw new Error("from and to are required");
   if (!ALLOWED_INTERVALS.has(interval)) {
-    throw new Error(
-      `interval must be one of: ${Array.from(ALLOWED_INTERVALS).join(", ")}`
-    );
+    throw new Error(`interval must be one of: ${Array.from(ALLOWED_INTERVALS).join(", ")}`);
   }
 
-  if (USE_MOCK) {
-    const start = new Date(from).getTime();
-    const end = new Date(to).getTime();
-    const step = Math.max(Math.floor((end - start) / 20), 60 * 1000);
+  if (LIGHTWISE_ENV.USE_MOCK) return mockGetTelemetry(id, from, to);
 
-    const rows = [];
-    for (let ts = start; ts <= end; ts += step) {
-      rows.push({
-        time: new Date(ts).toISOString(),
-        lux: Number((20 + Math.random() * 80).toFixed(2)),
-        temperature_c: Number((15 + Math.random() * 12).toFixed(1)),
-        humidity_pct: Number((45 + Math.random() * 30).toFixed(1)),
-        light_level_pct: Number((10 + Math.random() * 90).toFixed(1)),
-      });
+  const data = await apiFetch(
+    `/streetlights/${encodeURIComponent(id)}/telemetry`,
+    {
+      method: "GET",
+      query: {
+        from:     new Date(from).toISOString(),
+        to:       new Date(to).toISOString(),
+        interval,
+      },
     }
+  );
 
-    return {
-      streetlight_id: id,
-      data: rows,
-    };
-  }
-
-  const data = await request(`/streetlights/${encodeURIComponent(id)}/telemetry`, {
-    method: "GET",
-    query: {
-      from: new Date(from).toISOString(),
-      to: new Date(to).toISOString(),
-      interval,
-    },
-  });
-
-  return {
-    streetlight_id: id,
-    data: normalizeTelemetryResponse(data),
-  };
+  return { streetlight_id: id, data: normalizeTelemetryResponse(data) };
 }
 
 export async function updateStreetlightMetadata(id, body) {
-  const { USE_MOCK } = env();
+  if (!id)                             throw new Error("streetlight id is required");
+  if (!body || typeof body !== "object") throw new Error("body is required");
+  if (LIGHTWISE_ENV.USE_MOCK)          return mockUpdateMetadata(id, body);
 
-  if (!id) {
-    throw new Error("streetlight id is required");
-  }
-
-  if (!body || typeof body !== "object") {
-    throw new Error("body is required");
-  }
-
-  if (USE_MOCK) {
-    return {
-      message: "updated (mock)",
-      streetlight_id: id,
-      metadata: body,
-    };
-  }
-
-  return request(`/streetlights/${encodeURIComponent(id)}/metadata`, {
+  return apiFetch(`/streetlights/${encodeURIComponent(id)}/metadata`, {
     method: "PUT",
     body,
   });
 }
-
-const api = {
-  listStreetlights,
-  getStreetlight,
-  getStreetlightTelemetry,
-  updateStreetlightMetadata,
-};
-
-export default api;

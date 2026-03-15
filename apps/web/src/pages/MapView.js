@@ -1,8 +1,8 @@
-import React, { useContext, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import Card from "../components/Card";
 import MapEmbed from "../components/MapEmbed.js";
-import { LightWiseContext } from "../context/LightWiseProvider";
+import { useLightWise } from "../hooks/useLightWise";
 import { loadPoleMetaMap } from "../services/poleStorage";
 import { readActivePoleId, writeActivePoleId } from "../services/activePoleStorage";
 import {
@@ -14,7 +14,7 @@ import {
 import "../styles/lightwise.css";
 
 export default function MapView() {
-  const { streetlights } = useContext(LightWiseContext);
+  const { streetlights } = useLightWise();
 
   const [localMeta, setLocalMeta] = useState(() => loadPoleMetaMap());
   const [selectedId, setSelectedId] = useState(() => readActivePoleId());

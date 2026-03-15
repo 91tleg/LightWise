@@ -1,6 +1,6 @@
 # Auth API
 **Version:** 1.0  
-**Last Updated:** March 13, 2026  
+**Last Updated:** March 14, 2026  
 
 Authentication is handled by AWS Cognito. The backend does not issue tokens or manage sessions. All endpoints except `GET /auth/me` interact with Cognito directly from the frontend.
 
@@ -11,13 +11,14 @@ See [README.md](./README.md) for shared conventions.
 ## Flow
 
 ```
-1. Frontend redirects to Cognito hosted UI
-2. User authenticates — Cognito redirects back with ?code=
-3. Frontend exchanges code for tokens via Cognito /oauth2/token
-4. Frontend calls GET /auth/me with access_token to get profile and role
-5. Frontend stores { name, email, role, tenant_id } in sessionStorage
+1. Frontend redirects to Cognito hosted UI using authorization code flow + PKCE
+2. User authenticates — Cognito redirects back to /callback with ?code=
+3. Amplify completes the PKCE code exchange and restores the Cognito session
+4. Frontend calls GET /auth/me with Authorization: Bearer <access_token>
+5. Frontend stores the returned OperatorProfile in app state
 6. All subsequent API calls send access_token as Authorization: Bearer <token>
-7. API Gateway Cognito authorizer verifies token before any Lambda runs
+7. Any 401 redirects back to the Cognito hosted UI
+8. API Gateway Cognito authorizer verifies token before any Lambda runs
 ```
 
 ---
@@ -33,30 +34,9 @@ GET https://{cognito_domain}/login
   ?client_id={client_id}
   &redirect_uri={redirect_uri}
   &response_type=code
-  &scope=email+openid+phone
-```
-
-### Token exchange
-
-```
-POST https://{cognito_domain}/oauth2/token
-Content-Type: application/x-www-form-urlencoded
-
-grant_type=authorization_code
-&client_id={client_id}
-&redirect_uri={redirect_uri}
-&code={code}
-```
-
-**Response**
-```json
-{
-  "access_token": "...",
-  "id_token": "...",
-  "refresh_token": "...",
-  "token_type": "Bearer",
-  "expires_in": 3600
-}
+  &code_challenge={pkce_challenge}
+  &code_challenge_method=S256
+  &scope=email+openid+phone+profile
 ```
 
 ### Logout
@@ -128,8 +108,8 @@ A Cognito authorizer is attached to all routes except `OPTIONS` (CORS preflight)
 
 | Data | Storage | Reason |
 |---|---|---|
-| `access_token` | Memory only (module variable) | XSS protection — not readable by injected scripts |
-| `{ name, email, role, tenant_id }` | `sessionStorage` | UI display only — cleared on tab close |
+| Cognito session | Amplify-managed browser storage | Required for PKCE code exchange, session restore, and refresh |
+| `OperatorProfile` | React app state | Derived from `/auth/me` after token verification |
 | Raw `id_token` | Not stored | Not needed — profile comes from `/auth/me` |
 
 ---

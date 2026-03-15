@@ -150,6 +150,8 @@ Resources:
       AllowedOAuthFlows:
         - code
       AllowedOAuthFlowsUserPoolClient: true
+      SupportedIdentityProviders:
+        - COGNITO
       AllowedOAuthScopes:
         - email
         - openid
