@@ -138,6 +138,8 @@ Resources:
     Properties:
       ClientName: !Sub "lightwise-frontend-${Env}"
       UserPoolId: !Ref CognitoUserPool
+      SupportedIdentityProviders:
+        - COGNITO
 
       GenerateSecret: false
 
