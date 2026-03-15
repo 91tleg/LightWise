@@ -155,10 +155,10 @@ Resources:
         - profile
 
       CallbackURLs:
-        - http://localhost:3001/
+        - http://localhost:3001/callback
 
       LogoutURLs:
-        - http://localhost:3001/login
+        - http://localhost:3001/
 
       AccessTokenValidity: 1
       IdTokenValidity: 1
