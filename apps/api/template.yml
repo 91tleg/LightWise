@@ -320,7 +320,7 @@ Resources:
   AuthMeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.api.auth.handler.handler
+      Handler: services.auth.handler.handler
       Events:
         AuthMe:
           Type: Api
