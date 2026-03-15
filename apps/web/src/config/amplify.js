@@ -14,18 +14,11 @@ function normalizeUrl(value = "", fallbackPath = "") {
     return trimmed;
   }
 
-  if (typeof window === "undefined") {
-    return "";
-  }
-
   return `${window.location.origin}${fallbackPath}`;
 }
 
 function getScopes() {
-  return String(COGNITO_ENV.SCOPES || "email openid phone profile")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  return String(COGNITO_ENV.SCOPES).trim().split(/[\s,]+/).filter(Boolean);
 }
 
 const amplifyConfig = {
@@ -53,8 +46,6 @@ const hasRequiredConfig =
 
 if (hasRequiredConfig) {
   Amplify.configure(amplifyConfig);
-} else if (typeof window !== "undefined") {
-  console.warn("Amplify Auth is missing Cognito configuration values.");
 }
 
 export default amplifyConfig;
