@@ -14,24 +14,24 @@ namespace lorawan
     {
     public:
         explicit constexpr Lwnode( LwnodeHw * const sensor )
-            : sensor_( sensor ),
-            joinMode_( JoinMode::OTAA ),
-            region_( Region::US915 ),
-            devAddr_( 0U ),
-            appEui_{},
-            appKey_{},
-            nwkSkey_{},
-            appSkey_{},
-            dataRate_( 0U ),
-            txPower_( 14U ),
-            adr_( false ),
-            subBand_( 1U ),
-            lastRssi_( 0 ),
-            lastSnr_( 0 ),
-            rxCb_( nullptr ),
-            intEnabled_( true ),
-            rxBuf_{},
-            isInitialized_( false )
+            : sensor_ { sensor }
+            , joinMode_ { JoinMode::OTAA }
+            , region_ { Region::US915 }
+            , devAddr_ { 0U }
+            , appEui_ {}
+            , appKey_ {}
+            , nwkSkey_ {}
+            , appSkey_ {}
+            , dataRate_ { 0U }
+            , txPower_ { 14U }
+            , adr_ { false } 
+            , subBand_ { 1U }
+            , lastRssi_ { 0 }
+            , lastSnr_ { 0 }
+            , rxCb_ { nullptr }
+            , intEnabled_ { true }
+            , rxBuf_ {}
+            , isInitialized_ { false }
         {
 
         }
@@ -44,7 +44,7 @@ namespace lorawan
          * 
          * @return true if initialization successful, false otherwise
          */
-        bool init() override;
+        [[nodiscard]] bool init() noexcept;
 
         /** @} */
 
@@ -57,7 +57,7 @@ namespace lorawan
          * @param region Target region (EU868, US915, CN470)
          * @return true if region set successfully, false otherwise
          */
-        bool setRegion( Region region ) override;
+        [[nodiscard]] bool setRegion( Region region ) noexcept override;
 
         /**
          * @brief Set Application EUI (Join EUI) for OTAA
@@ -65,7 +65,7 @@ namespace lorawan
          * @param joinEuiHex16 Hex string (16 chars, null-terminated)
          * @return true if set successfully, false otherwise
          */
-        bool setAppEui( const char * joinEuiHex16 ) override;
+        [[nodiscard]] bool setAppEui( const char * joinEuiHex16 ) noexcept override;
 
         /**
          * @brief Set Application Key for OTAA
@@ -73,7 +73,7 @@ namespace lorawan
          * @param appKeyHex32 Hex string (32 chars, null-terminated)
          * @return true if set successfully, false otherwise
          */
-        bool setAppKey( const char * appKeyHex32 ) override;
+        [[nodiscard]] bool setAppKey( const char * appKeyHex32 ) noexcept override;
 
         /**
          * @brief Set Network Session Key for ABP
@@ -81,7 +81,7 @@ namespace lorawan
          * @param nwkSkeyHex32 Hex string (32 chars, null-terminated)
          * @return true if set successfully, false otherwise
          */
-        bool setNwkSkey( const char * nwkSkeyHex32 ) override;
+        [[nodiscard]] bool setNwkSkey( const char * nwkSkeyHex32 ) noexcept override;
 
         /**
          * @brief Set Application Session Key for ABP
@@ -89,7 +89,7 @@ namespace lorawan
          * @param appSkeyHex32 Hex string (32 chars, null-terminated)
          * @return true if set successfully, false otherwise
          */
-        bool setAppSkey( const char * appSkeyHex32 ) override;
+        [[nodiscard]] bool setAppSkey( const char * appSkeyHex32 ) noexcept override;
 
         /**
          * @brief Set Device Address for ABP
@@ -97,7 +97,7 @@ namespace lorawan
          * @param devAddrHex 32-bit device address
          * @return true if set successfully, false otherwise
          */
-        bool setDevAddr( uint32_t devAddrHex );
+        [[nodiscard]] bool setDevAddr( uint32_t devAddrHex ) noexcept;
 
         /**
          * @brief Set LoRaWAN device class
@@ -105,7 +105,7 @@ namespace lorawan
          * @param classType Class A or Class C
          * @return true if set successfully, false otherwise
          */
-        bool setClass( DeviceClass classType ) override;
+        [[nodiscard]] bool setClass( DeviceClass classType ) noexcept override;
 
         /**
          * @brief Set LoRa data rate (Spreading Factor)
@@ -113,7 +113,7 @@ namespace lorawan
          * @param dataRate Data rate value (region-dependent, typically 0-15)
          * @return true if set successfully, false otherwise
          */
-        bool setDatarate( uint8_t dataRate ) override;
+        [[nodiscard]] bool setDatarate( uint8_t dataRate ) noexcept override;
 
         /**
          * @brief Set Equivalent Isotropic Radiated Power (EIRP)
@@ -121,7 +121,7 @@ namespace lorawan
          * @param eirp Transmission power in dBm
          * @return true if set successfully, false otherwise
          */
-        bool setEirp( uint8_t eirp ) override;
+        [[nodiscard]] bool setEirp( uint8_t eirp ) noexcept override;
 
         /**
          * @brief Set sub-band for regional support (US915/CN470 only)
@@ -129,7 +129,7 @@ namespace lorawan
          * @param subBand Sub-band index (1-8 for US915)
          * @return true if set successfully, false otherwise
          */
-        bool setSubband( uint8_t subBand ) override;
+        [[nodiscard]] bool setSubband( uint8_t subBand ) noexcept override;
 
         /**
          * @brief Enable or disable Adaptive Data Rate
@@ -137,7 +137,7 @@ namespace lorawan
          * @param adr true to enable ADR, false to disable
          * @return true if set successfully, false otherwise
          */
-        bool enableAdr( bool adr ) override;
+        [[nodiscard]] bool enableAdr( bool adr ) noexcept override;
 
         /**
          * @brief Set uplink transmission type (confirmed or unconfirmed)
@@ -145,7 +145,7 @@ namespace lorawan
          * @param type Packet type (confirmed or unconfirmed)
          * @return true if set successfully, false otherwise
          */
-        bool setPacketType( PacketType type ) override;
+        [[nodiscard]] bool setPacketType( PacketType type ) noexcept override;
 
         /** @} */
 
@@ -157,14 +157,14 @@ namespace lorawan
          * 
          * @return true if configured successfully, false otherwise
          */
-        bool configOtaa();
+        [[nodiscard]] bool configOtaa() noexcept;
 
         /**
          * @brief Configure device for ABP (Activation By Personalization)
          * 
          * @return true if configured successfully, false otherwise
          */
-        bool configAbp();
+        [[nodiscard]] bool configAbp() noexcept;
 
         /**
          * @brief Initialize device hardware and perform AT test
@@ -174,21 +174,21 @@ namespace lorawan
          * 
          * @return true if initialization successful, false otherwise
          */
-        bool begin() override;
+        [[nodiscard]] bool begin() noexcept override;
 
         /**
          * @brief Request network join (OTAA or ABP)
          * 
          * @return true if join request sent successfully, false otherwise
          */
-        bool join() override;
+        [[nodiscard]] bool join() noexcept override;
 
         /**
          * @brief Query current network join status
          * 
          * @return true if device is currently joined to network, false otherwise
          */
-        bool isJoined() override;
+        [[nodiscard]] bool isJoined() noexcept override;
 
         /** @} */
 
@@ -204,7 +204,7 @@ namespace lorawan
          * @param len Payload length (1-128 bytes)
          * @return true if transmission successful, false otherwise
          */
-        bool sendPacket( const uint8_t * data, uint8_t len ) override;
+        [[nodiscard]] bool sendPacket( const uint8_t * data, uint8_t len ) noexcept override;
 
         /**
          * @brief Sleep with periodic receive polling
@@ -215,7 +215,7 @@ namespace lorawan
          * @param sleepMs Sleep duration in milliseconds
          * @return true if sleep completed successfully, false otherwise
          */
-        bool sleepMs( uint32_t sleepMs);
+        [[nodiscard]] bool sleepMs( uint32_t sleepMs) noexcept override;
 
         /**
          * @brief Read received data (polling mode)
@@ -228,7 +228,7 @@ namespace lorawan
          * @param outLen Pointer to return actual bytes read
          * @return true if data available and read successfully, false otherwise
          */
-        bool readData( uint8_t * out, uint16_t outMax, uint16_t * outLen );
+        [[nodiscard]] bool readData( uint8_t * out, uint16_t outMax, uint16_t * outLen ) noexcept;
 
         /** @} */
 
@@ -244,7 +244,7 @@ namespace lorawan
          * @param callback Function pointer (NULL to unregister)
          * @return true if callback registered successfully, false otherwise
          */
-        bool setRxCb( RxCallback callback );
+        [[nodiscard]] bool setRxCb( RxCallback callback ) noexcept override;
 
         /** @} */
 
@@ -256,20 +256,20 @@ namespace lorawan
          * 
          * @return RSSI in dBm (negative value, e.g., -120), 0 if no data received
          */
-        int8_t lastRssi();
+        [[nodiscard]] int8_t lastRssi() const noexcept;
 
         /**
          * @brief Get last received signal-to-noise ratio
          * 
          * @return SNR in dB (typically -20 to +10), 0 if no data received
          */
-        int8_t lastSnr();
+        [[nodiscard]] int8_t lastSnr() const noexcept;
 
         /** @} */
 
     private:
-        LwnodeHw * const sensor_;                    /**< Hardware interface pointer */
-        static constexpr size_t kMaxRxBytes = 256U;  /**< Maximum receive buffer size in bytes */
+        LwnodeHw * const sensor_;                     /**< Hardware interface pointer */
+        static constexpr size_t kMaxRxBytes { 256U }; /**< Maximum receive buffer size in bytes */
 
         /* Device config/state */
         JoinMode joinMode_;  /**< Join method (OTAA or ABP) */
@@ -299,14 +299,14 @@ namespace lorawan
 
         bool isInitialized_;            /**< Device initialization flag */
 
-        bool atTest();
-        bool writeAtBytes( const uint8_t * data, uint16_t len );
-        bool readAckBytes( uint16_t * outLen );
-        bool sendAtCmd( const char * cmdAscii, char * ackBuf, size_t ackCap );
-        static bool ackEquals( const char * ack, const char * expected );
-        bool readLoraData( uint16_t * outLen );
-        bool processRecvFrames( const uint8_t * buf, uint16_t len );
-        bool readAckWithYield( uint16_t * outLen );
+        [[nodiscard]] bool atTest() noexcept;
+        [[nodiscard]] bool writeAtBytes( const uint8_t * data, uint16_t len ) const noexcept;
+        [[nodiscard]] bool readAckBytes( uint16_t * outLen ) noexcept;
+        [[nodiscard]] bool sendAtCmd( const char * cmdAscii, char * ackBuf, size_t ackCap ) noexcept;
+        [[nodiscard]] static bool ackEquals( const char * ack, const char * expected ) noexcept;
+        [[nodiscard]] bool readLoraData( uint16_t * outLen ) noexcept;
+        [[nodiscard]] bool processRecvFrames( const uint8_t * buf, uint16_t len ) noexcept;
+        [[nodiscard]] bool readAckWithYield( uint16_t * outLen ) noexcept;
     };
 }
 #endif /* SRC_LIB_LORAWAN_LWNODE_HPP */

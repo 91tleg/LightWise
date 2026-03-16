@@ -9,6 +9,7 @@ typedef struct Dht11Hw Dht11Hw;
 
 namespace th
 {
+
     /**
      * @class Dht11
      * @brief DHT11 temperature and humidity sensor driver.
@@ -17,7 +18,7 @@ namespace th
      * and humidity sensor. Handles initialization and reading of sensor data
      * through a single-wire digital protocol.
      */
-    class Dht11 : public THSensor
+    class Dht11 final : public THSensor
     {
     public:
         /**
@@ -26,8 +27,8 @@ namespace th
          * @param sensor Pointer to the hardware config structure for the DHT11 sensor.
          */
         explicit constexpr Dht11( const Dht11Hw * const sensor )
-            : sensor_( sensor ),
-              isInitialized_( false )
+            : sensor_ { sensor }
+            , isInitialized_ { false }
         {
 
         }
@@ -37,7 +38,7 @@ namespace th
          * 
          * @return true if initialization successful, false otherwise.
          */
-        bool init() override;
+        [[nodiscard]] bool init() noexcept;
 
         /**
          * @brief Reads temperature and humidity from the sensor.
@@ -46,9 +47,9 @@ namespace th
          * @param[out] humidity The relative humidity value in percentage.
          * @return true if read successful, false otherwise.
          */
-        bool read( uint8_t & temperature, 
-                   uint8_t & humidity ) const override;
-        
+        [[nodiscard]] bool read( uint8_t & temperature, 
+                                 uint8_t & humidity ) const noexcept override;
+
     private:
         const Dht11Hw * const sensor_;  /**< Pointer to hardware configuration structure */
         bool isInitialized_;            /**< Initialization status flag */
@@ -58,7 +59,7 @@ namespace th
          * 
          * @return true if start signal sent successfully, false otherwise.
          */
-        bool startSignal() const;
+        [[nodiscard]] bool startSignal() const noexcept;
 
         /**
          * @brief Reads raw 5-byte data from the sensor.
@@ -66,7 +67,7 @@ namespace th
          * @param[out] data Array of 5 bytes containing sensor data and checksum.
          * @return true if read successful and checksum valid, false otherwise.
          */
-        bool readRaw( uint8_t data[ 5 ] ) const;
+        [[nodiscard]] bool readRaw( uint8_t data[ 5 ] ) const noexcept;
 
         /**
          * @brief Reads a single byte from the sensor.
@@ -74,7 +75,7 @@ namespace th
          * @param[out] byteOut The byte read from the sensor.
          * @return true if byte read successfully, false otherwise.
          */
-        bool readByte( uint8_t & byteOut ) const;
+        [[nodiscard]] bool readByte( uint8_t & byteOut ) const noexcept;
 
         /**
          * @brief Waits for a specific signal level with timeout.
@@ -83,8 +84,9 @@ namespace th
          * @param timeoutUs Timeout duration in microseconds.
          * @return true if expected level detected, false on timeout or error.
          */
-        bool waitLevel( uint8_t level, uint32_t timeoutUs ) const;
+        [[nodiscard]] bool waitLevel( uint8_t level, uint32_t timeoutUs ) const noexcept;
     };
+
 } /* namespace th */
 
 #endif /* SRC_LIB_TH_DHT11_HPP */

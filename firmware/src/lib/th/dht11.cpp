@@ -1,20 +1,25 @@
 #include "dht11.hpp"
 
 #include "hal/dht11.h"
+#include "utils/time/delay.h"
+#include "utils/time/timer.h"
 
 namespace th
 {
+
     namespace
     {
-        constexpr uint32_t kStartSignalMs = 18U;     /**< Duration of start signal */
-        constexpr uint32_t kBitSampleDelayUs = 30U;  /**< Delay before sampling bit */
-        constexpr uint32_t kTimeoutUs = 100U;        /**< Timeout for signal level wait */
-        constexpr uint32_t kReadDelayMs = 500U;      /**< Delay between reads */
+
+        constexpr uint32_t kStartSignalMs { 18U };     /**< Duration of start signal */
+        constexpr uint32_t kBitSampleDelayUs { 30U };  /**< Delay before sampling bit */
+        constexpr uint32_t kTimeoutUs { 100U };        /**< Timeout for signal level wait */
+        constexpr uint32_t kReadDelayMs { 500U };      /**< Delay between reads */
+
     } /* anonymous namespace */
 
-    bool Dht11::init()
+    bool Dht11::init() noexcept
     {
-        bool result = false;
+        bool result { false };
 
         if( sensor_ != nullptr )
         {
@@ -24,10 +29,10 @@ namespace th
         return result;
     }
 
-    bool Dht11::read( uint8_t & temperature, uint8_t & humidity ) const
+    bool Dht11::read( uint8_t & temperature, uint8_t & humidity ) const noexcept
     {
-        bool result = false;
-        uint8_t data[ 5 ]{};
+        bool result { false };
+        uint8_t data[ 5 ] {};
         
         if( isInitialized_ )
         {
@@ -42,16 +47,16 @@ namespace th
         return result;
     }
 
-    bool Dht11::readRaw( uint8_t data[ 5 ] ) const
+    bool Dht11::readRaw( uint8_t data[ 5 ] ) const noexcept
     {
-        bool success = true;
+        bool success { true };
 
-        for( uint8_t i = 0U; i < 5U; ++i )
+        for( uint8_t i { 0U }; i < 5U; ++i )
         {
             data[ i ] = 0U;
         }
 
-        dht11_hal_delay_ms( kReadDelayMs );
+        delay_ms( kReadDelayMs );
 
         if( !startSignal() || 
             !waitLevel( 0U, kTimeoutUs ) || 
@@ -62,7 +67,7 @@ namespace th
 
         if( success )
         {
-            for( uint8_t i = 0U; ( i < 5U ) && success; ++i )
+            for( uint8_t i { 0U }; ( i < 5U ) && success; ++i )
             {
                 if( !readByte( data[ i ] ) )
                 {
@@ -73,10 +78,10 @@ namespace th
 
         if( success )
         {
-            const uint8_t checksum = static_cast<uint8_t>( data[ 0 ] +
-                                                           data[ 1 ] +
-                                                           data[ 2 ] +
-                                                           data[ 3 ] );
+            const uint8_t checksum = static_cast< uint8_t >( data[ 0 ] +
+                                                             data[ 1 ] +
+                                                             data[ 2 ] +
+                                                             data[ 3 ] );
             if( checksum != data[ 4 ] )
             {
                 success = false;
@@ -86,12 +91,12 @@ namespace th
         return success;
     }
 
-    bool Dht11::readByte( uint8_t & byte ) const
+    bool Dht11::readByte( uint8_t & byte ) const noexcept
     {
-        bool success = true;
+        bool success { true };
         byte = 0U;
 
-        for( uint8_t i = 0U; ( i < 8U ) && success; ++i )
+        for( uint8_t i { 0U }; ( i < 8U ) && success; ++i )
         {
             if( !waitLevel( 0U, kTimeoutUs ) || !waitLevel( 1U, kTimeoutUs ) )
             {
@@ -99,16 +104,16 @@ namespace th
             }
             else
             {
-                dht11_hal_delay_us( kBitSampleDelayUs );
-                
-                uint32_t level = 0U;
+                delay_us( kBitSampleDelayUs );
+
+                uint32_t level { 0U };
                 if( !dht11_hal_read( sensor_, &level ) )
                 {
                     success = false;
                 }
                 else if( level == 1U )
                 {
-                    byte |= static_cast<uint8_t>( 1U << ( 7U - i ) );
+                    byte |= static_cast< uint8_t >( 1U << ( 7U - i ) );
                 } 
                 else
                 {
@@ -120,19 +125,19 @@ namespace th
         return success;
     }
 
-    bool Dht11::startSignal() const
+    bool Dht11::startSignal() const noexcept
     {
-        bool success = false;
+        bool success { false };
 
         if( dht11_hal_set_output( sensor_ ) )
         {
             if( dht11_hal_write( sensor_, 0U ) )
             {
-                dht11_hal_delay_ms( kStartSignalMs );
+                delay_ms( kStartSignalMs );
                 
                 if( dht11_hal_write( sensor_, 1U ) )
                 {
-                    dht11_hal_delay_us( 40U );
+                    delay_us( 40U );
                     success = dht11_hal_set_input( sensor_ );
                 }
             }
@@ -141,25 +146,25 @@ namespace th
         return success;
     }
 
-    bool Dht11::waitLevel( uint8_t level, uint32_t timeoutUs ) const
+    bool Dht11::waitLevel( uint8_t level, uint32_t timeoutUs ) const noexcept
     {
-        bool found = false;
-        bool timeout = false;
-        const uint64_t startTime = dht11_hal_get_time_us();
+        bool found { false };
+        bool timeout { false };
+        const uint64_t startTime { timer_get_time_us() };
 
         while( !found && !timeout )
         {
-            uint32_t currentLevel = 0U;
-            
+            uint32_t currentLevel { 0U };
+
             if( !dht11_hal_read( sensor_, &currentLevel ) )
             {
                 timeout = true;
             }
-            else if( currentLevel == static_cast<uint32_t>( level ) )
+            else if( currentLevel == static_cast< uint32_t >( level ) )
             {
                 found = true;
             }
-            else if( ( dht11_hal_get_time_us() - startTime ) > timeoutUs )
+            else if( ( timer_get_time_us() - startTime ) > timeoutUs )
             {
                 timeout = true;
             }
@@ -171,4 +176,5 @@ namespace th
 
         return found;
     }
+
 } /* namespace th */

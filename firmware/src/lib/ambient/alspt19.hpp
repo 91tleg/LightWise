@@ -8,6 +8,7 @@ typedef struct AlsPt19Hw AlsPt19Hw;
 
 namespace ambient
 {
+
     /**
      * @class Alspt19
      * @brief ALS-PT19 ambient light sensor driver.
@@ -26,8 +27,8 @@ namespace ambient
          *               for the sensor.
          */
         explicit constexpr Alspt19( const AlsPt19Hw * const sensor )
-            : sensor_( sensor ),
-              isInitialized_( false )
+            : sensor_ { sensor }
+            , isInitialized_ { false }
         {
 
         }
@@ -37,7 +38,7 @@ namespace ambient
          * 
          * @return true if initialization successful, false otherwise.
          */
-        bool init() override;
+        [[nodiscard]] bool init() noexcept;
 
         /**
          * @brief Read ambient light level in lux.
@@ -50,7 +51,7 @@ namespace ambient
          * @return true if the read succeeded and `lux` was populated,
          *         false on error.
          */
-        bool read( float & lux ) const override;
+        [[nodiscard]] bool read( float & lux ) const noexcept override;
 
     private:
         const AlsPt19Hw * const sensor_; /**< Hardware configuration pointer */
@@ -62,8 +63,9 @@ namespace ambient
          * @param rawReading Raw ADC sample from the sensor.
          * @return Calculated illuminance in lux.
          */
-        static float adcToLux( uint16_t rawReading );
+        [[nodiscard]] static float adcToLux( uint16_t rawReading ) noexcept;
     };
+
 } /* namespace ambient */
 
 #endif /* SRC_LIB__AMBIENT_ALSPT19_HPP */

@@ -5,6 +5,7 @@
 
 namespace mmwave
 {
+
     enum class Mode : uint8_t 
     {
         PRESENCE = 0, /**< Simple occupancy/existence detection */
@@ -47,15 +48,31 @@ namespace mmwave
     public:
         virtual ~MmwaveSensor() = default;
 
-        virtual bool init() = 0;
-        virtual bool connect() = 0;
-        virtual bool setSensorMode( Mode mode ) = 0;
-        virtual bool setDetectionRange( uint16_t min, uint16_t max, uint16_t trig ) = 0;
-        virtual bool setTrigSensitivity( uint8_t sensitivity ) = 0;
-        virtual bool setKeepSensitivity( uint8_t sensitivity ) = 0;
-        virtual bool setDelay( uint8_t trig, uint16_t keep ) = 0;
-        virtual bool motionDetected( bool & moiton ) = 0;
+        [[nodiscard]] virtual bool connect() = 0;
+
+        [[nodiscard]] virtual bool setSensorMode( Mode mode ) = 0;
+
+        [[nodiscard]] virtual bool setDetectionRange( uint16_t min,
+                                                      uint16_t max,
+                                                      uint16_t trig ) = 0;
+
+        [[nodiscard]] virtual bool setTrigSensitivity( uint8_t sensitivity ) = 0;
+
+        [[nodiscard]] virtual bool setKeepSensitivity( uint8_t sensitivity ) = 0;
+
+        [[nodiscard]] virtual bool setDelay( uint8_t trig,
+                                             uint16_t keep ) = 0;
+
+        [[nodiscard]] virtual bool motionDetected( bool & moiton ) = 0;
+
+    protected:
+        MmwaveSensor()                                  = default;
+        MmwaveSensor( const MmwaveSensor & )            = default;
+        MmwaveSensor &operator=( const MmwaveSensor & ) = default;
+        MmwaveSensor( MmwaveSensor && )                 = default;
+        MmwaveSensor &operator=( MmwaveSensor && )      = default;
     };
+
 } /* namespace mmwave */
 
 #endif /* SRC_LIB_MMWAVE_MMWAVE_SENSOR_HPP */

@@ -3,15 +3,18 @@
 
 namespace ambient
 {
+
     namespace
     {
-        constexpr uint16_t kAdcMax = 4095U;
-        constexpr float kLuxMax    = 1000.0f;
+
+        constexpr uint16_t kAdcMax { 4095U   };
+        constexpr float kLuxMax    { 1000.0f };
+
     } /* anonymous namespace */
 
-    bool Alspt19::init()
+    bool Alspt19::init() noexcept
     {
-        bool result = false;
+        bool result { false };
 
         if( sensor_ != nullptr )
         {
@@ -21,15 +24,15 @@ namespace ambient
         return result;
     }
 
-    bool Alspt19::read( float & lux ) const
+    bool Alspt19::read( float & lux ) const noexcept
     {
-        bool result = false;
+        bool result { false };
 
         if(  isInitialized_ )
         {
-            uint16_t rawReading = 0U;
+            uint16_t rawReading { 0U };
 
-            if( alspt19_hal_read_raw( sensor_, &rawReading ) )
+            if( alspt19_hal_read( sensor_, &rawReading ) )
             {
                 lux = adcToLux( rawReading );
                 result = true;
@@ -39,9 +42,9 @@ namespace ambient
         return result;
     }
 
-    float Alspt19::adcToLux( uint16_t rawReading )
+    float Alspt19::adcToLux( uint16_t rawReading ) noexcept
     {
-        float lux = 0.0f;
+        float lux { 0.0f };
 
         if( rawReading > kAdcMax )
         {
@@ -50,10 +53,11 @@ namespace ambient
         
         if( rawReading > 0U )
         {
-            lux = ( static_cast<float>( rawReading) 
-                    / static_cast<float>( kAdcMax) * kLuxMax );
+            lux = ( static_cast< float >( rawReading) /
+                    static_cast< float >( kAdcMax) * kLuxMax );
         }
     
         return lux;
     }
+
 } /* namespace ambient */
