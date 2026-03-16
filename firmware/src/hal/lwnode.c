@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 
 #include <esp_err.h>
 
@@ -168,12 +167,4 @@ bool lwnode_hal_read( const LwnodeHw * const sensor,
     }
 
     return result;
-}
-
-void lwnode_hal_delay_ms( uint32_t delayMs )
-{
-    if( delayMs > 0U )
-    {
-        vTaskDelay( pdMS_TO_TICKS( delayMs ) );
-    }
 }
