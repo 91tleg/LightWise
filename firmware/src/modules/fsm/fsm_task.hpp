@@ -3,28 +3,26 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
+#include <freertos/task.h>
 
 namespace fsm
 {
-    /**
-     * @brief Parameters passed to the task.
-     *
-     * This structure is provided to the task at creation via the pvParameters argument.
-     */
+    class Manager;
+
     struct TaskParams
     {
-        QueueHandle_t ambeintRxQueue;  /**< Receieve ambient data periodically */
-        TaskHandle_t  thTaskHandle;    /**< Need this to notify dht to send data */
-        QueueHandle_t thRxQueue;       /**< Dht data queue after we request it */
-        QueueHandle_t lorawanTxQueue;  /**< Send this queue out when event to send uplink */
-        QueueHandle_t mmwaveRxQueue;   /**< Received when motion is detected */
-        TaskHandle_t lightTaskHandle;  /**< Send light command */
+        Manager & manager;            /**< Fully constructed FSM Manager.   */
+        QueueHandle_t ambientRxQueue; /**< Receives ambient::Data.          */
+        QueueHandle_t thRxQueue;      /**< Receives th::Data.               */
+        QueueHandle_t mmwaveRxQueue;  /**< Receives mmwave::Data.           */
+        QueueHandle_t lorawanTxQueue; /**< Sends lorawan::UplinkData.       */
+        TaskHandle_t thTaskHandle;    /**< Notified to trigger a TH sample. */
+        TaskHandle_t lightTaskHandle; /**< Notified with new light level.   */
     };
 
     /**
-     * @brief FreeRTOS task for decision making and prepare uplink
-     *
-     * @param[in] pvParameters Pointer to a TaskParams structure.
+     * @brief  FreeRTOS FSM task — never returns.
+     * @param  pvParameters  Pointer to a TaskParams instance (non-null).
      */
     void task( void * pvParameters );
 
