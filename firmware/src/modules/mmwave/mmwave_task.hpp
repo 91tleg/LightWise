@@ -7,7 +7,7 @@
 
 namespace mmwave
 {
-    class MmwaveSensor;
+    class Manager;
     /**
      * @brief Parameters passed to the mmwave sensor task.
      *
@@ -16,10 +16,9 @@ namespace mmwave
      */
     struct TaskParams
     {
-        MmwaveSensor * primary;     /**< Pointer to the primary mmwave */
-        MmwaveSensor * secondary;   /**< Pointer to the secondary mmwave */
-        TaskHandle_t fsmTaskHandle; /**< Task to notify motion */
-        QueueHandle_t queue;        /**< FreeRTOS queue to send MmwaveData results */
+        Manager & manager;          /**< Fully constructed, statically allocated Manager. */
+        QueueHandle_t queue;        /**< Queue for publishing mmwave::Data to consumers.  */
+        TaskHandle_t fsmTaskHandle; /**< FSM task to notify on motion edge.               */
     };
 
     /**
