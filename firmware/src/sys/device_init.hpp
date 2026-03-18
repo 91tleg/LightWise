@@ -1,5 +1,5 @@
-#ifndef SRC_DEVICE_INIT_HPP
-#define SRC_DEVICE_INIT_HPP
+#ifndef SRC_SYS_DEVICE_INIT_HPP
+#define SRC_SYS_DEVICE_INIT_HPP
 
 #include "lib/ambient/alspt19.hpp"
 #include "lib/mmwave/c4001.hpp"
@@ -9,6 +9,7 @@
 
 namespace device
 {
+
     void init();
 
     extern ambient::Alspt19 xAlsPt19Primary;
@@ -18,6 +19,7 @@ namespace device
     extern mmwave::C4001 xC001Secondary;
     extern th::Dht11 xDht11Primary;
     extern lorawan::Lwnode xLwnodePrimary;
+
 } /* namespace device */
 
-#endif /* SRC_DEVICE_INIT_HPP */
+#endif /* SRC_SYS_DEVICE_INIT_HPP */
