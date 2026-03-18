@@ -6,19 +6,20 @@
 
 namespace lorawan
 {
+
+    class Manager;
     class LorawanSensor;
     class UplinkPayload;
-    
+
     /**
      * @brief Parameters passed to the task.
      *
      * This structure is provided to the task at creation via the pvParameters argument.
      */
-    struct TaskParams
+    struct UplinkTaskParams
     {
-        UplinkPayload * payload;  /**< Uplink payload encoder instance */
-        LorawanSensor * primary;  /**< LoRaWAN sensor instance */
-        QueueHandle_t rxQueue;    /**< Queue for receiving uplink data */
+        Manager & manager;     /**< Fully constructed, statically allocated Manager. */
+        QueueHandle_t rxQueue; /**< Queue for receiving uplink data */
     };
 
     /**
@@ -29,7 +30,7 @@ namespace lorawan
      *
      * @param[in] pvParameters Pointer to a TaskParams structure.
      */
-    void task( void * pvParameters );
+    void uplink_task( void * pvParameters );
 
 } /* namespace lorawan */
 
