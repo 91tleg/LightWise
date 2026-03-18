@@ -4,105 +4,76 @@
 
 namespace ambient
 {
-    namespace
-    {
-        constexpr float kDegradedThreshold = 10.0f;
-    } /* anonymous namespace */
 
-    Manager::Manager( AmbientSensor * const primary,
-                      AmbientSensor * const secondary,
-                      float alpha )
-        : primary_( primary ), secondary_( secondary )
+    Manager::Manager( AmbientSensor & primary,
+                      AmbientSensor & secondary,
+                      filter::EMA< float > & primaryFilter,
+                      filter::EMA< float > & secondaryFilter ) noexcept
+        : primary_ { primary }
+        , secondary_ { secondary }
+        , primaryFilter_ { primaryFilter }
+        , secondaryFilter_ { secondaryFilter }
     {
-        /* NOTE: alpha is clamped to (0.0, 1.0] inside ema_init() */
-        ( void ) ema_init( &primaryFilter_, alpha );
-        ( void ) ema_init( &secondaryFilter_, alpha );
+
     }
 
-    bool Manager::update( Data & data )
+    bool Manager::update( Data & data ) noexcept
     {
-        bool result = false;
+        float luxPrimary { 0.0f };
+        float luxSecondary { 0.0f };
 
-        const float primaryEma   = primaryFilter_.value;
-        const float secondaryEma = secondaryFilter_.value;
+        const bool primaryOk { primary_.get().read( luxPrimary ) };
+        const bool secondaryOk { secondary_.get().read( luxSecondary ) };
 
-        /* Default output */
-        data.lux    = (primaryEma + secondaryEma) * 0.5f;
-        data.health = SensorHealth::TOTAL_FAILURE;
+        float filteredPrimary { 0.0f };
+        float filteredSecondary { 0.0f };
 
-        if( ( primary_ != nullptr ) && ( secondary_ != nullptr ) )
+        if( primaryOk )
         {
-            float luxPrimary   = 0.0f;
-            float luxSecondary = 0.0f;
-
-            const bool primaryOk   = primary_->read( luxPrimary );
-            const bool secondaryOk = secondary_->read( luxSecondary );
-
-            float updatedPrimaryEma = primaryEma;
-            float updatedSecondaryEma = secondaryEma;
-
-            if( primaryOk )
-            {
-                ( void ) ema_update( &primaryFilter_, luxPrimary, &updatedPrimaryEma );
-            }
-
-            if( secondaryOk )
-            {
-                ( void ) ema_update( &secondaryFilter_, luxSecondary, &updatedSecondaryEma );
-            }
-
-            /* Determine health */
-            if( primaryOk && secondaryOk )
-            {
-                const float diff = updatedPrimaryEma - updatedSecondaryEma;
-                const float absDiff = ( diff >= 0.0f ) ? diff : -diff;
-
-                if( absDiff > kDegradedThreshold )
-                {
-                    data.health = SensorHealth::DEGRADED;
-                }
-                else
-                {
-                   data.health = SensorHealth::SYSTEM_OK;
-                }
-                result = true;
-            }
-            else if( primaryOk )
-            {
-                data.health = SensorHealth::SECONDARY_FAIL;
-                result = true;
-            }
-            else if( secondaryOk )
-            {
-                data.health = SensorHealth::PRIMARY_FAIL;
-                result = true;
-            }
-            else
-            {
-                data.health = SensorHealth::TOTAL_FAILURE;
-                result = false;
-            }
-
-            /* Compute reported lux as average of available EMAs */
-            if( primaryOk && secondaryOk )
-            {
-                data.lux = ( updatedPrimaryEma + updatedSecondaryEma ) * 0.5f;
-            }
-            else if( primaryOk )
-            {
-                data.lux = updatedPrimaryEma;
-            }
-            else if( secondaryOk )
-            {
-                data.lux = updatedSecondaryEma;
-            }
-            else 
-            {
-                /* Both failed, keep last known average */
-                data.lux = ( primaryEma + secondaryEma ) * 0.5f;
-            }
+            static_cast< void >( primaryFilter_.get().update( luxPrimary, filteredPrimary ) );
         }
 
+        if( secondaryOk )
+        {
+            static_cast< void >( secondaryFilter_.get().update( luxSecondary, filteredSecondary ) );
+        }
+
+        bool result { false };
+        float lux { data.lux };  /* preserve last known */
+        SensorHealth health { SensorHealth::TOTAL_FAILURE };
+
+        if( primaryOk && secondaryOk )
+        {
+            const float diff { filteredPrimary - filteredSecondary };
+            const float absDiff { ( diff >= 0.0f ) ? diff : -diff };
+
+            health = ( absDiff > kDegradedThreshold )
+                     ? SensorHealth::DEGRADED
+                     : SensorHealth::SYSTEM_OK;
+            lux = ( filteredPrimary + filteredSecondary ) * 0.5f;
+            result = true;
+        }
+        else if( primaryOk )
+        {
+            health = SensorHealth::SECONDARY_FAIL;
+            lux    = filteredPrimary;
+            result = true;
+        }
+        else if( secondaryOk )
+        {
+            health = SensorHealth::PRIMARY_FAIL;
+            lux    = filteredSecondary;
+            result = true;
+        }
+        else
+        {
+            health = SensorHealth::TOTAL_FAILURE;
+            result = false;
+        }
+
+        data.lux    = lux;
+        data.health = health;
         return result;
     }
+
 } /* namespace ambient */

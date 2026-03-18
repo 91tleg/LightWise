@@ -1,60 +1,62 @@
 #ifndef SRC_MODULES_AMBIENT_AMBIENT_MANAGER_HPP
 #define SRC_MODULES_AMBIENT_AMBIENT_MANAGER_HPP
 
-#include "utils/ema.h"
+#include <functional>  /* std::reference_wrapper */
+
 #include "types/ambient_data.hpp"
-
-
+#include "utils/math/ema.hpp"
 
 namespace ambient
 {
+
     class AmbientSensor;
     /**
-     * @brief Ambient light sensor manager with redundancy and filtering.
+     * @brief  Reads two ambient sensors, applies per-sensor EMA filtering,
+     *         and reports fused lux and sensor health.
      *
-     * Manages two ambient light sensors (primary and secondary). 
-     * It performs the following:
-     * - Reads lux values from both sensors
-     * - Applies redundancy logic when one sensor fails
-     * - Averages values when both sensors are healthy
-     * - Filters the resulting lux value using an exponential moving average (EMA)
-     *
-     * The output structure is always populated. Sensor validity must be checked
-     * via AmbientData::health.
+     * All four dependencies are injected at construction time. 
+     * Lifetimes of all injected objects must exceed that of Manager.
      */
     class Manager
     {
     public:
         /**
-         * @brief Constructs an Manager.
-         *
-         * @param[in] primary   Pointer to the primary ambient sensor device.
-         * @param[in] secondary Pointer to the secondary ambient sensor device.
-         * @param[in] alpha     EMA smoothing factor (0.0 < alpha <= 1.0).
+         * @param  primary         Primary ambient sensor (non-null).
+         * @param  secondary       Secondary ambient sensor (non-null).
+         * @param  primaryFilter   EMA filter for primary channel.
+         * @param  secondaryFilter EMA filter for secondary channel.
          */
-        explicit Manager( AmbientSensor * primary, 
-                          AmbientSensor * secondary,
-                          float alpha );
+        explicit Manager( AmbientSensor & primary,
+                          AmbientSensor & secondary,
+                          filter::EMA< float > & primaryFilter,
+                          filter::EMA< float > & secondaryFilter ) noexcept;
+
+        ~Manager()                            = default;
+        Manager( const Manager & )            = delete;
+        Manager &operator=( const Manager & ) = delete;
+        Manager( Manager && )                 = delete;
+        Manager &operator=( Manager && )      = delete;
 
         /**
-         * @brief Updates ambient light data.
+         * @brief  Read both sensors, update EMA filters, fuse results.
          *
-         * Reads both sensors and applies redundancy and filtering logic.
-         * The output data structure is always written.
+         * The output structure is always written.
          *
-         * @param[out] data Ambient light data structure.
-         *
-         * @return true if at least one sensor provided a valid reading,
-         *         false if both sensors failed or devices are invalid.
+         * @param  data  Filled with fused lux and health status.
+         * @return true  if at least one sensor read succeeded.
+         * @return false if both sensors failed (data.lux = last known average).
          */
-        bool update( Data & data );
+        [[nodiscard]] bool update( Data & data ) noexcept;
 
     private:
-        AmbientSensor * const primary_;   /**< Primary ambient light sensor */
-        AmbientSensor * const secondary_; /**< Secondary ambient light sensor */
-        EMAFilter primaryFilter_;   /**< EMA filter for primary lux smoothing */
-        EMAFilter secondaryFilter_; /**< EMA filter for secondary lux smoothing */
+        std::reference_wrapper< AmbientSensor        > primary_;
+        std::reference_wrapper< AmbientSensor        > secondary_;
+        std::reference_wrapper< filter::EMA< float > > primaryFilter_;
+        std::reference_wrapper< filter::EMA< float > > secondaryFilter_;
+
+        static constexpr float kDegradedThreshold { 10.0f };
     };
+
 } /* namespace ambient */
 
 #endif /* SRC_MODULES_AMBIENT_AMBIENT_MANAGER_HPP */

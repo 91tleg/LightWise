@@ -4,22 +4,20 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
-
-
 namespace ambient
 {
-    class AmbientSensor;
+
+    class Manager;
     /**
-     * @brief Parameters passed to the ambient sensor task.
+     * @brief  Parameters injected into the ambient task at creation time.
      *
-     * This structure is provided to the task at creation time 
-     * via the pvParameters argument.
+     * All members must be valid for the entire lifetime of the task.
+     * Pass a pointer to a statically allocated instance via pvParameters.
      */
     struct TaskParams
     {
-        AmbientSensor * primary;   /**< Pointer to the primary ALS PT19 device */
-        AmbientSensor * secondary; /**< Pointer to the secondary ALS PT19 device */
-        QueueHandle_t queue;       /**< FreeRTOS queue to send AmbientData results */
+        Manager & manager;   /**< Fully constructed, statically allocated Manager. */
+        QueueHandle_t queue; /**< Queue for publishing ambient::Data to consumer.  */
     };
 
     /**
@@ -33,6 +31,7 @@ namespace ambient
      * The validity of the data is indicated by AmbientData::health.
      */
     void task( void * pvParameters );
+
 } /* namespace ambient */
 
 #endif /* SRC_MODULES_AMBIENT_AMBIENT_TASK_HPP */
