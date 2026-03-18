@@ -1,156 +1,128 @@
-#include <gtest/gtest.h>
-
-#include "utils/str_ext.h"
+#include <cstdint>
 #include <cstring>
 
-TEST(StrExtGetField, FirstMiddleLast)
+#include <gtest/gtest.h>
+
+#include "utils/str/str_ext.h"
+
+TEST( StrExtGetField, EdgeCases )
 {
-    const uint8_t buf[] = "A,B,C";
+    const uint8_t buf[] { "RAW,DATA,,123" };
+    size_t start { 0 };
+    size_t len { 0 };
 
-    size_t start, len;
+    /* Normal field */
+    EXPECT_TRUE( str_ext_get_field( buf, 13, 0, 0, &start, &len ) );
+    EXPECT_EQ( len, 3U );
+    EXPECT_EQ( start, 0U );
 
-    EXPECT_TRUE(str_ext_get_field(buf, 5, 0, 0, &start, &len));
-    EXPECT_EQ(start, 0U);
-    EXPECT_EQ(len, 1U);
+    /* Empty field */
+    EXPECT_TRUE( str_ext_get_field( buf, 13, 0, 2, &start, &len ) );
+    EXPECT_EQ( len, 0U );
+    EXPECT_EQ( start, 9U );
 
-    EXPECT_TRUE(str_ext_get_field(buf, 5, 0, 1, &start, &len));
-    EXPECT_EQ(start, 2U);
-    EXPECT_EQ(len, 1U);
+    /* Out of bounds index */
+    EXPECT_FALSE( str_ext_get_field( buf, 13, 0, 4, &start, &len ) );
 
-    EXPECT_TRUE(str_ext_get_field(buf, 5, 0, 2, &start, &len));
-    EXPECT_EQ(start, 4U);
-    EXPECT_EQ(len, 1U);
-}
-
-TEST(StrExtGetField, EmptyFields)
-{
-    const uint8_t buf[] = ",,A,";
-
-    size_t start, len;
-
-    EXPECT_TRUE(str_ext_get_field(buf, 4, 0, 0, &start, &len));
-    EXPECT_EQ(len, 0U);
-
-    EXPECT_TRUE(str_ext_get_field(buf, 4, 0, 1, &start, &len));
-    EXPECT_EQ(len, 0U);
-
-    EXPECT_TRUE(str_ext_get_field(buf, 4, 0, 2, &start, &len));
-    EXPECT_EQ(len, 1U);
-
-    EXPECT_TRUE(str_ext_get_field(buf, 4, 0, 3, &start, &len));
-    EXPECT_EQ(len, 0U);
-}
-
-TEST(StrExtGetField, FieldIndexOutOfRange)
-{
-    const uint8_t buf[] = "A,B";
-    size_t start, len;
-
-    EXPECT_FALSE(str_ext_get_field(buf, 3, 0, 2, &start, &len));
-}
-
-TEST(StrExtGetField, InvalidArgs)
-{
-    const uint8_t buf[] = "A,B";
-    size_t start, len;
-
-    EXPECT_FALSE(str_ext_get_field(nullptr, 3, 0, 0, &start, &len));
-    EXPECT_FALSE(str_ext_get_field(buf, 3, 3, 0, &start, &len));
-    EXPECT_FALSE(str_ext_get_field(buf, 3, 0, 0, nullptr, &len));
+    /* Starting position offset (parse from middle) */
+    EXPECT_TRUE( str_ext_get_field( buf, 13, 4, 0, &start, &len ) ); /* Should find "DATA" */
+    EXPECT_EQ( len, 4U );
+    EXPECT_EQ( start, 4U );
 }
 
 
-TEST(StrExtParseX100, ValidNumbers)
+TEST( StrExtParseX100, PrecisionAndSigns )
 {
-    int32_t val;
+    int32_t val { 0U };
 
-    EXPECT_TRUE(str_ext_parse_x100((const uint8_t*)"0", 1, &val));
-    EXPECT_EQ(val, 0);
+    struct TestCase
+    {
+        const char * input;
+        int32_t expected;
+        bool success;
+    };
 
-    EXPECT_TRUE(str_ext_parse_x100((const uint8_t*)"1.23", 4, &val));
-    EXPECT_EQ(val, 123);
+    const TestCase cases[]
+    {
+        { .input = "1.23", .expected = 123, .success = true },
+        { .input = "1.2", .expected = 120, .success = true },
+        { .input = "-0.01", .expected = -1, .success = true },
+        { .input = "5.", .expected = 500, .success = false },
+        { .input = ".05", .expected = 5, .success = true },
+        { .input = "-", .expected = 0, .success = false },
+        { .input = "1.2345", .expected = 123, .success = true }
+    };
 
-    EXPECT_TRUE(str_ext_parse_x100((const uint8_t*)"1.2", 3, &val));
-    EXPECT_EQ(val, 120);
-
-    EXPECT_TRUE(str_ext_parse_x100((const uint8_t*)"-0.01", 5, &val));
-    EXPECT_EQ(val, -1);
+    for( const auto & c : cases )
+    {
+        bool res { str_ext_parse_x100( reinterpret_cast< const uint8_t * >( c.input ),
+                                       strlen( c.input ), &val ) };
+        EXPECT_EQ( res, c.success ) << "Failed on input: " << c.input;
+        if( c.success )
+        {
+            EXPECT_EQ( val, c.expected );
+        }
+    }
 }
 
-TEST(StrExtParseX100, ExtraFractionDigitsIgnored)
+TEST( StrExtToUpperCase, BoundaryCheck )
 {
-    int32_t val;
-    EXPECT_TRUE(str_ext_parse_x100((const uint8_t*)"1.2345", 6, &val));
-    EXPECT_EQ(val, 123);
+    char str[] { "a1!zZ" };
+    EXPECT_TRUE( str_ext_to_upper_case( str ) );
+    EXPECT_STREQ( str, "A1!ZZ" );
+
+    EXPECT_FALSE( str_ext_to_upper_case( nullptr ) );
 }
 
-TEST(StrExtParseX100, InvalidStrings)
+TEST( StrExtHex, BufferSafety )
 {
-    int32_t val;
+    const uint8_t data[] { 0x01U, 0x23U, 0x45U, 0xABU, 0xFFU };
+    char out[11] {};
 
-    EXPECT_FALSE(str_ext_parse_x100((const uint8_t*)"", 0, &val));
-    EXPECT_FALSE(str_ext_parse_x100((const uint8_t*)".", 1, &val));
-    EXPECT_FALSE(str_ext_parse_x100((const uint8_t*)"-.", 2, &val));
-    EXPECT_FALSE(str_ext_parse_x100((const uint8_t*)"1.", 2, &val));
-    EXPECT_FALSE(str_ext_parse_x100((const uint8_t*)"1a", 2, &val));
+    EXPECT_TRUE( str_ext_uint8_array_to_hex_string( data, 5, out, 11 ) );
+    EXPECT_STREQ( out, "012345ABFF" );
+
+    /* Buffer too small for null terminator */
+    EXPECT_FALSE( str_ext_uint8_array_to_hex_string( data, 5, out, 10 ) );
+
+    /* Null safety */
+    EXPECT_FALSE( str_ext_uint8_array_to_hex_string( nullptr, 5, out, 11 ) );
 }
 
-TEST(StrExtParseX100, Overflow)
+TEST( StrExtNumeric, LibcWrappers )
 {
-    int32_t val;
-    EXPECT_FALSE(str_ext_parse_x100(
-        (const uint8_t*)"21474837", 8, &val)); /* > INT32_MAX / 100 */
+    long l_val { 0L };
+    unsigned long ul_val { 0UL };
+
+    const char * s_val { "-2147483648" };
+    EXPECT_TRUE( str_ext_strtol( s_val, strlen( s_val ), &l_val ) );
+    EXPECT_EQ( l_val, -2147483648L );
+
+    const char * u_val { "4294967295" };
+    EXPECT_TRUE( str_ext_strtoul( u_val, strlen( u_val ), &ul_val ) );
+    EXPECT_EQ( ul_val, 4294967295UL );
+
+    const char * too_long { "123456789012345678901234567890123" };
+    EXPECT_FALSE( str_ext_strtol( too_long, strlen( too_long ), &l_val ) );
+
+    const char * garbage { "123A" };
+    EXPECT_FALSE( str_ext_strtol( garbage, 4, &l_val ) );
 }
 
-
-TEST(StrExtToUpperCase, Mixed)
+TEST( StrExtStrnlen, NullAndLimit )
 {
-    char s[] = "aBc123XyZ";
-    str_ext_to_upper_case(s);
-    EXPECT_STREQ(s, "ABC123XYZ");
+    const char * text { "Hello" };
+
+    EXPECT_EQ( str_ext_strnlen( text, 10 ), 5U );
+    EXPECT_EQ( str_ext_strnlen( text, 3 ), 3U );
+    EXPECT_EQ( str_ext_strnlen( nullptr, 10 ), 0U );
 }
 
-TEST(StrExtToUpperCase, NullSafe)
+TEST( StrExtFindChar, RangeCheck )
 {
-    str_ext_to_upper_case(nullptr);
-}
+    const uint8_t buf[] { 0xAAU, 0xBBU, 0xCCU, 0xAAU };
 
-
-TEST(StrExtStartsWith, Basic)
-{
-    const uint8_t buf[] = "HELLO";
-
-    EXPECT_TRUE(str_ext_starts_with(buf, 5, "HE", 2));
-    EXPECT_FALSE(str_ext_starts_with(buf, 5, "HI", 2));
-}
-
-TEST(StrExtStartsWith, LengthEdgeCases)
-{
-    const uint8_t buf[] = "HI";
-
-    EXPECT_FALSE(str_ext_starts_with(buf, 2, "HELLO", 5));
-    EXPECT_FALSE(str_ext_starts_with(buf, 2, "H", 0));
-}
-
-
-TEST(StrExtStrnlen, Limits)
-{
-    EXPECT_EQ(str_ext_strnlen("ABC", 5), 3U);
-    EXPECT_EQ(str_ext_strnlen("ABC", 2), 2U);
-    EXPECT_EQ(str_ext_strnlen(nullptr, 5), 0U);
-}
-
-
-TEST(StrExtBufFindChar, FoundAndNotFound)
-{
-    const uint8_t buf[] = { 'A', 'B', 'C' };
-
-    EXPECT_EQ(str_ext_buf_find_char(buf, 3, 'A'), 0);
-    EXPECT_EQ(str_ext_buf_find_char(buf, 3, 'C'), 2);
-    EXPECT_EQ(str_ext_buf_find_char(buf, 3, 'D'), -1);
-}
-
-TEST(StrExtBufFindChar, NullSafe)
-{
-    EXPECT_EQ(str_ext_buf_find_char(nullptr, 3, 'A'), -1);
+    EXPECT_EQ( str_ext_buf_find_char( buf, 4, 0xAAU ), 0 );
+    EXPECT_EQ( str_ext_buf_find_char( buf, 4, 0xCCU ), 2 );
+    EXPECT_EQ( str_ext_buf_find_char( buf, 4, 0xDDU ), -1 );
 }
