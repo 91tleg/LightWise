@@ -1,115 +1,241 @@
 #include "lorawan_manager.hpp"
 
-#include "hal/lwnode.h"
-#include "keys.hpp"
-#include "lib/lorawan/lorawan_sensor.hpp"
-#include "payloads/uplink_payload.hpp"
 #include "types/lorawan_data.hpp"
-#include "utils/log.h"
-
-#define TAG "LwnodeManager"
+#include "types/lorawan_keys.hpp"
+#include "utils/log/log.h"
+#include "utils/time/delay.h"
+#include "payloads/uplink_payload.hpp"
 
 namespace lorawan
 {
-    Manager::Manager( LorawanSensor & device, UplinkPayload & payload )
-        : device_( device ),
-          payload_( payload )
+
+    namespace
     {
 
+        constexpr char kTag[] { "LoRaWANManager" };
+
+    } /* anonymous namespace */
+
+    Manager::Manager( LorawanSensor & device,
+                      UplinkPayload & payload,
+                      std::span< uint8_t > buf ) noexcept
+        : device_ { device }
+        , payload_ { payload }
+        , buf_ { buf }
+        , mutexBuffer_ {}
+        , mutex_ { xSemaphoreCreateMutexStatic( &mutexBuffer_ ) }
+        , state_ { State::UNINITIALISED }
+        , lastJoinMs_ { 0U }
+    {
+        configASSERT( mutex_ != nullptr );
     }
 
-bool Manager::setup()
-{
-    bool result = false;
-
-    if( !load_keys_from_nvs( device_ ) )
+    bool Manager::setup( const Keys & keys ) noexcept
     {
-        LOGE( TAG, "load_keys_from_nvs failed" );
-    }
-    else if( !device_.begin() )
-    {
-        LOGE( TAG, "begin failed" );
-    }
-    else
-    {
-        LOGI( TAG, "Configuring LoRaWAN..." );
+        bool result { false };
 
-        if( !device_.setRegion( LorawanSensor::Region::US915 ) )
+        state_ = State::CONFIGURING;
+
+        /* Keys are provisioned to the device then zeroed */
+        Keys localKeys { keys };
+
+        if( !device_.get().setAppKey( localKeys.appKey.data() ) )
         {
-            LOGE( TAG, "setRegion failed" );
+            LOGE( kTag, "setAppKey failed" );
+            state_ = State::FAILED;
         }
-        lwnode_hal_delay_ms( 300U );
-
-        if( !device_.setClass( LorawanSensor::DeviceClass::A ) )
+        else if( !device_.get().setAppEui( localKeys.appEui.data() ) )
         {
-            LOGE( TAG, "setClass failed" );
+            LOGE( kTag, "setAppEui failed" );
+            state_ = State::FAILED;
         }
-        lwnode_hal_delay_ms( 300U );
-
-        if( !device_.setDatarate( 3U ) )
+        else if( !device_.get().begin() )
         {
-            LOGE( TAG, "setDatarate failed" );
+            LOGE( kTag, "begin failed" );
+            state_ = State::FAILED;
         }
-        lwnode_hal_delay_ms( 300U );
-
-        if( !device_.setEirp( 16U ) )
+        else if( !configure() )
         {
-            LOGE( TAG, "setEirp failed" );
-        }
-        lwnode_hal_delay_ms( 300U );
-
-        if( !device_.setSubband( 2U ) )
-        {
-            LOGE( TAG, "setSubband failed" );
-        }
-        lwnode_hal_delay_ms( 300U );
-
-        if( !device_.enableAdr( false ) )
-        {
-            LOGE( TAG, "enableAdr failed" );
-        }
-        lwnode_hal_delay_ms( 300U );
-
-        if( !device_.setPacketType( LorawanSensor::PacketType::UNCONFIRMED ) )
-        {
-            LOGE( TAG, "setPacketType failed" );
-        }
-        lwnode_hal_delay_ms( 300U );
-
-        LOGI( TAG, "Sending JOIN request" );
-        if( device_.join() )
-        {
-            while( !device_.isJoined() )
-            {
-                LOGI( TAG, "Waiting for JOIN accept..." );
-                lwnode_hal_delay_ms( 5000U );
-            }
-
-            LOGI( TAG, "JOIN successful" );
-            result = true;
+            state_ = State::FAILED;
         }
         else
         {
-            LOGE( TAG, "JOIN request failed" );
+            result = issueJoin();
         }
-    }
 
-    return result;
-}
+        /* Zero local key copy immediately after provisioning. */
+        localKeys = Keys{};
 
-    bool Manager::sendUplink( const UplinkData & data )
-    {
-        bool result = false;
-
-        uint8_t buf[ payload_.size() ]{};
-
-        payload_.encode( data, buf );
-
-        if( device_.sendPacket( buf, payload_.size() ) )
-        {
-            result = true;
-        }
-        
         return result;
     }
+
+    bool Manager::issueJoin() noexcept
+    {
+        bool result { false };
+
+        if( device_.get().join() )
+        {
+            LOGI( kTag, "JOIN request sent — waiting for accept" );
+            state_      = State::JOINING;
+            lastJoinMs_ = 0U;  /* caller sets time on first call */
+            result      = true;
+        }
+        else
+        {
+            LOGE( kTag, "join failed" );
+            state_ = State::FAILED;
+        }
+
+        return result;
+    }
+
+    bool Manager::tryAdvanceJoin( uint32_t nowMs ) noexcept
+    {
+        bool ready { false };
+
+        if( state_ == State::JOINING )
+        {
+            if( device_.get().isJoined() )
+            {
+                LOGI( kTag, "JOIN successful" );
+                state_ = State::READY;
+                ready  = true;
+            }
+            else if( ( nowMs - lastJoinMs_ ) >= kJoinRetryMs )
+            {
+                /* Network has not responded — re-issue join request.
+                * Failure here stays in JOINING so the next call retries. */
+                LOGI( kTag, "JOIN timeout: retrying" );
+                lastJoinMs_ = nowMs;
+
+                if( !device_.get().join() )
+                {
+                    LOGW( kTag, "join retry failed" );
+                }
+            }
+            else
+            {
+                /* Still within the wait window — nothing to do. */
+            }
+        }
+        else if( state_ == State::READY )
+        {
+            ready = true;
+        }
+        else
+        {
+            /* UNINITIALISED or FAILED — caller must call setup() first. */
+        }
+
+        return ready;
+    }
+
+    bool Manager::isReady() const noexcept
+    {
+        return ( state_ == State::READY );
+    }
+
+    Manager::State Manager::state() const noexcept
+    {
+        return state_;
+    }
+
+    bool Manager::configure() noexcept
+    {
+        bool ok { true };
+
+        if( ok && !device_.get().setRegion( kRegion ) )
+        {
+            LOGE( kTag, "setRegion failed" );
+            ok = false;
+        }
+        delay_ms( kSetupDelayMs );
+
+        if( ok && !device_.get().setClass( kDeviceClass ) )
+        {
+            LOGE( kTag, "setClass failed" );
+            ok = false;
+        }
+        delay_ms( kSetupDelayMs );
+
+        if( ok && !device_.get().setDatarate( kDatarate ) )
+        {
+            LOGE( kTag, "setDatarate failed" );
+            ok = false;
+        }
+        delay_ms( kSetupDelayMs );
+
+        if( ok && !device_.get().setEirp( kEirp ) )
+        {
+            LOGE( kTag, "setEirp failed" );
+            ok = false;
+        }
+        delay_ms( kSetupDelayMs );
+
+        if( ok && !device_.get().setSubband( kSubband ) )
+        {
+            LOGE( kTag, "setSubband failed" );
+            ok = false;
+        }
+        delay_ms( kSetupDelayMs );
+
+        if( ok && !device_.get().enableAdr( kAdrEnabled ) )
+        {
+            LOGE( kTag, "enableAdr failed" );
+            ok = false;
+        }
+        delay_ms( kSetupDelayMs );
+
+        if( ok && !device_.get().setPacketType( kPacketType ) )
+        {
+            LOGE( kTag, "setPacketType failed" );
+            ok = false;
+        }
+        delay_ms( kSetupDelayMs );
+
+        return ok;
+    }
+
+    bool Manager::sendUplink( const UplinkData & data ) noexcept
+    {
+        bool result { false };
+
+        if( isReady() )
+        {
+            payload_.get().encode( data, buf_ );
+
+            const MutexGuard guard { mutex_ };
+
+            if( guard.locked() )
+            {
+                result = device_.get().sendPacket(
+                            buf_.data(),
+                            static_cast< uint8_t >( buf_.size() ) );
+            }
+            else
+            {
+                LOGE( kTag, "sendUplink: failed to acquire mutex" );
+            }
+        }
+
+        return result;
+    }
+
+    void Manager::pollReceive() noexcept
+    {
+        /* sleepMs() is intentionally outside the mutex scope — sleeping under
+         * a lock would block sendUplink() for the full kPollWindowMs.          */
+        {
+            const MutexGuard guard { mutex_ };
+
+            if( !guard.locked() )
+            {
+                LOGE( kTag, "pollReceive: failed to acquire mutex" );
+                return;
+            }
+        } /* mutex released here */
+
+        device_.get().sleepMs( kPollWindowMs );
+    }
+
 } /* namespace lorawan */
