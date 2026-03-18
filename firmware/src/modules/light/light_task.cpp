@@ -1,84 +1,59 @@
 #include "light_task.hpp"
 
+#include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
 #include "light_manager.hpp"
-#include "utils/log.h"
+#include "utils/log/log.h"
 
 namespace light
 {
+
     namespace
     {
-        constexpr char kTag[] = "LightTask";
-        constexpr uint32_t kLightOnDurationMs = 30000U;
-        constexpr uint8_t kRampStepsPerSecond = 20U;
-        constexpr uint8_t kLevelOn = 100U;
-        constexpr uint8_t kLevelOff = 0U;
-        constexpr uint8_t kStepsPerSecond = 60U;
+
+        constexpr char kTag[] { "LightTask" };
+        constexpr uint8_t  kRampStepsPerSecond { 20U };
+        constexpr uint32_t kLevelMask    { 0x000000FFU };
+        constexpr uint32_t kClearAllBits { 0xFFFFFFFFU };
+
     } /* anonymous namespace */
 
     void task( void * pvParameters )
     {
-        TaskParams * params = 
-            static_cast<TaskParams *>( pvParameters );
-        configASSERT( params != nullptr );
+        configASSERT( pvParameters != nullptr );
 
-        bool lightOn = false;
-        uint32_t lightOnTimerMs = 0U;
-        Manager mgr( *params->primary, kStepsPerSecond );
+        TaskParams &params { *static_cast< TaskParams * >( pvParameters ) };
 
         for( ;; )
         {
-            TickType_t waitTicks = pdMS_TO_TICKS( 50U );
+            /* Block until FSM sends a new level, or until next ramp step. */
+            const TickType_t waitTicks { params.manager.isRamping()
+                                         ? pdMS_TO_TICKS( params.manager.stepIntervalMs() )
+                                         : portMAX_DELAY };
 
-            if( mgr.isRamping() )
-            {
-                waitTicks = pdMS_TO_TICKS( mgr.stepIntervalMs() );
-            }
-            else if( lightOn )
-            {
-                const uint32_t now = static_cast<uint32_t>( xTaskGetTickCount() ) * 
-                                 static_cast<uint32_t>( portTICK_PERIOD_MS );
-                const uint32_t elapsed   = ( now >= lightOnTimerMs ) 
-                                           ? ( now - lightOnTimerMs ) 
-                                           :    0U;
-                const uint32_t remaining  = ( elapsed < kLightOnDurationMs )
-                                            ? ( kLightOnDurationMs - elapsed )
-                                            : 0U;
-                waitTicks = pdMS_TO_TICKS( remaining );
-            }
-            else
-            {
-                /* No adjustment to waitTicks required */
-            }
+            uint32_t notifiedValue { 0U };
 
-            uint32_t notifiedValue = 0U;
             if( xTaskNotifyWait( 0U,
-                                 0xFFFFFFFFU,
+                                 kClearAllBits,
                                  &notifiedValue,
                                  waitTicks ) == pdTRUE )
             {
-                const uint8_t level = static_cast<uint8_t>( notifiedValue & 0xFFU );
-                lightOnTimerMs = static_cast<uint32_t>( xTaskGetTickCount() ) * 
-                                 static_cast<uint32_t>( portTICK_PERIOD_MS );
-                
-                mgr.setTarget( level, kRampStepsPerSecond );
-                lightOn = ( level > kLevelOff );
+                const uint8_t level { static_cast< uint8_t >( notifiedValue & kLevelMask ) };
 
-                LOGD( kTag, "Received notify: %u, target level: %u", 
-                      notifiedValue, level );
-            }
-            else if( lightOn && !mgr.isRamping() )
-            {
-                mgr.setTarget( kLevelOff, kRampStepsPerSecond );
-                lightOn = false;
-            }
-            else
-            {
-                /* Nothing to do */
+                params.manager.setTarget( level, kRampStepsPerSecond );
+
+                LOGD( kTag, "Target level: %u", static_cast< unsigned >( level ) );
             }
 
-            mgr.step();
+            const bool rampComplete { params.manager.step() };
+
+            if( rampComplete )
+            {
+                LOGD( kTag, "Ramp complete at level: %u",
+                    static_cast< unsigned >( params.manager.getTarget() ) );
+            }
         }
     }
+
 } /* namespace light */

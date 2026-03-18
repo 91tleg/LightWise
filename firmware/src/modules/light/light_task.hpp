@@ -4,19 +4,20 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
-#include "lib/light/light_sensor.hpp"
-
 namespace light
 {
-    class LightSensor;
+
+    class Manager;
 
     /**
-     * @struct TaskParams
-     * @brief Parameters for initializing the light task.
+     * @brief  Parameters injected into the light task at creation time.
+     *
+     * All members must remain valid for the entire lifetime of the task.
+     * Pass a pointer to a statically allocated instance via pvParameters.
      */
     struct TaskParams
     {
-        LightSensor * primary;  /**< Pointer to the primary led */
+        Manager &manager;  /**< Fully constructed, statically allocated Manager. */
     };
 
     /**
@@ -32,6 +33,7 @@ namespace light
      *       structure as the parameter. The task runs indefinitely until deleted.
      */
     void task( void * pvParameters );
+
 } /* namespace light */
 
 #endif /* SRC_MODULES_LIGHT_LIGHT_TASK_HPP */

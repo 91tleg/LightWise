@@ -1,96 +1,85 @@
-/**
- * @file light_manager.hpp
- * @brief Light intensity manager for controlling streetlight brightness.
- * 
- * Provides a Manager class for smoothly ramping light intensity up or down
- * in discrete steps over time.
- */
-
 #ifndef SRC_MODULES_LIGHT_LIGHT_MANAGER_HPP
 #define SRC_MODULES_LIGHT_LIGHT_MANAGER_HPP
 
 #include <cstdint>
+#include <functional> /* std::reference_wrapper */
 
 namespace light
 {
+
     class LightSensor;
-    /**
-     * @class Manager
-     * @brief Manages light intensity transitions with smooth ramping.
-     * 
-     * The Manager class controls the brightness of a light sensor by ramping
-     * the intensity from its current value to a target value in discrete steps.
-     * The stepping rate is configurable to allow smooth transitions.
-     */
+
     class Manager
     {
     public:
         /**
-         * @brief Constructs a Manager instance.
-         * 
-         * @param led Reference to a LightSensor object to control.
-         * @param stepsPerSecond Number of brightness steps to perform per second.
+         * @brief  Construct with injected LED driver.
+         *
+         * @param  led  Non-null reference to the LED driver (static lifetime).
+         *
+         * Post-condition: current_ = 0, not ramping, stepsPerSecond_ = 1
+         * (safe minimum — caller must set a real rate via setTarget()).
          */
-        explicit Manager( LightSensor & led, uint8_t stepsPerSecond );
+        explicit Manager( LightSensor &led ) noexcept;
+
+        ~Manager()                            = default;
+        Manager( const Manager & )            = delete;
+        Manager &operator=( const Manager & ) = delete;
+        Manager( Manager && )                 = delete;
+        Manager &operator=( Manager && )      = delete;
 
         /**
-         * @brief Sets a new target brightness and update rate.
-         * 
-         * Initiates a ramp transition from the current brightness to the target
-         * brightness. The transition occurs in discrete steps with the specified
-         * stepping rate.
-         * 
-         * @param target The target brightness level (0-255).
-         * @param stepsPerSecond The number of brightness steps per second.
+         * @brief  Set a new brightness target and ramp rate.
+         *
+         * @param  target         Desired output level [0, 255].
+         * @param  stepsPerSecond Ramp speed in steps/s. Zero is clamped to 1.
+         *                        Examples: 1 = slow fade, 255 = near-instant.
          */
-        void setTarget( uint8_t target, uint8_t stepsPerSecond );
+        void setTarget( uint8_t target, uint8_t stepsPerSecond ) noexcept;
 
         /**
-         * @brief Performs one step of the brightness transition.
-         * 
-         * Should be called periodically to advance the brightness ramping.
-         * 
-         * @return true if currently ramping, false otherwise.
+         * @brief  Advance the ramp by one step and apply to hardware.
+         *
+         * Call at the interval returned by stepIntervalMs().
+         * On hardware write failure the step is rolled back and retried on
+         * the next call — ramping_ is never cleared on a failed write.
+         *
+         * @return true  if the target has been reached (ramp complete).
+         * @return false if still ramping or a hardware write failed.
          */
-        bool step();
+        [[nodiscard]] bool step() noexcept;
 
         /**
-         * @brief Checks if the light is currently ramping to a target brightness.
-         * 
-         * @return true if ramping is in progress, false if at target.
+         * @brief  Query whether a ramp is in progress.
+         * @return true if current_ != target_.
          */
-        bool isRamping() const;
+        [[nodiscard]] bool isRamping() const noexcept;
 
         /**
-         * @brief Gets the current target brightness level.
-         * 
-         * @return The target brightness value (0-255).
+         * @brief  Return the current target level.
          */
-        uint8_t getTarget() const;
+        [[nodiscard]] uint8_t getTarget() const noexcept;
 
         /**
-         * @brief Gets the time interval between steps in milliseconds.
-         * 
-         * @return The step interval in milliseconds based on stepsPerSecond.
+         * @brief  Return the delay between step() calls in milliseconds.
+         *
+         * Derived from stepsPerSecond set in the last setTarget() call.
          */
-        uint32_t stepIntervalMs() const;
+        [[nodiscard]] uint32_t stepIntervalMs() const noexcept;
 
     private:
-        LightSensor & led_;  /**< Reference to the led being controlled. */
-        uint8_t target_;  /**< Target brightness level. */
-        uint8_t stepsPerSecond_;  /**< Number of brightness steps per second. */
-        bool ramping_;  /**< Flag indicating if currently ramping to target. */
+        std::reference_wrapper< LightSensor > led_;
 
-        /**
-         * @brief Clamps a value between low and high bounds.
-         * 
-         * @param value The value to clamp.
-         * @param low The lower bound (inclusive).
-         * @param high The upper bound (inclusive).
-         * @return The clamped value.
-         */
-        uint8_t clamp( uint8_t value, uint8_t low, uint8_t high );
+        uint8_t  current_        { 0U };
+        uint8_t  target_         { 0U };
+        uint8_t  stepsPerSecond_ { 1U };
+        bool     ramping_        { false };
+
+        static constexpr uint32_t kMsPerSecond { 1000U };
+        static constexpr uint8_t  kLevelMin    { 0U };
+        static constexpr uint8_t  kLevelMax    { 100U };
     };
+
 } /* namespace light */
 
 #endif /* SRC_MODULES_LIGHT_LIGHT_MANAGER_HPP */
