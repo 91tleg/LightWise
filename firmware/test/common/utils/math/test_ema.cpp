@@ -1,138 +1,247 @@
+#include <cstdint>
+
 #include <gtest/gtest.h>
 
-#include "utils/ema.h"
+#include "utils/math/ema.hpp"
 
-TEST( EmaInit, ValidAlpha )
+using filter::EMA;
+
+TEST( EmaCtor, ValidAlpha )
 {
-    EMAFilter f;
+    EMA< float > f( 0.5f );
 
-    EXPECT_TRUE( ema_init( &f, 0.5f ) );
-    EXPECT_FLOAT_EQ( f.alpha, 0.5f );
-    EXPECT_FLOAT_EQ( f.value, 0.0f );
-    EXPECT_FALSE( f.isInitialized );
+    EXPECT_FLOAT_EQ( f.alpha(), 0.5f );
 }
 
-TEST( EmaInit, AlphaClampedLow )
+TEST( EmaCtor, AlphaClampedLow )
 {
-    EMAFilter f;
+    EMA< float > f( -1.0f );
 
-    EXPECT_TRUE( ema_init( &f, -1.0f ) );
-    EXPECT_FLOAT_EQ( f.alpha, 0.0f );
+    EXPECT_FLOAT_EQ( f.alpha(), 0.0f );
 }
 
-TEST( EmaInit, AlphaClampedHigh )
+TEST( EmaCtor, AlphaClampedHigh )
 {
-    EMAFilter f;
+    EMA< float > f( 2.0f );
 
-    EXPECT_TRUE( ema_init( &f, 2.0f ) );
-    EXPECT_FLOAT_EQ( f.alpha, 1.0f );
+    EXPECT_FLOAT_EQ( f.alpha(), 1.0f );
 }
 
-TEST( EmaInit, NullFilter )
+TEST( EmaCtor, AlphaZeroDefaults )
 {
-    EXPECT_FALSE( ema_init( nullptr, 0.5f ) );
-}
+    EMA< float > f( 0.0f );
 
-TEST( EmaInit, AlphaZeroDefaults )
-{
-    EMAFilter f;
-
-    /* Initialize with 0.0f alpha */
-    EXPECT_TRUE( ema_init( &f, 0.0f ) );
-
-    /* Check that the alpha was replaced with default, not left at 0 */
-    EXPECT_FLOAT_EQ( f.alpha, 0.1f );
-
-    EXPECT_FLOAT_EQ( f.value, 0.0f );
-    EXPECT_FALSE( f.isInitialized );
+    EXPECT_FLOAT_EQ( f.alpha(), filter::k_alphaDefault );
 }
 
 TEST( EmaUpdate, FirstSampleInitializes )
 {
-    EMAFilter f;
-    float out = 0.0f;
+    EMA< float > f( 0.5f );
+    float out { 0.0f };
 
-    ema_init( &f, 0.5f );
-
-    EXPECT_TRUE( ema_update( &f, 10.0f, &out ) );
-    EXPECT_TRUE( f.isInitialized );
+    EXPECT_TRUE( f.update( 10.0f, out ) );
     EXPECT_FLOAT_EQ( out, 10.0f );
-    EXPECT_FLOAT_EQ( f.value, 10.0f );
 }
 
 TEST( EmaUpdate, SubsequentSamples )
 {
-    EMAFilter f;
-    float out = 0.0f;
+    EMA< float > f( 0.5f );
+    float out { 0.0f };
 
-    ema_init( &f, 0.5f );
+    static_cast< void >( f.update( 10.0f, out ) );
+    static_cast< void >( f.update( 14.0f, out ) );
 
-    ema_update( &f, 10.0f, &out );
-    ema_update( &f, 14.0f, &out );
-
-    /* value = 10 + 0.5 * (14 - 10) = 12 */
+    /* 10 + 0.5 * (14 - 10) = 12 */
     EXPECT_FLOAT_EQ( out, 12.0f );
-    EXPECT_FLOAT_EQ( f.value, 12.0f );
 }
 
 TEST( EmaUpdate, AlphaZeroDefaultsToDefault )
 {
-    EMAFilter f;
-    float out = 0.0f;
+    EMA< float > f( 0.0f );  /* Uses default alpha */
+    float out { 0.0f };
 
-    ema_init( &f, 0.0f );  /* replaced internally with EMA_ALPHA_DEFAULT */
-
-    ema_update( &f, 10.0f, &out );
+    static_cast< void >( f.update( 10.0f, out ) );
     EXPECT_FLOAT_EQ( out, 10.0f );
 
-    ema_update( &f, 20.0f, &out );
-    EXPECT_NE( out, 10.0f );       /* Should start moving toward 20 */
-    EXPECT_NEAR( out, 11.0f, 1e-6f );
+    static_cast< void >( f.update( 20.0f, out ) );
+
+    EXPECT_NE( out, 10.0f );
+    EXPECT_NEAR( out, 11.0f, 1e-6f ); /* 10 + 0.1 * (20-10) */
 }
 
 TEST( EmaUpdate, AlphaOneTracksInput )
 {
-    EMAFilter f;
-    float out = 0.0f;
+    EMA< float > f( 1.0f );
+    float out { 0.0f };
 
-    ema_init( &f, 1.0f );
-
-    ema_update( &f, 5.0f, &out );
-    ema_update( &f, 20.0f, &out );
+    static_cast< void >( f.update( 5.0f, out ) );
+    static_cast< void >( f.update( 20.0f, out ) );
 
     EXPECT_FLOAT_EQ( out, 20.0f );
 }
 
-TEST( EmaUpdate, NullArgs )
+TEST( EmaUpdate, ConvergesToConstant )
 {
-    EMAFilter f;
-    float out;
+    EMA< float > f( 0.2f );
+    float out { 0.0f };
 
-    ema_init( &f, 0.5f );
+    for( int i { 0 }; i < 50; ++i )
+    {
+        static_cast< void >( f.update( 100.0f, out ) );
+    }
 
-    EXPECT_FALSE( ema_update( nullptr, 1.0f, &out ) );
-    EXPECT_FALSE( ema_update( &f, 1.0f, nullptr ) );
+    EXPECT_NEAR( out, 100.0f, 1e-3f );
+}
+
+TEST( EmaUpdate, MonotonicIncrease )
+{
+    EMA< float > f( 0.2f );
+    float out { 0.0f };
+
+    static_cast< void >( f.update( 0.0f, out ) );
+
+    float prev { out };
+
+    for( int i { 0 }; i < 10; ++i )
+    {
+        static_cast< void >( f.update( 100.0f, out ) );
+        EXPECT_GE( out, prev );  /* Should not decrease */
+        prev = out;
+    }
+}
+
+TEST( EmaUpdate, VerySmallAlpha )
+{
+    EMA< float > f( 1e-6f );
+    float out { 0.0f };
+
+    static_cast< void >( f.update( 10.0f, out ) );
+    static_cast< void >( f.update( 20.0f, out ) );
+
+    /* Should barely move */
+    EXPECT_NEAR( out, 10.0f, 1e-4f );
+}
+
+TEST( EmaUpdate, AlternatingInputStability )
+{
+    EMA< float > f( 0.5f );
+    float out { 0.0f };
+
+    static_cast< void >( f.update( 0.0f, out ) );
+
+    for( int i { 0 }; i < 20; ++i )
+    {
+        static_cast< void >( f.update( ( i % 2 == 0 ) ? 100.0f : 0.0f, out ) );
+    }
+
+    /* Should stay bounded and stable */
+    EXPECT_GT( out, 0.0f );
+    EXPECT_LT( out, 100.0f );
 }
 
 TEST( EmaReset, ClearsInitialization )
 {
-    EMAFilter f;
-    float out = 0.0f;
+    EMA< float > f( 0.5f );
+    float out { 0.0f };
 
-    ema_init( &f, 0.5f );
-    ema_update( &f, 10.0f, &out );
+    static_cast< void >( f.update( 10.0f, out ) );
 
-    EXPECT_TRUE( f.isInitialized );
+    EXPECT_TRUE( f.reset() );
 
-    EXPECT_TRUE( ema_reset( &f ) );
-    EXPECT_FALSE( f.isInitialized );
-
-    /* Next update should reinitialize */
-    ema_update( &f, 20.0f, &out );
+    /* Next update should behave like first sample */
+    static_cast< void >( f.update( 20.0f, out ) );
     EXPECT_FLOAT_EQ( out, 20.0f );
 }
 
-TEST( EmaReset, NullFilter )
+TEST( EmaReset, Idempotent )
 {
-    EXPECT_FALSE( ema_reset( nullptr ) );
+    EMA< float > f( 0.5f );
+
+    EXPECT_TRUE( f.reset() );
+    EXPECT_TRUE( f.reset() );  /* should still succeed */
+}
+
+TEST( EmaReconfigure, ChangesAlpha )
+{
+    EMA< float > f( 0.5f );
+
+    EXPECT_TRUE( f.reconfigure( 0.2f ) );
+    EXPECT_FLOAT_EQ( f.alpha(), 0.2f );
+}
+
+TEST( EmaReconfigure, ZeroUsesDefault )
+{
+    EMA< float > f( 0.5f );
+
+    static_cast< void >( f.reconfigure( 0.0f ) );
+
+    EXPECT_FLOAT_EQ( f.alpha(), filter::k_alphaDefault );
+}
+
+TEST( EmaReconfigure, DoesNotResetState )
+{
+    EMA< float > f( 0.5f );
+    float out { 0.0f };
+
+    static_cast< void >( f.update( 10.0f, out ) );
+    static_cast< void >( f.update( 20.0f, out ) );
+
+    EXPECT_TRUE( f.reconfigure( 1.0f ) );
+
+    static_cast< void >( f.update( 30.0f, out ) );
+
+    /* Should use new alpha but old state */
+    EXPECT_FLOAT_EQ( out, 30.0f );
+}
+
+TEST( EmaCopy, PreservesState )
+{
+    EMA< float > f1( 0.5f );
+    float out { 0.0f };
+
+    static_cast< void >( f1.update( 10.0f, out ) );
+    static_cast< void >( f1.update( 20.0f, out ) );
+
+    EMA<float> f2 = f1;
+
+    static_cast< void >( f2.update( 30.0f, out ) );
+
+    /* Should behave consistently from copied state */
+    EXPECT_GT( out, 20.0f );
+}
+
+TEST( EmaUint8, WorksWithU8 )
+{
+    EMA< uint8_t > f( 0.5f );
+    uint8_t out { 0U };
+
+    static_cast< void >( f.update( 10, out ) );
+    EXPECT_EQ( out, 10 );
+
+    static_cast< void >( f.update( 20, out ) );
+    EXPECT_EQ( out, 15 ); /* 10 + 0.5 * ( 20-10 ) */
+}
+
+TEST( EmaUint8, RoundingBehavior )
+{
+    EMA< uint8_t > f( 0.5f );
+    uint8_t out { 0U };
+
+    static_cast< void >( f.update( 0, out ) );
+    static_cast< void >( f.update( 1, out ) );
+
+    /* 0 + 0.5 * ( 1-0 ) = 0.5 - truncated to 0 */
+    EXPECT_EQ( out, 0 );
+}
+
+TEST( EmaUint8, HighValues )
+{
+    EMA< uint8_t > f( 0.5f );
+    uint8_t out { 0U };
+
+    static_cast< void >( f.update( 255, out ) );
+    EXPECT_EQ( out, 255 );
+
+    static_cast< void >( f.update( 255, out ) );
+    EXPECT_EQ( out, 255 );
 }
