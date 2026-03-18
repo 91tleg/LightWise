@@ -1,11 +1,12 @@
 #ifndef SRC_MODULES_LORAWAN_PAYLOADS_UPLINK_PAYLOAD_HPP
 #define SRC_MODULES_LORAWAN_PAYLOADS_UPLINK_PAYLOAD_HPP
 
-#include <cstddef>
 #include <cstdint>
+#include <span>
 
 namespace lorawan
 {
+
     struct UplinkData;
 
     class UplinkPayload
@@ -13,11 +14,24 @@ namespace lorawan
     public:
         virtual ~UplinkPayload() = default;
 
-        virtual size_t size() const = 0;
-
+        /**
+         * @brief  Encode UplinkData into a caller-owned buffer.
+         *
+         * @param  data  Source data structure.
+         * @param  buf   Output span of exactly kSize bytes.
+         *               Behaviour is undefined if buf.size() < kSize.
+         */
         virtual void encode( const UplinkData & data,
-                             uint8_t * outBuf ) const = 0;
+                             std::span< uint8_t > buf ) const noexcept = 0;
+
+    protected:
+        UplinkPayload()                                   = default;
+        UplinkPayload( const UplinkPayload & )            = default;
+        UplinkPayload &operator=( const UplinkPayload & ) = default;
+        UplinkPayload( UplinkPayload && )                 = default;
+        UplinkPayload &operator=( UplinkPayload && )      = default;
     };
+
 } /* namespace lorawan */
 
 #endif /* SRC_MODULES_LORAWAN_PAYLOADS_UPLINK_PAYLOAD_HPP */
