@@ -3,59 +3,51 @@
 
 namespace th
 {
-    namespace
-    {
-        constexpr float kReadingMinValue = 0.0f;    /**< Minimum valid reading value */
-        constexpr float kReadingMaxValue = 255.0f;  /**< Maximum valid reading value */
-    } /* anonymous namespace */
 
-    Manager::Manager( THSensor * primary, float alpha )
-        : primary_( primary )
+    Manager::Manager( THSensor & sensor,
+                      filter::EMA< uint8_t > & tempFilter,
+                      filter::EMA< uint8_t > & humFilter ) noexcept
+        : sensor_     { sensor     }
+        , tempFilter_ { tempFilter }
+        , humFilter_  { humFilter  }
     {
-        ema_init( &temperatureFilter_, alpha );
-        ema_init( &humidityFilter_, alpha );
+
     }
 
-    bool Manager::update( Data & data )
+    bool Manager::update( Data & data ) noexcept
     {
-        bool result = false;
+        uint8_t rawTemp { 0U };
+        uint8_t rawHum  { 0U };
 
-        /* Default output */
-        data.temperature = 0U;
-        data.humidity    = 0U;
-        data.health      = SensorHealth::TOTAL_FAILURE;
+        const bool readOk { sensor_.get().read( rawTemp, rawHum ) };
 
-        if( primary_ != nullptr )
-        {
-            uint8_t ucTemperature = 0U;
-            uint8_t ucHumidity    = 0U;
+        uint8_t filteredTemp { 0U };
+        uint8_t filteredHum  { 0U };
+    
+        const bool tempOk { readOk &&
+                            tempFilter_.get().update(rawTemp, filteredTemp ) };
 
-            if( primary_->read( ucTemperature, ucHumidity ) )
-            {
-                float fTemperature = 0.0f;
-                float fHumidity    = 0.0f;
+        const bool humOk { readOk &&
+                           humFilter_.get().update(rawHum, filteredHum ) };
 
-                if( ema_update( &temperatureFilter_,
-                                static_cast<float>( ucTemperature ),
-                                &fTemperature ) &&
-                    ema_update( &humidityFilter_,
-                                static_cast<float>( ucHumidity ),
-                                &fHumidity ) )
-                {
-                    if( ( fTemperature >= kReadingMinValue ) &&
-                        ( fTemperature <= kReadingMaxValue ) &&
-                        ( fHumidity    >= kReadingMinValue ) &&
-                        ( fHumidity    <= kReadingMaxValue ) )
-                    {
-                        data.temperature = static_cast<uint8_t>( fTemperature );
-                        data.humidity    = static_cast<uint8_t>( fHumidity );
-                        data.health      = SensorHealth::SYSTEM_OK;
-                        result = true;
-                    }
-                }
-            }
-        }
+        const bool tempInRange { tempOk &&
+                                 ( filteredTemp >= kReadingMinValue ) &&
+                                 ( filteredTemp <= kReadingMaxValue ) };
+
+        const bool humInRange { humOk &&
+                                ( filteredHum >= kReadingMinValue ) &&
+                                ( filteredHum <= kReadingMaxValue ) };
+
+        const bool result { tempInRange && humInRange };
+
+        const SensorHealth health { result ? SensorHealth::SYSTEM_OK
+                                           : SensorHealth::TOTAL_FAILURE };
+
+        data.temperature = result ? filteredTemp : 0U;
+        data.humidity    = result ? filteredHum  : 0U;
+        data.health      = health;
 
         return result;
     }
+
 } /* namespace th */
