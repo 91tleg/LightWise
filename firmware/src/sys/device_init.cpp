@@ -1,22 +1,21 @@
 #include "device_init.hpp"
 
 #include "hal_init.hpp"
-
-#include "utils/log.h"
-
 #include "hal/alspt19.h"
 #include "hal/c4001.h"
 #include "hal/dht11.h"
 #include "hal/led.h"
 #include "hal/lwnode.h"
-
-#define TAG "DeviceInit"
+#include "utils/log/log.h"
 
 namespace device
 {
+
     namespace
     {
-        constexpr char kTag[] = "DeviceInit";
+
+        constexpr char kTag[] { "DeviceInit" };
+
     } /* anonymous namespace */
 
     constinit ambient::Alspt19 xAlsPt19Primary( &hal::xAlspt19Primary );
@@ -56,12 +55,13 @@ namespace device
 
         if( !xLed.init() )
         {
-            LOGE( TAG, "Led init failed" );
+            LOGE( kTag, "Led init failed" );
         }
 
         if( !xLwnodePrimary.init() )
         {
-            LOGE( TAG, "Lwnode init failed" );
+            LOGE( kTag, "Lwnode init failed" );
         }
     }
+
 } /* namespace device */

@@ -86,15 +86,6 @@ bool lwnode_hal_read( const LwnodeHw * sensor,
                       uint8_t * data,
                       size_t len );
 
-/**
- * @brief Delay execution for a specified number of milliseconds.
- *
- * Uses the FreeRTOS scheduler to delay the calling task.
- *
- * @param delayMs  Delay duration in milliseconds.
- */
-void lwnode_hal_delay_ms( uint32_t delayMs );
-
 #ifdef __cplusplus
 }
 #endif

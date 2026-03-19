@@ -3,11 +3,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "uplink_payload.hpp"
 
 namespace lorawan
 { 
+
     /**
      * @brief LoRaWAN uplink payload encoder (version 1).
      *
@@ -23,12 +25,7 @@ namespace lorawan
     class UplinkPayloadV1 final : public UplinkPayload
     {
     public:
-        /**
-         * @brief Get payload size in bytes.
-         * 
-         * @return Payload size.
-         */
-        size_t size() const override;
+        static constexpr size_t kSize { 7U }; /**< Fixed encoded payload size (bytes) */
 
         /**
          * @brief Encode uplink data into a raw payload buffer.
@@ -39,12 +36,10 @@ namespace lorawan
          * @note No bounds checking is performed on outBuf.
          * @note Payload layout is fixed for V1.
          */
-        void encode( const UplinkData & data,
-                     uint8_t * outBuf ) const override;
-
-    private:
-        static constexpr size_t kSize = 7U; /**< Fixed encoded payload size (bytes) */
+       void encode( const UplinkData & data,
+                    std::span< uint8_t > buf ) const noexcept override;
     };
+
 } /* namespace lorawan */
 
 #endif /* SRC_MODULES_LORAWAN_PAYLOADS_UPLINK_PAYLOAD_V1_HPP */

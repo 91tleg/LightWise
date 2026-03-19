@@ -1,13 +1,16 @@
 #include "hal_init.hpp"
 
 #include "board/board.hpp"
-#include "utils/log.h"
+#include "utils/log/log.h"
 
 namespace hal
 {
+
     namespace
     {
-        constexpr char kTag[] = "HalInit";
+
+        constexpr char kTag[] { "HalInit" };
+
     }/* anonymous namespace */
 
     constinit AlsPt19Hw xAlspt19Primary{ .unit = board::config.alsPt19PrimaryUnit, 
@@ -84,4 +87,5 @@ namespace hal
             LOGW( kTag, "Lwnode primary init failed" );
         }
     }
+
 } /* namespace hal */

@@ -1,40 +1,24 @@
 #include "uplink_payload_v1.hpp"
 
-#include "types/lorawan_data.hpp"
+#include <cassert>
 
-#include <cstddef>
-#include <cstdint>
+#include "types/lorawan_data.hpp"
 
 namespace lorawan
 {
-    size_t UplinkPayloadV1::size() const
-    {
-        return kSize;
-    }
 
     void UplinkPayloadV1::encode( const UplinkData & data,
-                                  uint8_t * outBuf ) const
+                                  std::span< uint8_t > buf ) const noexcept
     {
-        if( outBuf != nullptr )
-        {
-            /* Byte 0: payload version */
-            outBuf[ 0 ] = 0x01U;
+        assert( buf.size() >= kSize );
 
-            /* Bytes 1-2: lux_x10, big-endian */
-            outBuf[ 1 ] = static_cast<uint8_t>( ( data.lux_x10 >> 8U ) & 0xFFU );
-            outBuf[ 2 ] = static_cast<uint8_t>( data.lux_x10 & 0xFFU );
-
-            /* Byte 3: temperature */
-            outBuf[ 3 ] = static_cast<uint8_t>( data.tempC );
-
-            /* Byte 4: humidity */
-            outBuf[ 4 ] = data.humidity;
-
-            /* Byte 5: status flags */
-            outBuf[ 5 ] = data.flags;
-
-            /* Byte 6: light level */
-            outBuf[ 6 ] = data.lightLevel;
-        }
+        buf[ 0 ] = 0x01U;
+        buf[ 1 ] = static_cast< uint8_t >( ( data.lux_x10 >> 8U ) & 0xFFU );
+        buf[ 2 ] = static_cast< uint8_t >( data.lux_x10 & 0xFFU );
+        buf[ 3 ] = static_cast< uint8_t >( data.tempC );
+        buf[ 4 ] = data.humidity;
+        buf[ 5 ] = data.flags;
+        buf[ 6 ] = data.lightLevel;
     }
+
 } /* namespace lorawan */

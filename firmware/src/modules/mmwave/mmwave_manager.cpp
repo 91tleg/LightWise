@@ -1,242 +1,194 @@
 #include "mmwave_manager.hpp"
-#include "lib/mmwave/mmwave_sensor.hpp"
-#include "hal/c4001.h"
-#include "utils/log.h"
+
+#include <algorithm>  /* std::min */
+
+#include "types/mmwave_data.hpp"
+#include "utils/log/log.h"
+#include "utils/time/delay.h"
 
 namespace mmwave
 {
+
     namespace
     {
-        constexpr char kTag[]                 = "MmwaveManager";
-        constexpr Mode kSensorMode            = Mode::PRESENCE;
-        constexpr uint16_t kDetectionRangeMin = 30U;
-        constexpr uint16_t kDetectionRangeMax = 1000U;
-        constexpr uint16_t kTrigRange         = 1000U;
-        constexpr uint8_t kTrigSensitivity    = 1U;
-        constexpr uint8_t kKeepSensitivity    = 2U;
-        constexpr uint8_t kMaxConnectAttempts = 10U;
-        constexpr uint8_t kConnectRetryDelay  = 1000U;
-        constexpr uint8_t kDegradedFailureThreshold = 3U;
+
+        constexpr char kTag[] { "MmwaveManager" };
 
     } /* anonymous namespace */
 
-    Manager::Manager( MmwaveSensor * primary,
-                      MmwaveSensor * secondary )
-        : primary_( primary ),
-        secondary_( secondary ),
-        primaryFailureCount_( 0U ),
-        secondaryFailureCount_( 0U ),
-        lastPrimaryMotion_( false ),
-        lastSecondaryMotion_( false )
+    Manager::Manager( MmwaveSensor & primary,
+                      MmwaveSensor & secondary ) noexcept
+        : primary_ { primary }
+        , secondary_ { secondary }
+        , primaryFailCount_ { 0U }
+        , secondaryFailCount_ { 0U }
+        , disagreeCount_ { 0U }
+        , lastPrimaryMotion_ { false }
+        , lastSecondaryMotion_ { false }
     {
-        LOGI( kTag, "Created. primary: %s, secondary: %s",
-              primary_   ? "present" : "absent",
-              secondary_ ? "present" : "absent" );
+
     }
 
-    bool Manager::setup()
+    bool Manager::setupSensor( MmwaveSensor & sensor,
+                               bool hasKeepSensitivity ) noexcept
     {
-        bool result = true;
+        bool connected { false };
 
-        if( primary_ != nullptr )
+        for( uint8_t attempt { 0U };
+             ( attempt < kMaxConnectAttempts ) && !connected;
+             ++attempt )
         {
-            for( uint8_t attempt = 0; attempt < kMaxConnectAttempts; ++attempt )
+            if( sensor.connect() )
             {
-                result = false;
-                if( primary_->connect() )
-                {
-                    LOGI( kTag, "Primary connected" );
-                    result = true;
-                    break;
-                }
-                LOGI( kTag, "Primary connect retry %d", attempt ); 
-                c4001_hal_delay_ms( kConnectRetryDelay );
-            }
-            result &= primary_->connect();
-            result &= primary_->setSensorMode( kSensorMode );
-            result &= primary_->setDetectionRange( kDetectionRangeMin, 
-                                                   kDetectionRangeMax, 
-                                                   kTrigRange );
-            result &= primary_->setTrigSensitivity( kTrigSensitivity );
-            result &= primary_->setDelay( 100U, 4U );
-
-            LOGI( kTag, "Primary setup: %s", result ? "success" : "failed" );
-        }
-        else
-        {
-            result = false;
-        }
-
-        if( secondary_ != nullptr )
-        {
-            for( uint8_t attempt = 0; attempt < kMaxConnectAttempts; ++attempt )
-            {
-                result = false;
-                if( secondary_->connect() )
-                {
-                    LOGI( kTag, "Secondary connected" );
-                    result = true;
-                    break;
-                }
-                c4001_hal_delay_ms( kConnectRetryDelay );
-            }
-            result &= secondary_->setSensorMode( kSensorMode );
-            result &= secondary_->setDetectionRange( kDetectionRangeMin, 
-                                                     kDetectionRangeMax, 
-                                                     kTrigRange );
-            result &= secondary_->setTrigSensitivity( kTrigSensitivity );
-            result &= secondary_->setKeepSensitivity( kKeepSensitivity );
-            result &= secondary_->setDelay( 100U, 4U );
-
-            LOGI( kTag, "Secondary setup: %s", result ? "success" : "failed" );
-        }
-        else
-        {
-            result = false;
-        }
-
-        return result;
-    }
-
-    bool Manager::update( Data & data )
-    {
-        bool result = false;
-
-        bool primaryOk   = false;
-        bool secondaryOk = false;
-
-        bool pReadOk = false;
-        bool sReadOk = false;
-
-        bool pMotion = false;
-        bool sMotion = false;
-
-        /* Default output */
-        data.motionDetected = false;
-        data.health         = SensorHealth::TOTAL_FAILURE;
-
-        /* Sanity: at least one sensor must exist */
-        if( ( primary_ != nullptr ) || ( secondary_ != nullptr ) )
-        {
-            bool pReadOk = false;
-            bool sReadOk = false;
-            bool pMotion = false;
-            bool sMotion = false;
-
-            if( primary_ != nullptr )
-            {
-                pReadOk = primary_->motionDetected( pMotion );
-                if( pReadOk )
-                {
-                    primaryFailureCount_ = 0U;
-                    lastPrimaryMotion_   = pMotion;
-                }
-                else
-                {
-                    ++primaryFailureCount_;
-                }
-            }
-
-            if( secondary_ != nullptr )
-            {
-                sReadOk = secondary_->motionDetected( sMotion );
-                if( sReadOk )
-                {
-                    secondaryFailureCount_ = 0U;
-                    lastSecondaryMotion_   = sMotion;
-                }
-                else
-                {
-                    ++secondaryFailureCount_;
-                }
-            }
-
-            /* Health */
-            const bool primaryOk   = ( primary_   == nullptr ) || pReadOk;
-            const bool secondaryOk = ( secondary_ == nullptr ) || sReadOk;
-
-            if( primaryOk && secondaryOk )
-            {
-                data.health = SensorHealth::SYSTEM_OK;
-            }
-            else if( ( !primaryOk ) && secondaryOk )
-            {
-                data.health = SensorHealth::PRIMARY_FAIL;
-            }
-            else if( primaryOk && ( !secondaryOk ) )
-            {
-                data.health = SensorHealth::SECONDARY_FAIL;
+                connected = true;
             }
             else
             {
-                data.health = SensorHealth::TOTAL_FAILURE;
+                LOGI( kTag, "Connect retry %u/%u",
+                      static_cast< unsigned >( attempt + 1U ),
+                      static_cast< unsigned >( kMaxConnectAttempts ) );
+                delay_ms( kConnectRetryDelayMs );
+            }
+        }
+
+        bool result { connected };
+
+        if( result )
+        {
+            result = result && sensor.setSensorMode( kSensorMode );
+            result = result && sensor.setDetectionRange( kDetectionRangeMin,
+                                                         kDetectionRangeMax,
+                                                         kTrigRange );
+            result = result && sensor.setTrigSensitivity( kTrigSensitivity );
+
+            if( hasKeepSensitivity )
+            {
+                result = result && sensor.setKeepSensitivity( kKeepSensitivity );
             }
 
-            /* Motion reads */
-            if( primaryOk )
-            {
-                pReadOk = primary_->motionDetected( pMotion );
-                if( pReadOk )
-                {
-                    lastPrimaryMotion_ = pMotion;
-                }
-            }
-
-            if( secondaryOk )
-            {
-                sReadOk = secondary_->motionDetected( sMotion );
-                if( sReadOk )
-                {
-                    lastSecondaryMotion_ = sMotion;
-                }
-            }
-
-            /* Fuse motion */
-            if( ( pReadOk && pMotion ) || ( sReadOk && sMotion ) )
-            {
-                data.motionDetected = true;
-            }
-
-            result = ( pReadOk || sReadOk );
-
-            /* Degraded logic */
-            if( data.health == SensorHealth::SYSTEM_OK )
-            {
-                /* Hard degradation from disagreement / skew */
-                bool degraded = false;
-
-                /* Disagreement */
-                if( pReadOk && sReadOk && ( pMotion != sMotion ) )
-                {
-                    degraded = true;
-                }
-
-                /* One-cycle skew disagreement */
-                if( ( pReadOk && ( !sReadOk ) && ( pMotion != lastSecondaryMotion_ ) ) ||
-                    ( sReadOk && ( !pReadOk ) && ( sMotion != lastPrimaryMotion_ ) ) )
-                {
-                    degraded = true;
-                }
-
-                if( degraded )
-                {
-                    data.health = SensorHealth::DEGRADED;
-                }
-            } /* end hard degradation */
-
-            /* Soft degradation from instability */
-            {
-                if( ( primaryFailureCount_   > 0U && primaryFailureCount_   <= kDegradedFailureThreshold ) ||
-                    ( secondaryFailureCount_ > 0U && secondaryFailureCount_ <= kDegradedFailureThreshold ) )
-                {
-                    if( data.health != SensorHealth::TOTAL_FAILURE )
-                    {
-                        data.health = SensorHealth::DEGRADED;
-                    }
-                }
-            } /* end soft degradation */
+            result = result && sensor.setDelay( kTrigDelay, kKeepDelay );
         }
 
         return result;
     }
+
+    bool Manager::setup() noexcept
+    {
+        const bool primaryOk   { setupSensor( primary_.get(),   false ) };
+        const bool secondaryOk { setupSensor( secondary_.get(), true  ) };
+
+        LOGI( kTag, "Primary setup:   %s", primaryOk   ? "success" : "failed" );
+        LOGI( kTag, "Secondary setup: %s", secondaryOk ? "success" : "failed" );
+
+        return ( primaryOk && secondaryOk );
+    }
+
+    bool Manager::update( Data & data ) noexcept
+    {
+        bool pMotion { false };
+        bool sMotion { false };
+
+        const bool pReadOk { primary_.get().motionDetected( pMotion ) };
+        const bool sReadOk { secondary_.get().motionDetected( sMotion ) };
+
+        if( pReadOk )
+        {
+            primaryFailCount_  = 0U;
+            lastPrimaryMotion_ = pMotion;
+        }
+        else
+        {
+            primaryFailCount_ = std::min(
+                static_cast< uint8_t >( primaryFailCount_ + 1U ),
+                kFailureThreshold );
+        }
+
+        if( sReadOk )
+        {
+            secondaryFailCount_  = 0U;
+            lastSecondaryMotion_ = sMotion;
+        }
+        else
+        {
+            secondaryFailCount_ = std::min(
+                static_cast< uint8_t >( secondaryFailCount_ + 1U ),
+                kFailureThreshold );
+        }
+
+        /* Both sensors read OK and disagree: increment disagree counter.      */
+        /* Both sensors read OK and agree:    reset disagree counter.          */
+        /* One or both failed:                counter unchanged this cycle.    */
+        if( pReadOk && sReadOk )
+        {
+            if( pMotion != sMotion )
+            {
+                disagreeCount_ = std::min(
+                    static_cast< uint8_t >( disagreeCount_ + 1U ),
+                    kDegradedDisagreeThreshold );
+            }
+            else
+            {
+                disagreeCount_ = 0U;
+            }
+        }
+
+        SensorHealth health { SensorHealth::TOTAL_FAILURE };
+
+        if( pReadOk && sReadOk )
+        {
+            health = SensorHealth::SYSTEM_OK;
+        }
+        else if( pReadOk )
+        {
+            health = SensorHealth::SECONDARY_FAIL;
+        }
+        else if( sReadOk )
+        {
+            health = SensorHealth::PRIMARY_FAIL;
+        }
+        else
+        {
+            health = SensorHealth::TOTAL_FAILURE;
+        }
+
+        /* Sensor disagreement over N consecutive cycles. */
+        if( ( health == SensorHealth::SYSTEM_OK ) &&
+            ( disagreeCount_ >= kDegradedDisagreeThreshold ) )
+        {
+            health = SensorHealth::DEGRADED;
+        }
+
+        /* Soft degradation: consecutive failures below hard-fail threshold.    */
+        /* Does not override TOTAL_FAILURE — the FSM needs to see hard failure. */
+        if( ( health != SensorHealth::TOTAL_FAILURE ) &&
+            ( ( primaryFailCount_   > 0U ) ||
+            ( secondaryFailCount_ > 0U ) ) )
+        {
+            /* Only degrade if below the hard-fail threshold — above it the  */
+            /* PRIMARY_FAIL / SECONDARY_FAIL classification already applies. */
+            const bool primarySoft { primaryFailCount_   > 0U &&
+                                     primaryFailCount_   < kFailureThreshold };
+            const bool secondarySoft { secondaryFailCount_ > 0U &&
+                                       secondaryFailCount_ < kFailureThreshold };
+
+            if( primarySoft || secondarySoft )
+            {
+                health = SensorHealth::DEGRADED;
+            }
+        }
+
+        /* OR fusion — any confirmed detection triggers the output.             */
+        /* On partial failure, use the last known value of the failed sensor    */
+        /* so a single dropout does not cancel a valid detection.               */
+        const bool effectivePrimary   { pReadOk ? pMotion : lastPrimaryMotion_   };
+        const bool effectiveSecondary { sReadOk ? sMotion : lastSecondaryMotion_ };
+
+        const bool motionDetected { effectivePrimary || effectiveSecondary };
+
+        data.motionDetected = motionDetected;
+        data.health         = health;
+
+        return ( pReadOk || sReadOk );
+    }
+
 } /* namespace mmwave */

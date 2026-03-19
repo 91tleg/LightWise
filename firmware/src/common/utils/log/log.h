@@ -1,5 +1,5 @@
-#ifndef SRC_COMMON_UTILS_LOG_H
-#define SRC_COMMON_UTILS_LOG_H
+#ifndef SRC_COMMON_UTILS_LOG_LOG_H
+#define SRC_COMMON_UTILS_LOG_LOG_H
 
 #if !defined( NDEBUG )
 
@@ -25,4 +25,4 @@
 
 #endif /* NDEBUG */
 
-#endif /* SRC_COMMON_UTILS_LOG_H */
+#endif /* SRC_COMMON_UTILS_LOG_LOG_H */

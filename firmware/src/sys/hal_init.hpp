@@ -1,5 +1,5 @@
-#ifndef SRC_HAL_INIT_HPP
-#define SRC_HAL_INIT_HPP
+#ifndef SRC_SYS_HAL_INIT_HPP
+#define SRC_SYS_HAL_INIT_HPP
 
 #include "hal/alspt19.h"
 #include "hal/c4001.h"
@@ -9,6 +9,7 @@
 
 namespace hal
 {
+
     void init();
 
     extern AlsPt19Hw xAlspt19Primary;
@@ -18,6 +19,7 @@ namespace hal
     extern Dht11Hw xDht11Primary;
     extern LedHw xLed;
     extern LwnodeHw xLwnodePrimary;
+
 } /* namespace hal */
 
-#endif /* SRC_HAL_INIT_HPP */
+#endif /* SRC_SYS_HAL_INIT_HPP */

@@ -1,13 +1,11 @@
 #include <gtest/gtest.h>
 
-#include "utils/num_fmt.h"
-
-#include <cstring>
+#include "utils/str/num_fmt.h"
 
 TEST( NumFmtHexEncode, NullPointers )
 {
     char out[ 10 ];
-    uint8_t data[ 1 ] = { 0xAA };
+    uint8_t data[ 1 ] { 0xAAU };
 
     EXPECT_FALSE( num_fmt_hex_encode( nullptr, 1, out, sizeof( out ) ) );
     EXPECT_FALSE( num_fmt_hex_encode( data, 1, nullptr, sizeof( out ) ) );
@@ -15,7 +13,7 @@ TEST( NumFmtHexEncode, NullPointers )
 
 TEST( NumFmtHexEncode, BufferTooSmall )
 {
-    uint8_t data[ 2 ] = { 0x12, 0x34 };
+    uint8_t data[ 2 ] { 0x12U, 0x34U };
     char out[ 4 ]; /* needs 5 */
 
     EXPECT_FALSE( num_fmt_hex_encode( data, 2, out, sizeof( out ) ) );
@@ -23,7 +21,7 @@ TEST( NumFmtHexEncode, BufferTooSmall )
 
 TEST( NumFmtHexEncode, SingleByte )
 {
-    uint8_t data[ 1 ] = { 0xAF };
+    uint8_t data[ 1 ] { 0xAFU };
     char out[ 3 ];
 
     EXPECT_TRUE( num_fmt_hex_encode( data, 1, out, sizeof( out ) ) );
@@ -32,7 +30,7 @@ TEST( NumFmtHexEncode, SingleByte )
 
 TEST( NumFmtHexEncode, MultipleBytes )
 {
-    uint8_t data[] = { 0x00, 0x01, 0xAB, 0xFF };
+    uint8_t data[] { 0x00U, 0x01U, 0xABU, 0xFFU };
     char out[ 9 ];
 
     EXPECT_TRUE( num_fmt_hex_encode( data, sizeof( data ), out, sizeof( out ) ) );
@@ -51,7 +49,7 @@ TEST( NumFmtU32ToA, TypicalValue )
 {
     char out[ 12 ];
 
-    EXPECT_TRUE( num_fmt_u32toa( 123456, out, sizeof( out ) ) );
+    EXPECT_TRUE( num_fmt_u32toa( 123456U, out, sizeof( out ) ) );
     EXPECT_STREQ( out, "123456" );
 }
 
@@ -67,14 +65,14 @@ TEST( NumFmtU32ToA, BufferTooSmall )
 {
     char out[ 3 ];
 
-    EXPECT_FALSE( num_fmt_u32toa( 1000, out, sizeof( out ) ) );
+    EXPECT_FALSE( num_fmt_u32toa( 1000U, out, sizeof( out ) ) );
 }
 
 TEST( NumFmtU8ToA, Basic )
 {
     char out[ 4 ];
 
-    EXPECT_TRUE( num_fmt_u8toa( 255, out, sizeof( out ) ) );
+    EXPECT_TRUE( num_fmt_u8toa( 255U, out, sizeof( out ) ) );
     EXPECT_STREQ( out, "255" );
 }
 
@@ -82,7 +80,7 @@ TEST( NumFmtU32ToHex8, Zero )
 {
     char out[ 9 ];
 
-    EXPECT_TRUE( num_fmt_u32_to_hex8( 0x00000000, out, sizeof( out ) ) );
+    EXPECT_TRUE( num_fmt_u32_to_hex8( 0x00000000U, out, sizeof( out ) ) );
     EXPECT_STREQ( out, "00000000" );
 }
 
@@ -90,7 +88,7 @@ TEST( NumFmtU32ToHex8, TypicalValue )
 {
     char out[ 9 ];
 
-    EXPECT_TRUE( num_fmt_u32_to_hex8( 0x1234ABCD, out, sizeof( out ) ) );
+    EXPECT_TRUE( num_fmt_u32_to_hex8( 0x1234ABCDU, out, sizeof( out ) ) );
     EXPECT_STREQ( out, "1234ABCD" );
 }
 
@@ -98,7 +96,7 @@ TEST( NumFmtU32ToHex8, MaxValue )
 {
     char out[ 9 ];
 
-    EXPECT_TRUE( num_fmt_u32_to_hex8( 0xFFFFFFFF, out, sizeof( out ) ) );
+    EXPECT_TRUE( num_fmt_u32_to_hex8( 0xFFFFFFFFU, out, sizeof( out ) ) );
     EXPECT_STREQ( out, "FFFFFFFF" );
 }
 
@@ -106,15 +104,15 @@ TEST( NumFmtU32ToHex8, BufferTooSmall )
 {
     char out[ 8 ];
 
-    EXPECT_FALSE( num_fmt_u32_to_hex8( 0x12345678, out, sizeof( out ) ) );
+    EXPECT_FALSE( num_fmt_u32_to_hex8( 0x12345678U, out, sizeof( out ) ) );
 }
 
 TEST( NumFmtAppendU16, Basic )
 {
-    char buf[ 16 ] = {};
-    char *p = buf;
+    char buf[ 16 ] {};
+    char * p = buf;
 
-    p = num_fmt_append_u16( p, 12345 );
+    p = num_fmt_append_u16( p, 12345U );
     *p = '\0';
 
     EXPECT_STREQ( buf, "12345" );
@@ -122,10 +120,10 @@ TEST( NumFmtAppendU16, Basic )
 
 TEST( NumFmtAppendU16, Zero )
 {
-    char buf[ 16 ] = {};
-    char *p = buf;
+    char buf[ 16 ] {};
+    char * p = buf;
 
-    p = num_fmt_append_u16( p, 0 );
+    p = num_fmt_append_u16( p, 0U );
     *p = '\0';
 
     EXPECT_STREQ( buf, "0" );
@@ -133,8 +131,8 @@ TEST( NumFmtAppendU16, Zero )
 
 TEST( NumFmtAppendFixed1, WholeAndFraction )
 {
-    char buf[ 16 ] = {};
-    char *p = buf;
+    char buf[ 16 ] {};
+    char * p = buf;
 
     p = num_fmt_append_fixed1( p, 123 );
     *p = '\0';
@@ -144,8 +142,8 @@ TEST( NumFmtAppendFixed1, WholeAndFraction )
 
 TEST( NumFmtAppendFixed1, Zero )
 {
-    char buf[ 16 ] = {};
-    char *p = buf;
+    char buf[ 16 ] {};
+    char * p = buf;
 
     p = num_fmt_append_fixed1( p, 0 );
     *p = '\0';

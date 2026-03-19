@@ -1,18 +1,19 @@
 cmake_minimum_required(VERSION 3.16.0)
 
 project(Tests LANGUAGES CXX C)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 enable_testing()
 
 add_subdirectory(googletest)
 
 file(GLOB UTILS_SOURCES 
-    "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/str/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/math/*.cpp"
 )
 
 add_library(common_utils STATIC ${UTILS_SOURCES})
+add_definitions(-DNDEBUG)
 
 function(add_native_test TEST_NAME SRC_FILES INCLUDE_DIRS)
     add_executable(${TEST_NAME} ${SRC_FILES})
@@ -33,9 +34,9 @@ function(add_native_test TEST_NAME SRC_FILES INCLUDE_DIRS)
 endfunction()
 
 file(GLOB_RECURSE TEST_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/lib/test_*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/modules/test_*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/common/utils/test_*.cpp" 
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/*/test_*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/modules/*/test_*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/common/utils/test_*.cpp"
 )
 
 foreach(TEST_FILE ${TEST_FILES})
@@ -53,7 +54,7 @@ foreach(TEST_FILE ${TEST_FILES})
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/light/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/lorawan/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/mmwave/${MODULE_NAME}.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/${MODULE_NAME}.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/common/utils/math/${MODULE_NAME}.c"
     )
 
     foreach(SRC ${POSSIBLE_SRC})

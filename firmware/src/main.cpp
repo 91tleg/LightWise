@@ -22,24 +22,17 @@
  * from LightWise.
  ******************************************************************************/
 
-#include <nvs_flash.h>
-
-#include "hal_init.hpp"
-#include "device_init.hpp"
-#include "task_init.hpp"
+#include "sys/nvs_init.hpp"
+#include "sys/hal_init.hpp"
+#include "sys/device_init.hpp"
+#include "sys/manager_init.hpp"
+#include "sys/task_init.hpp"
 
 extern "C" void app_main( void )
 {
-    esp_err_t err = nvs_flash_init();
-    if( ( err == ESP_ERR_NVS_NO_FREE_PAGES ) ||
-        ( err == ESP_ERR_NVS_NEW_VERSION_FOUND ) )
-    {
-        ESP_ERROR_CHECK( nvs_flash_erase() );
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK( err );
-
+    nvs::init();
     hal::init();
     device::init();
+    mgr::init();
     task::init();
 }

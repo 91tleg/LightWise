@@ -8,15 +8,7 @@ bool alspt19_hal_init( AlsPt19Hw * const sensor )
 {
     bool result = false;
 
-    if( sensor == NULL )
-    {
-        /* Invalid sensor pointer */
-    }
-    else if( sensor->handle != NULL )
-    {
-        /* Already initialized */
-    }
-    else
+    if( ( sensor != NULL ) && ( sensor->handle == NULL ) )
     {
         const adc_oneshot_unit_init_cfg_t init_config =
         {
@@ -25,11 +17,7 @@ bool alspt19_hal_init( AlsPt19Hw * const sensor )
 
         esp_err_t err = adc_oneshot_new_unit( &init_config, 
                                               &sensor->handle );
-        if( err != ESP_OK )
-        {
-            /* Allocation failed */
-        }
-        else
+        if( err == ESP_OK )
         {
             const adc_oneshot_chan_cfg_t chan_config =
             {
@@ -44,11 +32,7 @@ bool alspt19_hal_init( AlsPt19Hw * const sensor )
             {
                 /* Channel config failed, cleanup */
                 err = adc_oneshot_del_unit( sensor->handle );
-                if( err != ESP_OK )
-                {
-                    /* Delete unit handle failed */
-                }
-                else
+                if( err == ESP_OK )
                 {
                     sensor->handle = NULL;
                 }
@@ -93,35 +77,19 @@ bool alspt19_hal_deinit( AlsPt19Hw * const sensor )
     return result;
 }
 
-bool alspt19_hal_read_raw( const AlsPt19Hw * const sensor,
-                           uint16_t * const out )
+bool alspt19_hal_read( const AlsPt19Hw * const sensor,
+                       uint16_t * const out )
 {
     bool result = false;
 
-    if( sensor == NULL )
-    {
-        /* Invalid sensor pointer */
-    }
-    else if( sensor->handle == NULL )
-    {
-        /* ADC not initialized */
-    }
-    else if( out == NULL )
-    {
-        /* Invalid otput pointer */
-    }
-    else
+    if( ( sensor != NULL ) && ( sensor->handle != NULL ) && ( out != NULL ) )
     {
         int raw = 0;
         const esp_err_t err = adc_oneshot_read( sensor->handle,
                                                 sensor->channel,
                                                 &raw );
 
-        if( err != ESP_OK )
-        {
-            /* ADC read failed */
-        }
-        else
+        if( err == ESP_OK )
         {
             *out = ( uint16_t ) raw;
             result = true;

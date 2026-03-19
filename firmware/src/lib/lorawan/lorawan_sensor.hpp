@@ -6,13 +6,17 @@
 
 namespace lorawan
 {
+
+    /**
+     * @brief  Pure virtual interface for a LoRaWAN sensor module.
+     */
     class LorawanSensor
     {
     public:
-        static constexpr size_t kAppEuiHexChars = 16U;  /**< App EUI length */
-        static constexpr size_t kAppKeyHexChars = 32U;  /**< App Key length */
-        static constexpr size_t kNwkSKeyHexChars = 32U; /**< Network Session Key length */
-        static constexpr size_t kAppSKeyHexChars = 32U; /**< App Session Key length */
+        static constexpr size_t kAppEuiHexChars  { 16U }; /**< App EUI length */
+        static constexpr size_t kAppKeyHexChars  { 32U }; /**< App Key length */
+        static constexpr size_t kNwkSKeyHexChars { 32U }; /**< Network Session Key length */
+        static constexpr size_t kAppSKeyHexChars { 32U }; /**< App Session Key length */
 
         /** @brief Device operational states */
         enum class State : uint8_t 
@@ -57,23 +61,32 @@ namespace lorawan
 
         virtual ~LorawanSensor() = default;
 
-        virtual bool init() = 0;
-        virtual bool begin() = 0;
-        virtual bool join() = 0;
-        virtual bool isJoined() = 0;
-        virtual bool setRegion( Region region ) = 0;
-        virtual bool setAppEui( const char * appEui ) = 0;
-        virtual bool setAppKey( const char * appKey ) = 0;
-        virtual bool setNwkSkey( const char * nwkSkey ) = 0;
-        virtual bool setAppSkey( const char * appSkey ) = 0;
-        virtual bool setClass( DeviceClass classType ) = 0;
-        virtual bool setDatarate( uint8_t dataRate ) = 0;
-        virtual bool setEirp( uint8_t eirp ) = 0;
-        virtual bool setSubband( uint8_t subBand ) = 0;
-        virtual bool enableAdr( bool adr ) = 0;
-        virtual bool setPacketType( PacketType type ) = 0;
-        virtual bool sendPacket( const uint8_t * data, uint8_t len ) = 0;
+        [[nodiscard]] virtual bool begin() noexcept = 0;
+        [[nodiscard]] virtual bool join() noexcept = 0;
+        [[nodiscard]] virtual bool isJoined() noexcept = 0;
+        [[nodiscard]] virtual bool setRegion( Region region ) noexcept = 0;
+        [[nodiscard]] virtual bool setAppEui( const char * appEui ) noexcept = 0;
+        [[nodiscard]] virtual bool setAppKey( const char * appKey ) noexcept = 0;
+        [[nodiscard]] virtual bool setNwkSkey( const char * nwkSkey ) noexcept = 0;
+        [[nodiscard]] virtual bool setAppSkey( const char * appSkey ) noexcept = 0;
+        [[nodiscard]] virtual bool setClass( DeviceClass classType ) noexcept = 0;
+        [[nodiscard]] virtual bool setDatarate( uint8_t dataRate ) noexcept = 0;
+        [[nodiscard]] virtual bool setEirp( uint8_t eirp ) noexcept = 0;
+        [[nodiscard]] virtual bool setSubband( uint8_t subBand ) noexcept = 0;
+        [[nodiscard]] virtual bool enableAdr( bool adr ) noexcept = 0;
+        [[nodiscard]] virtual bool setPacketType( PacketType type ) noexcept = 0;
+        [[nodiscard]] virtual bool sendPacket( const uint8_t * data, uint8_t len ) noexcept = 0;
+        [[nodiscard]] virtual bool sleepMs( uint32_t ms ) noexcept = 0;
+        [[nodiscard]] virtual bool setRxCb( RxCallback callback ) noexcept = 0;
+
+    protected:
+        LorawanSensor()                                   = default;
+        LorawanSensor( const LorawanSensor & )            = default;
+        LorawanSensor &operator=( const LorawanSensor & ) = default;
+        LorawanSensor( LorawanSensor && )                 = default;
+        LorawanSensor &operator=( LorawanSensor && )      = default;
     };
+
 } /* namespace lorawan */
 
 #endif /* SRC_LIB_LORAWAN_LORAWAN_SENSOR_HPP */

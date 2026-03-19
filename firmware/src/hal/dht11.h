@@ -79,31 +79,6 @@ bool dht11_hal_write( const Dht11Hw * sensor,
 bool dht11_hal_read( const Dht11Hw * sensor,
                      uint32_t * levelOut );
 
-/**
- * @brief Delay execution for a number of milliseconds.
- *
- * Uses FreeRTOS vTaskDelay.
- *
- * @param delayMs Number of milliseconds to delay.
- */
-void dht11_hal_delay_ms( uint32_t delayMs );
-
-/**
- * @brief Delay execution for a number of microseconds.
- *
- * Uses ESP ROM delay function.
- *
- * @param delayUs Number of microseconds to delay.
- */
-void dht11_hal_delay_us( uint32_t delayUs );
-
-/**
- * @brief Get the current system time in microseconds.
- *
- * @return uint64_t Current time in microseconds.
- */
-uint64_t dht11_hal_get_time_us( void );
-
 #ifdef __cplusplus
 }
 #endif

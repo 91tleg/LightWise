@@ -5,6 +5,7 @@
 
 namespace light
 {
+
     /**
      * @brief Pure virtual interface for a dimmable light output.
      */
@@ -20,7 +21,7 @@ namespace light
          * @return true  Success
          * @return false Invalid parameter or driver error
          */
-        virtual bool setLevel( uint8_t level ) = 0;
+        [[nodiscard]] virtual bool setLevel( uint8_t level ) noexcept = 0;
 
         /**
          * @brief Get current power setting.
@@ -31,8 +32,16 @@ namespace light
          * @return true  Success
          * @return false Invalid parameter or driver error
          */
-        virtual bool getLevel( uint8_t & level ) const = 0;
+        [[nodiscard]] virtual bool getLevel( uint8_t & level ) const noexcept = 0;
+
+    protected:
+        LightSensor()                                 = default;
+        LightSensor( const LightSensor & )            = default;
+        LightSensor &operator=( const LightSensor & ) = default;
+        LightSensor( LightSensor && )                 = default;
+        LightSensor &operator=( LightSensor && )      = default;
     };
+
 } /* namespace light */
 
 #endif /* SRC_LIB_LIGHT_LIGHT_SENSOR_HPP */

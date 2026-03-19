@@ -1,90 +1,93 @@
 #include "c4001.hpp"
 
 #include <stddef.h>
-#include <string.h>
+#include <cstring>
 
 #include "hal/c4001.h"
-#include "utils/str_ext.h"
-#include "utils/num_fmt.h"
+#include "utils/str/str_ext.h"
+#include "utils/str/num_fmt.h"
+#include "utils/time/delay.h"
 
 namespace mmwave
 {
+
     namespace
     {
+
         /* Command Strings */
-        constexpr char kCmdStartSensor[]    = "sensorStart";
-        constexpr char kCmdStopSensor[]     = "sensorStop";
-        constexpr char kCmdSaveConfig[]     = "saveConfig";
-        constexpr char kCmdResetConfig[]    = "resetCfg";
-        constexpr char kCmdResetSystem[]    = "resetSystem";
-        constexpr char kCmdExistMode[]      = "setRunApp 0";
-        constexpr char kCmdSpeedMode[]      = "setRunApp 1";
+        constexpr char kCmdStartSensor[]    { "sensorStart" };
+        constexpr char kCmdStopSensor[]     { "sensorStop"  };
+        constexpr char kCmdSaveConfig[]     { "saveConfig"  };
+        constexpr char kCmdResetConfig[]    { "resetCfg"    };
+        constexpr char kCmdResetSystem[]    { "resetSystem" };
+        constexpr char kCmdExistMode[]      { "setRunApp 0" };
+        constexpr char kCmdSpeedMode[]      { "setRunApp 1" };
 
         /* Query Commands */
-        constexpr char kCmdGetSensitivity[] = "getSensitivity";
-        constexpr char kCmdGetLatency[]     = "getLatency";
-        constexpr char kCmdGetRange[]       = "getRange";
-        constexpr char kCmdGetTrigRange[]   = "getTrigRange";
-        constexpr char kCmdGetThrFactor[]   = "getThrFactor";
-        constexpr char kCmdGetMicroMotion[] = "getMicroMotion";
+        constexpr char kCmdGetSensitivity[] { "getSensitivity" };
+        constexpr char kCmdGetLatency[]     { "getLatency"     };
+        constexpr char kCmdGetRange[]       { "getRange"       };
+        constexpr char kCmdGetTrigRange[]   { "getTrigRange"   };
+        constexpr char kCmdGetThrFactor[]   { "getThrFactor"   };
+        constexpr char kCmdGetMicroMotion[] { "getMicroMotion" };
 
         /* Buffer and Timeout Configuration */
-        constexpr uint16_t kRxMaxBytes             = 256U;
-        constexpr uint16_t kCmdMaxBytes            = 64U;
-        constexpr uint32_t kUartReadTimeoutMs      = 200U;
-        constexpr uint8_t  kPollStartRetryCount    = 5U;
-        constexpr uint32_t kPollStartRetryDelayMs  = 1000U;
+        constexpr uint16_t kRxMaxBytes            { 256U  };
+        constexpr uint16_t kCmdMaxBytes           { 64U   };
+        constexpr uint32_t kUartReadTimeoutMs     { 200U  };
+        constexpr uint8_t  kPollStartRetryCount   { 5U    };
+        constexpr uint32_t kPollStartRetryDelayMs { 1000U };
 
         /* Range Validation Constants */
-        constexpr uint16_t kRangeMinCm             = 30U;
-        constexpr uint16_t kRangeMaxCm             = 2000U;
-        constexpr uint16_t kRangeMinMaxThreshold   = 240U;
-        constexpr uint16_t kThrMax                 = 2500U;
-        constexpr uint8_t  kSensitivityMax         = 9U;
-        constexpr uint16_t kTrigDelayMax           = 200U;
-        constexpr uint16_t kKeepDelayMin           = 4U;
-        constexpr uint16_t kKeepDelayMax           = 3000U;
-        constexpr uint8_t  kTargetFlashMax         = 10U;
+        constexpr uint16_t kRangeMinCm           { 30U   };
+        constexpr uint16_t kRangeMaxCm           { 2000U };
+        constexpr uint16_t kRangeMinMaxThreshold { 240U  };
+        constexpr uint16_t kThrMax               { 2500U };
+        constexpr uint8_t  kSensitivityMax       { 9U    };
+        constexpr uint16_t kTrigDelayMax         { 200U  };
+        constexpr uint16_t kKeepDelayMin         { 4U    };
+        constexpr uint16_t kKeepDelayMax         { 3000U };
+        constexpr uint8_t  kTargetFlashMax       { 10U   };
 
         /* Command and Sequence Delays */
-        constexpr uint32_t kDelayAfterStartMs        = 200U;
-        constexpr uint32_t kDelayAfterStopMs         = 200U;
-        constexpr uint32_t kDelayAfterResetMs        = 1500U;
-        constexpr uint32_t kDelayBeforeModeCmdMs     = 50U;
-        constexpr uint32_t kDelayAfterModeCmdMs      = 50U;
-        constexpr uint32_t kDelayBeforeSaveCfgMs     = 50U;
-        constexpr uint32_t kDelayAfterSaveCfgMs      = 500U;
-        constexpr uint32_t kDelayAfterConfigStartMs  = 100U;
-        constexpr uint32_t kDelayAfterStopCmdMs      = 1000U;
-        constexpr uint32_t kDelayAfterCmdMs          = 100U;
+        constexpr uint32_t kDelayAfterStartMs       { 200U  };
+        constexpr uint32_t kDelayAfterStopMs        { 200U  };
+        constexpr uint32_t kDelayAfterResetMs       { 1500U };
+        constexpr uint32_t kDelayBeforeModeCmdMs    { 50U   };
+        constexpr uint32_t kDelayAfterModeCmdMs     { 50U   };
+        constexpr uint32_t kDelayBeforeSaveCfgMs    { 50U   };
+        constexpr uint32_t kDelayAfterSaveCfgMs     { 500U  };
+        constexpr uint32_t kDelayAfterConfigStartMs { 100U  };
+        constexpr uint32_t kDelayAfterStopCmdMs     { 1000U };
+        constexpr uint32_t kDelayAfterCmdMs         { 100U  };
 
         /* Command Prefixes with Lengths */
-        constexpr char kSetRangePrefix[]            = "setRange ";
-        constexpr size_t kSetRangePrefixLen         = sizeof(kSetRangePrefix) - 1U;
+        constexpr char kSetRangePrefix[]              { "setRange " };
+        constexpr size_t kSetRangePrefixLen           { sizeof(kSetRangePrefix) - 1U };
 
-        constexpr char kSetTrigRangePrefix[]        = "setTrigRange ";
-        constexpr size_t kSetTrigRangePrefixLen     = sizeof(kSetTrigRangePrefix) - 1U;
+        constexpr char kSetTrigRangePrefix[]          { "setTrigRange " };
+        constexpr size_t kSetTrigRangePrefixLen       { sizeof(kSetTrigRangePrefix) - 1U };
 
-        constexpr char kSetTrigSensitivityPrefix[]  = "setSensitivity 255 ";
-        constexpr size_t kSetTrigSensitivityPrefixLen = sizeof(kSetTrigSensitivityPrefix) - 1U;
+        constexpr char kSetTrigSensitivityPrefix[]    { "setSensitivity 255 " };
+        constexpr size_t kSetTrigSensitivityPrefixLen { sizeof(kSetTrigSensitivityPrefix) - 1U };
 
-        constexpr char kSetSensitivityPrefix[]      = "setSensitivity ";
-        constexpr size_t kSetSensitivityPrefixLen   = sizeof(kSetSensitivityPrefix) - 1U;
+        constexpr char kSetSensitivityPrefix[]        { "setSensitivity " };
+        constexpr size_t kSetSensitivityPrefixLen     { sizeof(kSetSensitivityPrefix) - 1U };
 
-        constexpr char kSetLatencyPrefix[]          = "setLatency ";
-        constexpr size_t kSetLatencyPrefixLen       = sizeof(kSetLatencyPrefix) - 1U;
+        constexpr char kSetLatencyPrefix[]            { "setLatency " };
+        constexpr size_t kSetLatencyPrefixLen         { sizeof(kSetLatencyPrefix) - 1U };
 
-        constexpr char kSetThrPrefix[]              = "setThrFactor ";
-        constexpr size_t kSetThrPrefixLen           = sizeof(kSetThrPrefix) - 1U;
+        constexpr char kSetThrPrefix[]                { "setThrFactor " };
+        constexpr size_t kSetThrPrefixLen             { sizeof(kSetThrPrefix) - 1U };
 
-        constexpr char kSetMicroMotionPrefix[]      = "setMicroMotion ";
-        constexpr size_t kSetMicroMotionPrefixLen   = sizeof(kSetMicroMotionPrefix) - 1U;
+        constexpr char kSetMicroMotionPrefix[]        {"setMicroMotion " };
+        constexpr size_t kSetMicroMotionPrefixLen     { sizeof(kSetMicroMotionPrefix) - 1U };
 
     } /* anonymous namespace */
 
     bool C4001::init()
     {
-        bool result = false;
+        bool result { false };
 
         if( sensor_ != nullptr )
         {
@@ -96,19 +99,19 @@ namespace mmwave
 
     bool C4001::connect()
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
-            uint8_t buf[ kRxMaxBytes ]{};
-            int len = 0;
-            bool hasValidData = false;
+            uint8_t buf[ kRxMaxBytes ] {};
+            int len { 0 };
+            bool hasValidData { false };
 
             /* Flush and allow sensor to stream */
             c4001_hal_flush( sensor_ );
-            c4001_hal_delay_ms( kDelayAfterStartMs );
+            delay_ms( kDelayAfterStartMs );
 
-            ( void ) memset( buf, 0, sizeof( buf ) );
+            static_cast< void >( std::memset( buf, 0, sizeof( buf ) ) );
 
             len = c4001_hal_read( sensor_,
                                   buf,
@@ -119,7 +122,7 @@ namespace mmwave
             {
                 buf[ len ] = '\0';
 
-                for( int i = 0; i < len; ++i )
+                for( int i { 0 }; i < len; ++i )
                 {
                     if( ( buf[ i ] >= 32U ) && ( buf[ i ] < 127U ) )
                     {
@@ -135,9 +138,9 @@ namespace mmwave
 
                     if( writeCmd( kCmdStopSensor ) )
                     {
-                        c4001_hal_delay_ms( kDelayAfterStopCmdMs );
+                        delay_ms( kDelayAfterStopCmdMs );
 
-                        ( void ) memset( buf, 0, sizeof( buf ) );
+                        static_cast< void >( std::memset( buf, 0, sizeof( buf ) ) );
                         len = c4001_hal_read( sensor_,
                                               buf,
                                               sizeof( buf ) - 1U,
@@ -147,10 +150,10 @@ namespace mmwave
                         {
                             buf[ len ] = '\0';
 
-                            if( ( strstr( reinterpret_cast<const char *>( buf ), kCmdStopSensor ) != nullptr ) ||
-                                ( strstr( reinterpret_cast<const char *>( buf ), "$DF" ) != nullptr ) )
+                            if( ( strstr( reinterpret_cast< const char * >( buf ), kCmdStopSensor ) != nullptr ) ||
+                                ( strstr( reinterpret_cast< const char * >( buf ), "$DF" ) != nullptr ) )
                             {
-                                ( void ) sensorStop();
+                                static_cast< void >( sensorStop() );
                                 result = true;
                             }
                         }
@@ -165,13 +168,13 @@ namespace mmwave
     bool C4001::getStatus( Status & status )
     {
         bool result = false;
-        
-        if( isInitialized_ )
-        {    
-            uint8_t buf[ kRxMaxBytes ]{};
-            int len = 0;
 
-            ( void ) writeCmd( kCmdStartSensor );
+        if( isInitialized_ )
+        {
+            uint8_t buf[ kRxMaxBytes ] {};
+            int len { 0 };
+
+            static_cast< void >( writeCmd( kCmdStartSensor ) );
 
             for( uint32_t attempt = 0U; attempt < kPollStartRetryCount; ++attempt )
             {
@@ -182,12 +185,12 @@ namespace mmwave
 
                 if( len > 0 )
                 {
-                    bool exist = false;
-                    Target tgt{};
-                    bool hasTarget = false;
+                    bool exist { false };
+                    Target tgt {};
+                    bool hasTarget { false };
 
                     if( parseFrame( buf, 
-                                    static_cast<size_t>( len ), 
+                                    static_cast< size_t >( len ), 
                                     status,
                                     exist,
                                     tgt,
@@ -199,7 +202,7 @@ namespace mmwave
                 }
                 else
                 {
-                    c4001_hal_delay_ms( kPollStartRetryDelayMs );
+                    delay_ms( kPollStartRetryDelayMs );
                 }
             }
         }
@@ -209,12 +212,12 @@ namespace mmwave
 
     bool C4001::motionDetected( bool & motion )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_)
         {
-            uint8_t buf[ kRxMaxBytes ]{};
-            int len = 0;
+            uint8_t buf[ kRxMaxBytes ] {};
+            int len { 0 };
 
             /* Initialize output */
             motion = lastExist_;
@@ -226,13 +229,13 @@ namespace mmwave
 
             if( len > 0 )
             {
-                Status st{};
-                bool exist{false};
-                Target tgt{};
-                bool hasTarget{false};
+                Status st {};
+                bool exist { false };
+                Target tgt {};
+                bool hasTarget { false };
 
                 if( parseFrame( buf,
-                                static_cast<size_t>( len ),
+                                static_cast< size_t >( len ),
                                 st,
                                 exist,
                                 tgt,
@@ -250,7 +253,7 @@ namespace mmwave
 
     bool C4001::setSensorMode( Mode mode )
     {
-        bool result = false;
+        bool result { false };
         
         if( isInitialized_ )
         {
@@ -261,26 +264,26 @@ namespace mmwave
                 if( mode == Mode::PRESENCE )
                 {
                     result = writeCmd( kCmdExistMode );
-                    c4001_hal_delay_ms( kDelayAfterModeCmdMs ); 
+                    delay_ms( kDelayAfterModeCmdMs ); 
                 }
                 else /* Mode::TRACKING */
                 {
                     result = writeCmd( kCmdSpeedMode );
-                    c4001_hal_delay_ms( kDelayAfterModeCmdMs ); 
+                    delay_ms( kDelayAfterModeCmdMs ); 
                 }
             }
 
             if( result )
             {
-                c4001_hal_delay_ms( kDelayBeforeSaveCfgMs );
+                delay_ms( kDelayBeforeSaveCfgMs );
                 result = writeCmd( kCmdSaveConfig );
-                c4001_hal_delay_ms( kDelayAfterSaveCfgMs );
+                delay_ms( kDelayAfterSaveCfgMs );
             }
 
             if( result )
             {
                 result = writeCmd( kCmdStartSensor );
-                c4001_hal_delay_ms( kDelayAfterConfigStartMs );
+                delay_ms( kDelayAfterConfigStartMs );
             }
         }
 
@@ -289,21 +292,20 @@ namespace mmwave
 
     bool C4001::setTrigSensitivity( uint8_t sensitivity )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ && ( sensitivity <= kSensitivityMax ) )
         {
-            char cmd[ kCmdMaxBytes ]{};
+            char cmd[ kCmdMaxBytes ] {};
 
-            const size_t len = kSetTrigSensitivityPrefixLen;
+            const size_t len { kSetTrigSensitivityPrefixLen };
 
             /* Space for single digit + null terminator */
             if( ( len + 2U ) < sizeof( cmd ) )
             {
                 /* Build "setSensitivity 255 <s>" */
-                ( void ) memcpy( cmd, 
-                                 kSetTrigSensitivityPrefix, 
-                                 kSetTrigSensitivityPrefixLen );
+                static_cast< void >( std::memcpy( cmd, kSetTrigSensitivityPrefix, 
+                                                  kSetTrigSensitivityPrefixLen ) );
                 cmd[ len ] = '0' + static_cast<char>( sensitivity );
                 cmd[ len + 1U ] = '\0';
 
@@ -316,17 +318,15 @@ namespace mmwave
 
     bool C4001::getTrigSensitivity( uint8_t & sensitivity )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
-            ResponseData response{};
+            ResponseData response {};
 
-            if( queryResponse( kCmdGetSensitivity, 
-                               1U, 
-                               response ) )
+            if( queryResponse( kCmdGetSensitivity, 1U, response ) )
             {
-                sensitivity = static_cast<uint8_t>( response.response1 );
+                sensitivity = static_cast< uint8_t >( response.response1 );
                 result = true;
             }
         }
@@ -336,24 +336,23 @@ namespace mmwave
 
     bool C4001::setKeepSensitivity( uint8_t sensitivity )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ && ( sensitivity <= kSensitivityMax ) )
         {
-            char cmd[ kCmdMaxBytes ]{};
-            char * p = cmd;
+            char cmd[ kCmdMaxBytes ] {};
+            char * p { cmd };
 
             /* Build "setSensitivity <s> 255" */
-            ( void ) memcpy( p, 
-                             kSetSensitivityPrefix, 
-                             kSetSensitivityPrefixLen );
+            static_cast< void >( std::memcpy( p, kSetSensitivityPrefix,
+                                              kSetSensitivityPrefixLen ) );
             p += kSetSensitivityPrefixLen;
 
             /* Sspace for " X 255\0" = 6 chars */
-            const size_t remaining = sizeof( cmd ) - kSetSensitivityPrefixLen;
+            const size_t remaining { sizeof( cmd ) - kSetSensitivityPrefixLen };
             if( remaining >= 6U )
             {
-                *p++ = '0' + static_cast<char>( sensitivity );
+                *p++ = '0' + static_cast< char >( sensitivity );
                 *p++ = ' ';
                 *p++ = '2';
                 *p++ = '5';
@@ -369,17 +368,15 @@ namespace mmwave
 
     bool C4001::getKeepSensitivity( uint8_t & sensitivity )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
-            ResponseData response{};
+            ResponseData response {};
 
-            if( queryResponse( kCmdGetSensitivity, 
-                               2U, 
-                               response ) )
+            if( queryResponse( kCmdGetSensitivity, 2U, response ) )
             {
-                sensitivity = static_cast<uint8_t>( response.response2 );
+                sensitivity = static_cast< uint8_t >( response.response2 );
                 result = true;
             }
         }
@@ -389,7 +386,7 @@ namespace mmwave
 
     bool C4001::setDelay( uint8_t trig, uint16_t keep )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
@@ -397,13 +394,12 @@ namespace mmwave
                 ( keep >= kKeepDelayMin ) &&
                 ( keep <= kKeepDelayMax ) )
             {
-                char cmd[ kCmdMaxBytes ]{};
-                char * p = cmd;
+                char cmd[ kCmdMaxBytes ] {};
+                char * p { cmd };
 
                 /* Build "setLatency <trig*0.01> <keep*0.5>" */
-                ( void ) memcpy( p,
-                                 kSetLatencyPrefix,
-                                 kSetLatencyPrefixLen );
+                static_cast< void >( std::memcpy( p, kSetLatencyPrefix,
+                                                  kSetLatencyPrefixLen ) );
                 p += kSetLatencyPrefixLen;
 
                 /* Convert trig * 0.01 to tenths */
@@ -423,18 +419,16 @@ namespace mmwave
 
     bool C4001::getDelay( uint16_t & delayMs )
     {
-        bool result = false;
+        bool result { false };
         
         if( isInitialized_ )
         {
-            ResponseData response{};
+            ResponseData response {};
             
-            if( queryResponse( kCmdGetLatency, 
-                               1U, 
-                               response ) )
+            if( queryResponse( kCmdGetLatency, 1U, response ) )
             {
                 /* Response is in seconds, convert to ms. */
-                delayMs = static_cast<uint16_t>( response.response1 * 100.0f );
+                delayMs = static_cast< uint16_t >( response.response1 * 100.0f );
                 result = true;
             }
         }
@@ -444,18 +438,16 @@ namespace mmwave
 
     bool C4001::getKeepTimeout( uint16_t & timeoutMs )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
-            ResponseData response{};
+            ResponseData response {};
 
-            if( queryResponse( kCmdGetLatency,
-                               2U,
-                               response ) )
+            if( queryResponse( kCmdGetLatency, 2U, response ) )
             {
                 /* Response is in seconds, convert to ms. */
-                timeoutMs = static_cast<uint16_t>( response.response2 * 2.0f * 1000.0f );
+                timeoutMs = static_cast< uint16_t >( response.response2 * 2.0f * 1000.0f );
                 result = true;
             }
         }
@@ -476,20 +468,19 @@ namespace mmwave
                 ( minCm >= kRangeMinCm ) && 
                 ( minCm <= maxCm ) )
             {
-                char cmd1[ kCmdMaxBytes ]{};
-                char cmd2[ kCmdMaxBytes ]{};
-                char * p;
+                char cmd1[ kCmdMaxBytes ] {};
+                char cmd2[ kCmdMaxBytes ] {};
+                char * p { nullptr };
 
-                /* Convert cm to m with 1 decimal (rounding) */
-                const uint16_t minT  = ( minCm  + 5U ) / 10U;
-                const uint16_t maxT  = ( maxCm  + 5U ) / 10U;
-                const uint16_t trigT = ( trigCm + 5U ) / 10U;
+                /* Convert cm to m with 1 decimal */
+                const uint16_t minT  { static_cast< uint16_t >( ( minCm  + 5U ) / 10U ) };
+                const uint16_t maxT  { static_cast< uint16_t >( ( maxCm  + 5U ) / 10U ) };
+                const uint16_t trigT { static_cast< uint16_t >( ( trigCm + 5U ) / 10U ) };
 
                 /* Build "setRange <min/10.0> <max/10.0>" */
                 p = cmd1;
-                ( void ) memcpy( p, 
-                                 kSetRangePrefix,
-                                 kSetRangePrefixLen ); 
+                static_cast< void >( std::memcpy( p, kSetRangePrefix,
+                                                  kSetRangePrefixLen ) ); 
                 p += kSetRangePrefixLen;
                 p = num_fmt_append_fixed1( p, minT );
                 *p++ = ' ';
@@ -498,9 +489,8 @@ namespace mmwave
 
                 /* Build "setTrigRange <trig/10.0>" */
                 p = cmd2;
-                ( void ) memcpy( p, 
-                                 kSetTrigRangePrefix, 
-                                 kSetTrigRangePrefixLen );
+                static_cast< void >( std::memcpy( p, kSetTrigRangePrefix, 
+                                                  kSetTrigRangePrefixLen ) );
                 p += kSetTrigRangePrefixLen;
                 p = num_fmt_append_fixed1( p, trigT );
                 *p = '\0';
@@ -514,18 +504,16 @@ namespace mmwave
 
     bool C4001::getTrigRangeCm( uint16_t & trigCm )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
-            ResponseData response{};
+            ResponseData response {};
 
-            if( queryResponse( kCmdGetTrigRange, 
-                               1U, 
-                               response ) )
+            if( queryResponse( kCmdGetTrigRange, 1U, response ) )
             {
                 /* Response is in meters, convert to cm. */
-                trigCm = static_cast<uint16_t>( response.response1 * 100.0f );
+                trigCm = static_cast< uint16_t >( response.response1 * 100.0f );
                 result = true;
             }
         }
@@ -535,39 +523,35 @@ namespace mmwave
 
     bool C4001::getMinRangeCm( uint16_t & minCm )
     {
-        bool result = false;
-        
+        bool result { false };
+
         if( isInitialized_ )
         {
-            ResponseData response{};
+            ResponseData response {};
 
-            if( queryResponse( kCmdGetRange, 
-                               2U, 
-                               response ) )
+            if( queryResponse( kCmdGetRange, 2U, response ) )
             {
                 /* Response is in meters, convert to cm. */
-                minCm = static_cast<uint16_t>( response.response1 * 100.0f );
+                minCm = static_cast< uint16_t >( response.response1 * 100.0f );
                 result = true;
             }
         }
-        
+
         return result;
     }
 
     bool C4001::getMaxRangeCm( uint16_t & maxCm )
     {
-        bool result = false;
-        
+        bool result { false };
+
         if( isInitialized_ )
         {
-            ResponseData response{};
+            ResponseData response {};
 
-            if( queryResponse( kCmdGetRange, 
-                               2U, 
-                               response ) )
+            if( queryResponse( kCmdGetRange, 2U, response ) )
             {
                 /* Response is in meters, convert to cm. */
-                maxCm = static_cast<uint16_t>( response.response2 * 100.0f );
+                maxCm = static_cast< uint16_t >( response.response2 * 100.0f );
                 result = true;
             }
         }
@@ -577,26 +561,26 @@ namespace mmwave
 
     bool C4001::updateTarget( uint8_t & target )
     {
-        bool result = false;
-        
+        bool result { false };
+
         if( isInitialized_ )
         {
-            uint8_t buf[ kRxMaxBytes ]{};
-            int len = 0;
-            
+            uint8_t buf[ kRxMaxBytes ] {};
+            int len { 0 };
+
             len = c4001_hal_read( sensor_,
                                   buf,
                                   sizeof( buf ),
                                   kUartReadTimeoutMs );
             if( len > 0 )
             {
-                Status st{};
-                bool exist{false};
-                Target tgt{};
-                bool hasTarget{false};
+                Status st {};
+                bool exist { false };
+                Target tgt {};
+                bool hasTarget { false };
 
-                if( parseFrame( buf, 
-                                static_cast<size_t>( len ), 
+                if( parseFrame( buf,
+                                static_cast< size_t >( len ), 
                                 st,
                                 exist,
                                 tgt,
@@ -617,7 +601,7 @@ namespace mmwave
 
                     if( flashCount_ > kTargetFlashMax )
                     {
-                        ( void ) memset( &cache_, 0, sizeof( cache_ ) );
+                        static_cast< void >( std::memset( &cache_, 0, sizeof( cache_ ) ) );
                         flashCount_ = 0U;
                     }
                 }
@@ -632,7 +616,7 @@ namespace mmwave
                 
                 if( flashCount_ > kTargetFlashMax )
                 {
-                    ( void ) memset( &cache_, 0, sizeof( cache_ ) );
+                    static_cast< void >( std::memset( &cache_, 0, sizeof( cache_ ) ) );
                     flashCount_ = 0U;
                 }
             }
@@ -646,7 +630,7 @@ namespace mmwave
 
     bool C4001::getTarget( Target & target )
     {
-        bool result = false;
+        bool result { false };
         
         if( isInitialized_ )
         {
@@ -661,26 +645,25 @@ namespace mmwave
                                     uint16_t maxCm,
                                     uint16_t thres )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
             if( ( maxCm <= kThrMax ) &&
                 ( minCm <= maxCm ) )
             {
-                char cmd1[ kCmdMaxBytes ]{};
-                char cmd2[ kCmdMaxBytes ]{};
-                char * p;
+                char cmd1[ kCmdMaxBytes ] {};
+                char cmd2[ kCmdMaxBytes ] {};
+                char * p { nullptr };
 
-                /* Convert cm to m with 1 decimal (rounding) */
-                const uint16_t minT = ( minCm + 5U ) / 10U;
-                const uint16_t maxT = ( maxCm + 5U ) / 10U;
+                /* Convert cm to m with 1 decimal */
+                const uint16_t minT { static_cast< uint16_t >( ( minCm + 5U ) / 10U ) };
+                const uint16_t maxT { static_cast< uint16_t >( ( maxCm + 5U ) / 10U ) };
 
                 /* Build "setRange <min/10.0> <max/10.0>" */
                 p = cmd1;
-                ( void ) memcpy( p, 
-                                 kSetRangePrefix, 
-                                 kSetRangePrefixLen );
+                static_cast< void >( std::memcpy( p, kSetRangePrefix, 
+                                                  kSetRangePrefixLen ) );
                 p += kSetRangePrefixLen;
                 p = num_fmt_append_fixed1( p, minT );
                 *p++ = ' ';
@@ -689,9 +672,8 @@ namespace mmwave
 
                 /* Build "setThrFactor <thres>" */
                 p = cmd2;
-                ( void ) memcpy( p, 
-                                 kSetThrPrefix, 
-                                 kSetThrPrefixLen );
+                static_cast< void >( std::memcpy( p, kSetThrPrefix, 
+                                                  kSetThrPrefixLen ) );
                 p += kSetThrPrefixLen;
                 p = num_fmt_append_u16( p, thres );
                 *p = '\0';
@@ -705,17 +687,15 @@ namespace mmwave
 
     bool C4001::getThreshold( uint16_t & threshold )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
-            ResponseData response{};
+            ResponseData response {};
 
-            if( queryResponse( kCmdGetThrFactor, 
-                               1U, 
-                               response ) )
+            if( queryResponse( kCmdGetThrFactor, 1U, response ) )
             {
-                threshold = static_cast<uint16_t>( response.response1 );
+                threshold = static_cast< uint16_t >( response.response1 );
                 result = true;
             }
         }
@@ -725,19 +705,18 @@ namespace mmwave
 
     bool C4001::setMicroMotion( bool enable )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
-            char cmd[ kCmdMaxBytes ]{};
-            char * p = cmd;
+            char cmd[ kCmdMaxBytes ] {};
+            char * p { cmd };
 
             /* Build "setMicroMotion <st>" */
-            ( void ) memcpy( p, 
-                             kSetMicroMotionPrefix,
-                             kSetMicroMotionPrefixLen );
+            static_cast< void >( std::memcpy( p, kSetMicroMotionPrefix,
+                                              kSetMicroMotionPrefixLen ) );
             p += kSetMicroMotionPrefixLen;
-            p = num_fmt_append_u16( p, static_cast<uint16_t>( enable ) );
+            p = num_fmt_append_u16( p, static_cast< uint16_t >( enable ) );
             *p = '\0';
 
             result = cmdStopSaveStart( cmd, cmd, 1U );
@@ -748,15 +727,13 @@ namespace mmwave
 
     bool C4001::getMicroMotion( bool & isEnabled )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
-            ResponseData response{};
+            ResponseData response {};
 
-            if( queryResponse( kCmdGetMicroMotion,
-                               1U,
-                               response ) )
+            if( queryResponse( kCmdGetMicroMotion, 1U, response ) )
             {
                 isEnabled = ( response.response1 != 0.0f );
                 result = true;
@@ -770,7 +747,7 @@ namespace mmwave
                         uint8_t pwm2,
                         uint8_t timer )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ && ( pwm1 <= 100U ) && ( pwm2 <= 100U ) )
         {
@@ -782,7 +759,7 @@ namespace mmwave
 
     bool C4001::setGpioPolarity( uint8_t value )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
@@ -794,15 +771,15 @@ namespace mmwave
 
     bool C4001::writeCmd( const char * const cmd )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ && ( cmd != nullptr ) )
         {
-            const size_t len = strlen( cmd );
+            const size_t len { strlen( cmd ) };
             if( len > 0U )
             {
                 if( c4001_hal_write( sensor_,
-                                     reinterpret_cast<const uint8_t*>( cmd ),
+                                     reinterpret_cast< const uint8_t * >( cmd ),
                                      len ) )
                 {
                     result = true;
@@ -813,21 +790,20 @@ namespace mmwave
         return result;
     }
 
-
     bool C4001::sensorStop()
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
-            c4001_hal_delay_ms( 1200U );
+            delay_ms( 1200U );
             if( writeCmd( kCmdStopSensor ) )
             {
-                uint8_t buf[ kRxMaxBytes ]{};
-                int len = 0;
+                uint8_t buf[ kRxMaxBytes ] {};
+                int len { 0 };
 
                 /* Wait for sensor to react */
-                c4001_hal_delay_ms( 600U );
+                delay_ms( 600U );
 
                 /* Read ACK */
                 len = c4001_hal_read( sensor_,
@@ -840,8 +816,8 @@ namespace mmwave
                     buf[ len ] = '\0';
 
                     /* Accept silence or ACK */
-                    if( strstr( reinterpret_cast<const char*>( buf ), kCmdStopSensor ) ||
-                        strstr( reinterpret_cast<const char*>( buf ), "$DF" ) )
+                    if( strstr( reinterpret_cast< const char * >( buf ), kCmdStopSensor ) ||
+                        strstr( reinterpret_cast< const char * >( buf ), "$DF" ) )
                     {
                         result = true;
                     }
@@ -856,7 +832,7 @@ namespace mmwave
                                   const char * const cmd2, 
                                   uint8_t count )
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ && ( cmd1 != nullptr ) )
         {
@@ -866,29 +842,29 @@ namespace mmwave
             if( result )
             {
                 result = writeCmd( cmd1 );
-                c4001_hal_delay_ms( kDelayAfterCmdMs );
+                delay_ms( kDelayAfterCmdMs );
             }
 
             /* Write optional second command */
             if( result && ( count > 1U ) && ( cmd2 != nullptr ) )
             {
-                c4001_hal_delay_ms( kDelayAfterCmdMs );
+                delay_ms( kDelayAfterCmdMs );
                 result = writeCmd( cmd2 );
-                c4001_hal_delay_ms( kDelayAfterCmdMs );
+                delay_ms( kDelayAfterCmdMs );
             }
 
             /* Save configuration */
             if( result )
             {
                 result = writeCmd( kCmdSaveConfig );
-                c4001_hal_delay_ms( kDelayAfterCmdMs );
+                delay_ms( kDelayAfterCmdMs );
             }
 
             /* Start sensor */
             if( result )
             {
                 result = writeCmd( kCmdStartSensor );
-                c4001_hal_delay_ms( kDelayAfterCmdMs );
+                delay_ms( kDelayAfterCmdMs );
             }
         }
 
@@ -899,21 +875,21 @@ namespace mmwave
                                uint8_t expectedResponses,
                                ResponseData & data )
     {
-        bool result = false;
-        
+        bool result { false };
+
         if( isInitialized_ && ( cmd != nullptr ) )
         {
-            uint8_t buf[ kRxMaxBytes ]{};
-            int len = 0;
+            uint8_t buf[ kRxMaxBytes ] {};
+            int len { 0 };
 
-            ( void ) memset( &data, 0, sizeof( ResponseData ) );
-            ( void ) memset( buf, 0, sizeof( buf ) );
+            static_cast< void >( std::memset( &data, 0, sizeof( ResponseData ) ) );
+            static_cast< void >( std::memset( buf, 0, sizeof( buf ) ) );
 
             if( sensorStop() )
             {
                 if( writeCmd( cmd ) )
                 {
-                    c4001_hal_delay_ms( kDelayAfterCmdMs );
+                    delay_ms( kDelayAfterCmdMs );
 
                     len = c4001_hal_read( sensor_,
                                           buf,
@@ -926,12 +902,12 @@ namespace mmwave
                                                 expectedResponses, 
                                                 data );
                     }
-                    
-                    c4001_hal_delay_ms( kDelayAfterCmdMs );
+
+                    delay_ms( kDelayAfterCmdMs );
                 }
 
-                ( void ) writeCmd( kCmdStartSensor );
-                c4001_hal_delay_ms( kDelayAfterCmdMs );
+                static_cast< void >( writeCmd( kCmdStartSensor ) );
+                delay_ms( kDelayAfterCmdMs );
             }
         }
 
@@ -943,11 +919,11 @@ namespace mmwave
                                uint8_t count,
                                ResponseData & data )
     {
-        bool result = false;
+        bool result { false };
 
         if( ( buf != nullptr ) )
         {
-            size_t i = 0U;
+            size_t i { 0U };
             for( i = 0U; i < len - 2U; ++i )
             {
                 if( ( buf[ i ] == 'R' ) && 
@@ -962,42 +938,42 @@ namespace mmwave
             {
                 /* Found response marker */
                 data.status = true;
-                
+
                 /* Find space-separated values after "Res" */
-                uint8_t spacePositions[ 4 ] = { 0 };
-                uint8_t spaceCount = 0;
-                
-                for( size_t j = i; j < len && spaceCount < 4U; ++j )
+                uint8_t spacePositions[ 4 ] {};
+                uint8_t spaceCount { 0 };
+
+                for( size_t j { i }; j < len && spaceCount < 4U; ++j )
                 {
-                    if( buf[j] == ' ' )
+                    if( buf[ j ] == ' ' )
                     {
-                        spacePositions[ spaceCount++ ] = static_cast<uint8_t>( j + 1U );
+                        spacePositions[ spaceCount++ ] = static_cast< uint8_t >( j + 1U );
                     }
                 }
 
                 if( spaceCount > 0U )
                 {
                     /* Parse first value */
-                    char tmp[ 32 ]{};
-                    size_t valStart = spacePositions[ 0 ];
-                    size_t valLen = 0;
-                    
+                    char tmp[ 32 ] {};
+                    size_t valStart { spacePositions[ 0 ] };
+                    size_t valLen { 0 };
+
                     /* Find length of first value */
-                    for( size_t k = valStart; k < len; ++k )
+                    for( size_t k { valStart }; k < len; ++k )
                     {
-                        if( ( buf[ k ] == ' ' ) || ( buf[ k ] == '\r' ) || 
+                        if( ( buf[ k ] == ' ' ) || ( buf[ k ] == '\r' ) ||
                             ( buf[ k ] == '\n' ) || ( buf[ k ] == '\0' ) )
                         {
                             break;
                         }
                         valLen++;
                     }
-                    
+
                     if( ( valLen > 0U ) && ( valLen < sizeof( tmp ) ) )
                     {
-                        ( void ) memcpy( tmp, &buf[ valStart ], valLen );
+                        static_cast< void >( std::memcpy( tmp, &buf[ valStart ], valLen ) );
                         tmp[ valLen ] = '\0';
-                        data.response1 = static_cast<float>( atof( tmp ) );
+                        data.response1 = static_cast< float >( atof( tmp ) );
                     }
 
                     /* Parse second value if expected */
@@ -1006,9 +982,9 @@ namespace mmwave
                         valStart = spacePositions[ 1 ];
                         valLen = 0;
 
-                        for( size_t k = valStart; k < len; ++k )
+                        for( size_t k { valStart }; k < len; ++k )
                         {
-                            if( ( buf[ k ] == ' ' ) || ( buf[ k ] == '\r' ) || 
+                            if( ( buf[ k ] == ' ' ) || ( buf[ k ] == '\r' ) ||
                                 ( buf[ k ] == '\n' ) || ( buf[ k ] == '\0' ) )
                             {
                                 break;
@@ -1018,9 +994,9 @@ namespace mmwave
 
                         if( ( valLen > 0U ) && ( valLen < sizeof( tmp ) ) )
                         {
-                            ( void ) memcpy( tmp, &buf[ valStart ], valLen );
+                            static_cast< void >( std::memcpy( tmp, &buf[ valStart ], valLen ) );
                             tmp[ valLen ] = '\0';
-                            data.response2 = static_cast<float>( atof( tmp ) );
+                            data.response2 = static_cast< float >( atof( tmp ) );
                         }
                     }
 
@@ -1030,9 +1006,9 @@ namespace mmwave
                         valStart = spacePositions[ 2 ];
                         valLen = 0;
 
-                        for( size_t k = valStart; k < len; ++k )
+                        for( size_t k { valStart }; k < len; ++k )
                         {
-                            if( ( buf[ k ] == ' ' ) || ( buf[ k ] == '\r' ) || 
+                            if( ( buf[ k ] == ' ' ) || ( buf[ k ] == '\r' ) ||
                                 ( buf[ k ] == '\n' ) || ( buf[ k ] == '\0' ) )
                             {
                                 break;
@@ -1042,9 +1018,9 @@ namespace mmwave
 
                         if( ( valLen > 0U ) && ( valLen < sizeof( tmp ) ) )
                         {
-                            ( void ) memcpy( tmp, &buf[ valStart ], valLen );
+                            static_cast< void >( std::memcpy( tmp, &buf[ valStart ], valLen ) );
                             tmp[ valLen ] = '\0';
-                            data.response3 = static_cast<float>( atof( tmp ) );
+                            data.response3 = static_cast< float >( atof( tmp ) );
                         }
                     }
 
@@ -1061,28 +1037,28 @@ namespace mmwave
         return result;
     }
 
-    bool C4001::parseDfdmd( const uint8_t * const buf, 
-                            size_t len, 
-                            size_t pos, 
+    bool C4001::parseDfdmd( const uint8_t * const buf,
+                            size_t len,
+                            size_t pos,
                             Target & target,
                             bool & exist )
     {
-        bool result = false;
+        bool result { false };
 
         if( buf != nullptr )
         {
-            size_t fStart = 0;
-            size_t fLen = 0;
+            size_t fStart { 0 };
+            size_t fLen { 0 };
 
-            ( void ) memset( &target, 0, sizeof( Target ) );
+            static_cast< void >( std::memset( &target, 0, sizeof( Target ) ) );
             exist = false;
 
             /* Parse 'number' field (Field 1) */
             result = str_ext_get_field( buf, len, pos, 1U, &fStart, &fLen );
             if( result && ( fLen > 0U ) )
             {
-                long val = 0;
-                if( str_ext_strtol( reinterpret_cast<const char *>( &buf[ fStart ] ), fLen, &val ) )
+                long val { 0 };
+                if( str_ext_strtol( reinterpret_cast< const char * >( &buf[ fStart ] ), fLen, &val ) )
                 {
                     target.count = static_cast<uint8_t>( val );
                 }
@@ -1113,7 +1089,7 @@ namespace mmwave
                 result = str_ext_get_field( buf, len, pos, 4U, &fStart, &fLen );
                 if( result )
                 {
-                    int32_t x100 = 0;
+                    int32_t x100 { 0 };
                     result = str_ext_parse_x100( &buf[ fStart ], fLen, &x100 );
                     if( result )
                     {
@@ -1128,10 +1104,10 @@ namespace mmwave
                 result = str_ext_get_field( buf, len, pos, 5U, &fStart, &fLen );
                 if( result && ( fLen > 0U ) )
                 {
-                    unsigned long val = 0;
+                    unsigned long val { 0 };
                     if( str_ext_strtoul( reinterpret_cast<const char *>( &buf[ fStart ] ), fLen, &val ) )
                     {
-                        target.signalStrength = ( uint32_t ) val;
+                        target.signalStrength = static_cast< uint32_t >( val );
                     }
                     else
                     {
@@ -1156,39 +1132,38 @@ namespace mmwave
                             Target & target,
                             bool & hasTarget )
     {
-        bool result = false;
+        bool result { false };
         
         if( buf != nullptr )
         {
-            ( void ) memset( &status, 0, sizeof( Status ) );
+            static_cast< void >( std::memset( &status, 0, sizeof( Status ) ) );
             exist = false;
-            ( void ) memset( &target, 0, sizeof( Target ) );
+            static_cast< void >( std::memset( &target, 0, sizeof( Target ) ) );
             hasTarget = false;
             
-            const int startPos = str_ext_buf_find_char( buf,
-                                                        len,
-                                                        static_cast<uint8_t>( '$' ) );
+            const int startPos { str_ext_buf_find_char( buf, len,
+                                                        static_cast< uint8_t >( '$' ) ) };
             if( startPos >= 0 )
             {
-                const size_t pos = static_cast<size_t>( startPos );
-                
+                const size_t pos { static_cast< size_t >( startPos ) };
+
                 /* Presence detection frame ($DFHPD) */
                 if( ( pos < len ) && str_ext_starts_with( &buf[ pos ],
                                                           len - pos,
                                                           "$DFHPD",
                                                           6U ) )
                 {
-                    status.activeMode = static_cast<Mode>( 0U ); /* ExistMode */
+                    status.activeMode = static_cast< Mode >( 0U ); /* ExistMode */
                     status.isRunning = true;
                     status.isInitialized = true;
 
                     /* Check exist bit at pos 7: "$DFHPD,x" */
                     if( ( pos + 7U ) < len )
                     {
-                        if( ( buf[ pos + 7U ] == static_cast<uint8_t>( '0' ) ) ||
-                            ( buf[ pos + 7U ] == static_cast<uint8_t>( '1' ) ) )
+                        if( ( buf[ pos + 7U ] == static_cast< uint8_t >( '0' ) ) ||
+                            ( buf[ pos + 7U ] == static_cast< uint8_t >( '1' ) ) )
                         {
-                            exist = ( buf[ pos + 7U ] == static_cast<uint8_t>( '1' ) );
+                            exist = ( buf[ pos + 7U ] == static_cast< uint8_t >( '1' ) );
                             result = true;
                         }
                     }
@@ -1199,7 +1174,7 @@ namespace mmwave
                                                                "$DFDMD",
                                                                6U ) )
                 {
-                    status.activeMode = static_cast<Mode>( 1U ); /* SpeedMode */
+                    status.activeMode = static_cast< Mode >( 1U ); /* SpeedMode */
                     status.isRunning = true;
                     status.isInitialized = true;
 
@@ -1222,4 +1197,5 @@ namespace mmwave
 
         return result;
     }
+
 } /* namespace mmwave */

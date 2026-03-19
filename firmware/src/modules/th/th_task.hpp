@@ -6,7 +6,8 @@
 
 namespace th 
 {
-    class THSensor;
+
+    class Manager;
 
     /**
      * @brief Parameters passed to the task.
@@ -15,8 +16,8 @@ namespace th
      */
     struct TaskParams
     {
-        THSensor * primary;     /**< Pointer to the temperature/humidity sensor */
-        QueueHandle_t queue;    /**< Queue used to publish Data samples */
+        Manager & manager;   /**< Fully constructed, statically allocated Manager. */
+        QueueHandle_t queue; /**< Queue for publishing th::Data to consumers.      */
     };
 
     /**

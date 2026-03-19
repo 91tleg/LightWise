@@ -3,8 +3,10 @@
 
 namespace light
 {
+
     namespace
     {
+
         /* Gamma-corrected lookup table (0–100), clamped to 12-bit max */
         static constexpr uint16_t kGammaTable[ 101 ] =
         {
@@ -20,11 +22,12 @@ namespace light
             4095U, 4095U, 4095U, 4095U, 4095U, 4095U, 4095U, 4095U, 4095U, 4095U,
             4095U
         };
+
     } /* anonymous namespace */
 
-    bool Led::init()
+    bool Led::init() noexcept
     {
-        bool result = false;
+        bool result { false };
 
         if( sensor_ != nullptr )
         {
@@ -35,15 +38,15 @@ namespace light
         return result;
     }
 
-    bool Led::setLevel( uint8_t level )
+    bool Led::setLevel( uint8_t level ) noexcept
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
             if( level <= kMaxLevel )
             {
-                const uint32_t pwmValue = levelToPwmDuty( level );
+                const uint32_t pwmValue { levelToPwmDuty( level ) };
 
                 if( led_hal_set_level( sensor_, pwmValue ) )
                 {
@@ -56,9 +59,9 @@ namespace light
         return result;
     }
 
-    bool Led::getLevel( uint8_t & level ) const
+    bool Led::getLevel( uint8_t & level ) const noexcept
     {
-        bool result = false;
+        bool result { false };
 
         if( isInitialized_ )
         {
@@ -69,11 +72,10 @@ namespace light
         return result;
     }
 
-    uint32_t Led::levelToPwmDuty( uint8_t level )
+    uint32_t Led::levelToPwmDuty( uint8_t level ) noexcept
     {
-        const uint8_t clampedLevel = ( ( level <= kMaxLevel )
-                                       ? level
-                                       : kMaxLevel );
+        const uint8_t clampedLevel { ( level <= kMaxLevel ) ? level : kMaxLevel };
         return static_cast<uint32_t>( kGammaTable[ clampedLevel ] );
     }
+
 } /* namesapce light */

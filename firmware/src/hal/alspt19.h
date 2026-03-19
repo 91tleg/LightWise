@@ -60,8 +60,8 @@ bool alspt19_hal_deinit( AlsPt19Hw * sensor );
  * @return true  Read successful and output written
  * @return false Read failed or invalid parameter
  */
-bool alspt19_hal_read_raw( const AlsPt19Hw * sensor,
-                           uint16_t * out );
+bool alspt19_hal_read( const AlsPt19Hw * sensor,
+                       uint16_t * out );
 
 #ifdef __cplusplus
 }
