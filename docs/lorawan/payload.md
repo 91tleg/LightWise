@@ -11,6 +11,7 @@
 | Version | Date | Author | Changes |
 |---|---|---|---|
 | 1.0 | 2026-03-19 | Max Chou | Initial specification |
+| 1.1 | 2026-03-19 | Max Chou | Updated constraints to reflect API-side validation |
 
 ---
 
@@ -88,7 +89,7 @@ Configure the max brightness and baseline dim level.
 **Constraints:**
 - `dim_level` must be ≤ `max_level`
 - `max_level` minimum is 1 — 0 is not permitted; use OVERRIDE_OFF to force light off
-- Constraint violations are discarded and NACK sent
+- Valid range: 1-100. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
 - Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
 
 **Example:** Set max to 90% (0x5A), dim to 30% (0x1E)
@@ -111,7 +112,7 @@ Configure how long the light stays at max level after the last detected motion e
 
 **Constraints:**
 - Valid range: 15–3600 seconds (15 s minimum, 1 hour maximum)
-- Values below 15 or above 3600 are discarded and NACK sent
+- Valid range: 15–3600 seconds. The REST API performs pre-dispatch validation (422 Unprocessable) for out-of-range values. The device sends a NACK (InvalidParam) only as a safety fallback if an invalid value bypasses the API.
 - Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
 
 **Example:** Set motion timeout to 30 seconds (0x001E)
@@ -190,7 +191,7 @@ Configure the daily ON and OFF schedule times in whole hours. The photocell rema
 | 3 | off_hour | uint8 | 0–23 | Schedule OFF hour (24h, local time) |
 
 **Constraints:**
-- Hour values outside 0–23 are discarded and NACK sent
+- Valid range: 0–23. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
 - Minute-level precision is not supported — schedule operates in whole hours only
 - Photocell input takes precedence: light will not turn ON if ambient lux exceeds threshold even within scheduled hours
 - Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
@@ -212,9 +213,8 @@ Request an immediate status uplink from the device. Device responds with current
 | 1 | cmd | uint8 | 0x07 | Command byte |
 
 **Constraints:**
-- Rate limited to 1 request per 60 seconds on the firmware side
-- If rate limit exceeded, request is silently ignored — no NACK
-- Responds with a full telemetry uplink frame, not an ACK frame
+- Rate limiting is enforced by the Cloud API (1 request per 60 seconds)
+- Device processes all received 0x07 commands immediately with a telemetry uplink.
 
 **Example:**
 ```
@@ -256,7 +256,7 @@ Remotely configure the mmWave motion sensor detection sensitivity.
 | 2 | level | uint8 | 0–10 | Sensitivity level (0 = minimum, 10 = maximum) |
 
 **Constraints:**
-- Values above 10 are discarded and NACK sent
+- Valid range: 1-10. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
 - Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
 - Applied on next reboot — mmWave sensor is reconfigured at startup
 
@@ -278,8 +278,7 @@ Configure how frequently the device sends a status uplink when idle and no event
 | 2 | interval_minutes | uint8 | 1–255 | Heartbeat interval in minutes |
 
 **Constraints:**
-- Valid range: 1–255 minutes
-- Value 0 is not permitted and will be discarded with NACK sent
+- Valid range: 1–255. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
 - Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
 - LoRaWAN duty cycle limits take precedence — firmware will not violate duty cycle regardless of configured interval
 
@@ -320,7 +319,7 @@ Apply a temporary dim level override that automatically expires after a specifie
 | CMD | Command | Parameters | Frame Bytes |
 |---|---|---|---|
 | 0x01 | SET_LEVELS | max_level, dim_level | 4 |
-| 0x02 | SET_MOTION_TIMEOUT | timeout uint16 seconds (big-endian) | 4 |
+| 0x02 | SET_MOTION_TIMEOUT | timeout (2 bytes, big-endian) | 4
 | 0x03 | OVERRIDE_ON | level | 3 |
 | 0x04 | OVERRIDE_OFF | — | 2 |
 | 0x05 | RESUME_AUTO | — | 2 |
