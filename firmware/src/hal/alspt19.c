@@ -4,72 +4,25 @@
 
 #include <esp_err.h>
 
-bool alspt19_hal_init( AlsPt19Hw * const sensor )
+bool alspt19_hal_init( AlsPt19Hw * const hw,
+                       const adc_oneshot_unit_handle_t handle )
 {
     bool result = false;
 
-    if( ( sensor != NULL ) && ( sensor->handle == NULL ) )
+    if( ( hw != NULL ) && ( handle != NULL ) && ( hw->handle == NULL ) )
     {
-        const adc_oneshot_unit_init_cfg_t init_config =
+        const adc_oneshot_chan_cfg_t chanConfig =
         {
-            .unit_id = sensor->unit
+            .bitwidth = ADC_BITWIDTH_12,
+            .atten    = ADC_ATTEN_DB_12
         };
 
-        esp_err_t err = adc_oneshot_new_unit( &init_config, 
-                                              &sensor->handle );
+        const esp_err_t err = adc_oneshot_config_channel( handle,
+                                                          hw->channel,
+                                                          &chanConfig );
         if( err == ESP_OK )
         {
-            const adc_oneshot_chan_cfg_t chan_config =
-            {
-                .bitwidth = ADC_BITWIDTH_12,
-                .atten    = ADC_ATTEN_DB_12
-            };
-
-            err = adc_oneshot_config_channel( sensor->handle,
-                                              sensor->channel,
-                                              &chan_config );
-            if( err != ESP_OK )
-            {
-                /* Channel config failed, cleanup */
-                err = adc_oneshot_del_unit( sensor->handle );
-                if( err == ESP_OK )
-                {
-                    sensor->handle = NULL;
-                }
-            }
-            else
-            {
-                result = true;
-            }
-        }
-    }
-
-    return result;
-}
-
-bool alspt19_hal_deinit( AlsPt19Hw * const sensor )
-{
-    bool result = false;
-
-    if( sensor == NULL )
-    {
-        /* Invalid sensor pointer */
-    }
-    else if( sensor->handle == NULL )
-    {
-        /* Already deinitialized */
-        result = true;
-    }
-    else
-    {
-        const esp_err_t err = adc_oneshot_del_unit( sensor->handle );
-        if( err != ESP_OK )
-        {
-            /* Delete unit handle failed */
-        }
-        else
-        {
-            sensor->handle = NULL;
+            hw->handle = handle;
             result = true;
         }
     }
@@ -77,21 +30,42 @@ bool alspt19_hal_deinit( AlsPt19Hw * const sensor )
     return result;
 }
 
-bool alspt19_hal_read( const AlsPt19Hw * const sensor,
+bool alspt19_hal_deinit( AlsPt19Hw * const hw )
+{
+    bool result = false;
+
+    if( hw != NULL )
+    {
+        if( hw->handle == NULL )
+        {
+            /* Already deinitialized */
+            result = true;
+        }
+        else
+        {
+            /* Release borrow only — unit lifetime managed by AdcUnit */
+            hw->handle = NULL;
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+bool alspt19_hal_read( const AlsPt19Hw * const hw,
                        uint16_t * const out )
 {
     bool result = false;
 
-    if( ( sensor != NULL ) && ( sensor->handle != NULL ) && ( out != NULL ) )
+    if( ( hw != NULL ) && ( hw->handle != NULL ) && ( out != NULL ) )
     {
         int raw = 0;
-        const esp_err_t err = adc_oneshot_read( sensor->handle,
-                                                sensor->channel,
+        const esp_err_t err = adc_oneshot_read( hw->handle,
+                                                hw->channel,
                                                 &raw );
-
         if( err == ESP_OK )
         {
-            *out = ( uint16_t ) raw;
+            *out   = ( uint16_t ) raw;
             result = true;
         }
     }
