@@ -1,25 +1,28 @@
 #ifndef SRC_BOARD_BOARD_HPP
 #define SRC_BOARD_BOARD_HPP
 
-#include <stddef.h>
-#include <stdint.h>
+#include <cstddef>
+#include <cstdint>
 
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
 #include <driver/uart.h>
 #include <esp_adc/adc_oneshot.h>
+#include <driver/ledc.h>
 
 namespace board
 {
+
     /**
      * @brief Centralized hardware configuration for the board.
      */
     struct Board
     {
-        adc_unit_t alsPt19PrimaryUnit;
-        adc_channel_t alsPt19PrimaryChannel;
+        /* ADC units */
+        adc_unit_t adcUnit1;
 
-        adc_unit_t alsPt19SecondaryUnit;
+        /* ALS PT19 — both on ADC1 */
+        adc_channel_t alsPt19PrimaryChannel;
         adc_channel_t alsPt19SecondaryChannel;
 
         gpio_num_t dht11PrimaryPin;
@@ -45,6 +48,7 @@ namespace board
 
         gpio_num_t dimmerOutPin;
         gpio_num_t dimmerZcPin;
+        uint32_t dimmerFreqHz;
 
         gpio_num_t        ledPwmPin;
         ledc_channel_t    ledPwmChannel;
@@ -57,11 +61,9 @@ namespace board
     inline constexpr Board config =
     {
         /* ALS PT19 ADC sensors (ADC1) */
-        .alsPt19PrimaryUnit    = ADC_UNIT_1,
-        .alsPt19PrimaryChannel = ADC_CHANNEL_4,   /* GPIO6 */
-
-        .alsPt19SecondaryUnit    = ADC_UNIT_2,
-        .alsPt19SecondaryChannel = ADC_CHANNEL_0, /* GPIO11 */
+        .adcUnit1 = ADC_UNIT_1,
+        .alsPt19PrimaryChannel = ADC_CHANNEL_3,   /* GPIO4 */
+        .alsPt19SecondaryChannel = ADC_CHANNEL_6, /* GPIO7 */
 
         /* DHT11 Sensors */
         .dht11PrimaryPin   = GPIO_NUM_5,
@@ -91,6 +93,7 @@ namespace board
         /* AC Light Dimmer */
         .dimmerOutPin = GPIO_NUM_14,
         .dimmerZcPin  = GPIO_NUM_13,
+        .dimmerFreqHz = 60U,
 
         /* LED (PWM) for prototype */
         .ledPwmPin       = GPIO_NUM_2,
@@ -100,6 +103,7 @@ namespace board
         .ledPwmFreqHz    = 5000U,
         .ledPwmDutyRes   = LEDC_TIMER_12_BIT
     };
+
 } /* namespace board */
 
 #endif /* SRC_BOARD_BOARD_HPP */
