@@ -1,7 +1,7 @@
 # LightWise LoRaWAN Payload Specification
 
-**Version:** 1.0  
-**Last Updated:** March 19, 2026  
+**Version:** 1.1
+**Last Updated:** March 19, 2026
 **Byte Order:** Big-endian (MSB first)
 
 ---
@@ -12,6 +12,7 @@
 |---|---|---|---|
 | 1.0 | 2026-03-19 | Max Chou | Initial specification |
 | 1.1 | 2026-03-19 | Max Chou | Updated constraints to reflect API-side validation |
+| 1.2 | 2026-03-22 | — | Fixed SET_MOTION_SENSITIVITY range mismatch; added API validation notes to OVERRIDE_ON and SET_TEMP_DIM; replaced RESUME_AUTO sentinel with 0xFF in unknown-version NACK example |
 
 ---
 
@@ -89,8 +90,8 @@ Configure the max brightness and baseline dim level.
 **Constraints:**
 - `dim_level` must be ≤ `max_level`
 - `max_level` minimum is 1 — 0 is not permitted; use OVERRIDE_OFF to force light off
-- Valid range: 1-100. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
-- Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
+- Valid range: 1–100. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
+- Persists to NVS on successful receipt; NVS failure sends NACK and does not apply the command — in-memory config is not updated
 
 **Example:** Set max to 90% (0x5A), dim to 30% (0x1E)
 ```
@@ -111,9 +112,8 @@ Configure how long the light stays at max level after the last detected motion e
 | 3 | timeout_lsb | uint8 | — | Timeout seconds, least significant byte |
 
 **Constraints:**
-- Valid range: 15–3600 seconds (15 s minimum, 1 hour maximum)
-- Valid range: 15–3600 seconds. The REST API performs pre-dispatch validation (422 Unprocessable) for out-of-range values. The device sends a NACK (InvalidParam) only as a safety fallback if an invalid value bypasses the API.
-- Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
+- Valid range: 15–3600 seconds (15 s minimum, 1 hour maximum). The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only as a safety fallback if an invalid value bypasses the API.
+- Persists to NVS on successful receipt; NVS failure sends NACK and does not apply the command — in-memory config is not updated
 
 **Example:** Set motion timeout to 30 seconds (0x001E)
 ```
@@ -133,7 +133,7 @@ Force the light ON at a specified level. Moves FSM to MANUAL state. Local photoc
 | 2 | level | uint8 | 1–100 | Brightness level % |
 
 **Constraints:**
-- Level 0 is not permitted — use OVERRIDE_OFF (0x04) to force light off
+- Level 0 is not permitted — use OVERRIDE_OFF (0x04) to force light off. The REST API performs pre-dispatch validation; a level of 0 returns 422 Unprocessable and is not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
 - FSM enters MANUAL state immediately on receipt
 - Safety timeout: MANUAL state auto-expires after 8 hours if RESUME_AUTO not received
 - Does not persist to NVS — a reboot during MANUAL state returns to AUTO
@@ -194,7 +194,7 @@ Configure the daily ON and OFF schedule times in whole hours. The photocell rema
 - Valid range: 0–23. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
 - Minute-level precision is not supported — schedule operates in whole hours only
 - Photocell input takes precedence: light will not turn ON if ambient lux exceeds threshold even within scheduled hours
-- Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
+- Persists to NVS on successful receipt; NVS failure sends NACK and does not apply the command — in-memory config is not updated
 
 **Example:** Schedule ON at 18:00 (0x12), OFF at 06:00 (0x06)
 ```
@@ -214,7 +214,7 @@ Request an immediate status uplink from the device. Device responds with current
 
 **Constraints:**
 - Rate limiting is enforced by the Cloud API (1 request per 60 seconds)
-- Device processes all received 0x07 commands immediately with a telemetry uplink.
+- Device processes all received 0x07 commands immediately with a telemetry uplink
 
 **Example:**
 ```
@@ -253,11 +253,11 @@ Remotely configure the mmWave motion sensor detection sensitivity.
 |---|---|---|---|---|
 | 0 | version | uint8 | 0x01 | Payload version |
 | 1 | cmd | uint8 | 0x09 | Command byte |
-| 2 | level | uint8 | 0–10 | Sensitivity level (0 = minimum, 10 = maximum) |
+| 2 | level | uint8 | 1–10 | Sensitivity level (1 = minimum, 10 = maximum) |
 
 **Constraints:**
-- Valid range: 1-10. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
-- Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
+- Valid range: 1–10. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
+- Persists to NVS on successful receipt; NVS failure sends NACK and does not apply the command — in-memory config is not updated
 - Applied on next reboot — mmWave sensor is reconfigured at startup
 
 **Example:** Set sensitivity to 7 (0x07)
@@ -279,7 +279,7 @@ Configure how frequently the device sends a status uplink when idle and no event
 
 **Constraints:**
 - Valid range: 1–255. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
-- Persists to NVS on successful receipt; NVS failure sends NACK and discards the command
+- Persists to NVS on successful receipt; NVS failure sends NACK and does not apply the command — in-memory config is not updated
 - LoRaWAN duty cycle limits take precedence — firmware will not violate duty cycle regardless of configured interval
 
 **Example:** Set heartbeat to every 5 minutes (0x05)
@@ -301,6 +301,7 @@ Apply a temporary dim level override that automatically expires after a specifie
 | 3 | duration_hours | uint8 | 1–24 | Duration in hours before auto-expiry |
 
 **Constraints:**
+- Valid range: level 0–100, duration 1–24. The REST API performs pre-dispatch validation; values outside these ranges return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
 - Does not enter MANUAL state — FSM remains in AUTO, only dim level is overridden
 - Level 0 is permitted — temporarily extinguishes light while keeping FSM in AUTO
 - Motion events still trigger max level during the temp dim window
@@ -319,14 +320,14 @@ Apply a temporary dim level override that automatically expires after a specifie
 | CMD | Command | Parameters | Frame Bytes |
 |---|---|---|---|
 | 0x01 | SET_LEVELS | max_level, dim_level | 4 |
-| 0x02 | SET_MOTION_TIMEOUT | timeout (2 bytes, big-endian) | 4
+| 0x02 | SET_MOTION_TIMEOUT | timeout (2 bytes, big-endian) | 4 |
 | 0x03 | OVERRIDE_ON | level | 3 |
 | 0x04 | OVERRIDE_OFF | — | 2 |
 | 0x05 | RESUME_AUTO | — | 2 |
 | 0x06 | SET_SCHEDULE | on_hour, off_hour | 4 |
 | 0x07 | REQUEST_UPLINK | — | 2 |
 | 0x08 | REBOOT | — | 2 |
-| 0x09 | SET_MOTION_SENSITIVITY | level (0–10) | 3 |
+| 0x09 | SET_MOTION_SENSITIVITY | level (1–10) | 3 |
 | 0x0A | SET_HEARTBEAT_INTERVAL | interval_minutes uint8 | 3 |
 | 0x0B | SET_TEMP_DIM | level, duration_hours | 4 |
 | 0x0C–0xFF | Reserved | — | — |
@@ -341,9 +342,7 @@ Apply a temporary dim level override that automatically expires after a specifie
 | Unknown CMD byte | Discard packet, send NACK (reason: InvalidCmd) |
 | Invalid parameter range | Discard packet, send NACK (reason: InvalidParam) |
 | Payload too short | Discard packet, send NACK (reason: PayloadTooShort) |
-| NVS write failure | Discard command (not applied), send NACK (reason: NvsError) |
-
-> **Note:** NVS write failures result in a NACK and the command is not applied — the in-memory config is not updated. This ensures the device state and NVS remain consistent.
+| NVS write failure | Discard command (not applied), send NACK (reason: NvsError) — in-memory config is not updated |
 
 ---
 
@@ -362,8 +361,8 @@ These rules are enforced in firmware regardless of any downlink command received
 
 # LightWise Uplink Payload Specification
 
-**Version:** 1.0  
-**Last Updated:** March 19, 2026  
+**Version:** 1.0
+**Last Updated:** March 19, 2026
 **Byte Order:** Big-endian (MSB first)
 
 ---
@@ -384,10 +383,10 @@ The device supports two uplink payload tiers selected at firmware build time. Th
 ### Frame Format (7 bytes)
 
 ```
-┌──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┐
-│ Byte 0   │ Byte 1–2 │ Byte 3   │ Byte 4   │ Byte 5   │ Byte 6   │
-│ Version  │ lux_x10  │ tempC    │ humidity │ flags    │ level    │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+┌──────────┬──────────────┬──────────┬──────────┬──────────┬──────────┐
+│ Byte 0   │ Byte 1–2     │ Byte 3   │ Byte 4   │ Byte 5   │ Byte 6   │
+│ Version  │ lux_x10      │ tempC    │ humidity │ flags    │ level    │
+└──────────┴──────────────┴──────────┴──────────┴──────────┴──────────┘
 ```
 
 | Byte | Field | Type | Description |
@@ -474,11 +473,10 @@ Sent by the device immediately after processing a downlink command. Stored in Dy
 02 02 01 01 03
 ```
 
-**Example — NACK for unknown version:**
+**Example — NACK for unknown version (no valid CMD to echo, sentinel 0xFF used):**
 ```
-02 02 01 05 01
+02 02 01 FF 01
 ```
-*(echoCmd = 0x05 = ResumeAuto sentinel used when no valid CMD can be echoed)*
 
 ---
 
@@ -497,8 +495,8 @@ The `flags` byte is a bitmask present in all telemetry frames.
 | 6 | `0x40` | SystemDegraded | One or more sensors degraded or partial failure |
 | 7 | `0x80` | OverallOk | All sensors healthy, FSM not in Fault state |
 
-**Healthy system with no motion:** `flags = 0xBE` (bits 1–5 + 7 set)  
-**Motion detected, all healthy:** `flags = 0xBF` (bits 0–5 + 7 set)  
+**Healthy system with no motion:** `flags = 0xBE` (bits 1–5 + 7 set)
+**Motion detected, all healthy:** `flags = 0xBF` (bits 0–5 + 7 set)
 **Primary ALS failed:** `flags = 0x7C` (bits 2–5 + 6 set, bits 1 + 7 clear)
 
 ---
