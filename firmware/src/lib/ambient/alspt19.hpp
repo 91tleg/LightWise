@@ -14,8 +14,8 @@ namespace ambient
      * @brief ALS-PT19 ambient light sensor driver.
      *
      * Implements the `AmbientSensor` interface expected by higher-level
-     * modules. The class stores a pointer to a hardware configuration
-     * structure and tracks initialization state.
+     * modules. The class stores a reference to a hardware configuration
+     * structure.
      */
     class Alspt19 final : public AmbientSensor
     {
@@ -23,22 +23,14 @@ namespace ambient
         /**
          * @brief Constructs an ALS-PT19 driver instance.
          *
-         * @param sensor Pointer to the hardware configurature structure
+         * @param sensor Reference to the hardware configurature structure
          *               for the sensor.
          */
-        explicit constexpr Alspt19( const AlsPt19Hw * const sensor )
+        explicit constexpr Alspt19( const AlsPt19Hw & sensor )
             : sensor_ { sensor }
-            , isInitialized_ { false }
         {
 
         }
-
-        /**
-         * @brief Initializes the ALS-PT19 sensor.
-         * 
-         * @return true if initialization successful, false otherwise.
-         */
-        [[nodiscard]] bool init() noexcept;
 
         /**
          * @brief Read ambient light level in lux.
@@ -54,8 +46,7 @@ namespace ambient
         [[nodiscard]] bool read( float & lux ) const noexcept override;
 
     private:
-        const AlsPt19Hw * const sensor_; /**< Hardware configuration pointer */
-        bool isInitialized_;             /**< Initialization status flag */
+        const AlsPt19Hw & sensor_;  /**< Hardware configuration pointer */
 
         /**
          * @brief Convert raw ADC reading to lux.
