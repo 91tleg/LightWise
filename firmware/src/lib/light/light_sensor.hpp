@@ -17,22 +17,18 @@ namespace light
         /**
          * @brief Set output power.
          *
-         * @param power_pct  Desired power [0–100]
+         * @param  powerPct  Desired power [0–100]
          * @return true  Success
          * @return false Invalid parameter or driver error
          */
-        [[nodiscard]] virtual bool setLevel( uint8_t level ) noexcept = 0;
+        [[nodiscard]] virtual bool setLevel( uint8_t powerPct ) noexcept = 0;
 
         /**
          * @brief Get current power setting.
          *
-         * Returns 0 when the dimmer is off.
-         *
-         * @param out  Output power percentage
-         * @return true  Success
-         * @return false Invalid parameter or driver error
+         * @return Current brightness level [0–100].
          */
-        [[nodiscard]] virtual bool getLevel( uint8_t & level ) const noexcept = 0;
+        [[nodiscard]] virtual uint8_t getLevel() const noexcept = 0;
 
     protected:
         LightSensor()                                 = default;

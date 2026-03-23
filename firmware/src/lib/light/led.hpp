@@ -25,36 +25,27 @@ namespace light
          * 
          * @param sensor Pointer to hardware configuration for the LED.
          */
-        explicit constexpr Led( const LedHw * sensor )
+        explicit constexpr Led( const LedHw & sensor )
             : sensor_ { sensor }
             , level_ { 0U }
-            , isInitialized_{ false }
         {
 
         }
 
         /**
-         * @brief Initializes the LED hardware.
-         * 
-         * @return true if initialization succeeds, false otherwise.
-         */
-        bool init();
-
-        /**
          * @brief Sets the LED brightness level.
          * 
-         * @param level Brightness level as percentage [0–100].
+         * @param  powerPct Brightness level as percentage [0–100].
          * @return true if the level was set successfully, false otherwise.
          */
-        [[nodiscard]] bool setLevel( uint8_t level ) noexcept override;
+        [[nodiscard]] bool setLevel( uint8_t powerPct ) noexcept override;
 
         /**
          * @brief Gets the last set LED brightness level.
          * 
-         * @param level Reference to store the brightness level [0–100].
-         * @return true if the level was retrieved successfully, false otherwise.
+         * @return Current brightness level [0–100].
          */
-        [[nodiscard]] bool getLevel( uint8_t &level ) const noexcept override;
+        [[nodiscard]] uint8_t getLevel() const noexcept override;
 
     private:
         static constexpr uint8_t kMinLevel { 0U   }; /**< Minimum brightness level (percent). */
@@ -69,9 +60,8 @@ namespace light
         [[nodiscard]] static uint32_t levelToPwmDuty( uint8_t level ) noexcept;
 
     private:
-        const LedHw * sensor_; /**< Pointer to LED hardware configuration. */
+        const LedHw & sensor_; /**< Reference to LED hardware configuration. */
         uint8_t level_;        /**< Current brightness level [0–100]. */
-        bool isInitialized_;   /**< Device initialization flag. */
     };
 
 } /* namespace light */
