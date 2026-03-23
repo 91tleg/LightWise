@@ -114,23 +114,11 @@ namespace lorawan
 
     } /* anonymous namespace */
 
-    bool Lwnode::init() noexcept
-    {
-        bool result { false };
-
-        if( sensor_ != nullptr )
-        {
-            isInitialized_ = true;
-            result = true;
-        }
-        return result;
-    }
-
     bool Lwnode::setRxCb( RxCallback callback ) noexcept
     {
         bool result { false };
 
-        if( isInitialized_ && ( callback != nullptr ) )
+        if( callback != nullptr )
         {
             rxCb_ = callback;
             result = true;
@@ -141,88 +129,55 @@ namespace lorawan
 
     int8_t Lwnode::lastRssi() const noexcept
     {
-        int8_t lastRssi { 0 };
-
-        if( isInitialized_ )
-        {
-            lastRssi = lastRssi_;
-        }
-
-        return lastRssi;
+        return lastRssi_;
     }
 
     int8_t Lwnode::lastSnr() const noexcept
     {
-        int8_t lastSnr = 0;
-
-        if( isInitialized_ )
-        {
-            lastSnr = lastSnr_;
-        }
-
-        return lastSnr;
+        return lastSnr_;
     }
 
-    bool Lwnode::configOtaa() noexcept
+    void Lwnode::configOtaa() noexcept
     {
-        bool result = false;
-
-        if( isInitialized_ )
-        {
-            joinMode_ = JoinMode::OTAA;
-            result = true;
-        }
-
-        return result;
+        joinMode_ = JoinMode::OTAA;
     }
 
-    bool Lwnode::configAbp() noexcept
+    void Lwnode::configAbp() noexcept
     {
-        bool result = false;
-
-        if( isInitialized_ )
-        {
-            joinMode_ = JoinMode::ABP;
-            result = true;
-        }
-
-        return result;
+        joinMode_ = JoinMode::ABP;
     }
 
     bool Lwnode::setRegion( Region region ) noexcept
     {
         bool result { false  };
 
-        if( isInitialized_ )
+        char ack[ kAtAckMaxLen ] {};
+        const char * cmd { nullptr };
+
+        switch( region )
         {
-            char ack[ kAtAckMaxLen ] {};
-            const char * cmd { nullptr };
+            case Region::EU868: 
+                cmd = "AT+REGION=EU868"; 
+                break;
+            case Region::US915:
+                cmd = "AT+REGION=US915"; 
+                break;
+            case Region::CN470:
+                cmd = "AT+REGION=CN470"; 
+                break;
+            default:
+                /* Invalid region */
+                break;
+        }
 
-            switch( region )
+        if( cmd != nullptr )
+        {
+            if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
             {
-                case Region::EU868: 
-                    cmd = "AT+REGION=EU868"; 
-                    break;
-                case Region::US915:
-                    cmd = "AT+REGION=US915"; 
-                    break;
-                case Region::CN470:
-                    cmd = "AT+REGION=CN470"; 
-                    break;
-                default:
-                    /* Invalid region */
-                    break;
-            }
-
-            if( cmd != nullptr )
-            {
-                if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
+                if( ackEquals( ack, "+REGION=OK\r\n" ) )
                 {
-                    if( ackEquals( ack, "+REGION=OK\r\n" ) )
-                    {
-                        region_ = region;
-                        result = true;
-                    }
+                    region_ = region;
+                    result = true;
                 }
             }
         }
@@ -234,7 +189,7 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( appEuiHex != nullptr ) )
+        if( appEuiHex != nullptr )
         {
             /* Copy into mutable buffer for uppercase conversion. */
             char appEui[ kAppEuiHexChars + 1U ] {};
@@ -261,7 +216,7 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( appKeyHex != nullptr ) )
+        if( appKeyHex != nullptr )
         {
             /* Copy into mutable buffer for uppercase conversion. */
             char appKey[ kAppKeyHexChars + 1U ] {};
@@ -288,7 +243,7 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( nwkSkeyHex32 != nullptr ) )
+        if( nwkSkeyHex32 != nullptr )
         {
             const size_t n { str_ext_strnlen( nwkSkeyHex32, kNwkSKeyHexChars + 1U ) };
 
@@ -322,7 +277,7 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( appSkeyHex32 != nullptr ) )
+        if( appSkeyHex32 != nullptr )
         {
             const size_t n { str_ext_strnlen( appSkeyHex32, kAppSKeyHexChars + 1U ) };
 
@@ -356,26 +311,23 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ )
-        {   
-            char hexAddr[ 9 ] {};
+        char hexAddr[ 9 ] {};
 
-            if( num_fmt_u32_to_hex8( devAddr, hexAddr, sizeof( hexAddr ) ) )
+        if( num_fmt_u32_to_hex8( devAddr, hexAddr, sizeof( hexAddr ) ) )
+        {
+            char cmd[ kDevAddrCmdLen ] {};
+            char ack[ kAtAckMaxLen ] {};
+
+            static_cast< void >( std::memcpy( cmd, kDevAddrPrefix, kDevAddrPrefixLen ) );
+            static_cast< void >( std::memcpy( &cmd[ kDevAddrPrefixLen ], hexAddr, kDevAddrHexLen ) );
+            cmd[ kDevAddrCmdLen - 1U ] = '\0';
+
+            if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
             {
-                char cmd[ kDevAddrCmdLen ] {};
-                char ack[ kAtAckMaxLen ] {};
-
-                static_cast< void >( std::memcpy( cmd, kDevAddrPrefix, kDevAddrPrefixLen ) );
-                static_cast< void >( std::memcpy( &cmd[ kDevAddrPrefixLen ], hexAddr, kDevAddrHexLen ) );
-                cmd[ kDevAddrCmdLen - 1U ] = '\0';
-
-                if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
+                if( ackEquals( ack, "+DEVADDR=OK\r\n" ) )
                 {
-                    if( ackEquals( ack, "+DEVADDR=OK\r\n" ) )
-                    {
-                        devAddr_ = devAddr;
-                        result = true;
-                    }
+                    devAddr_ = devAddr;
+                    result = true;
                 }
             }
         }
@@ -387,33 +339,29 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ )
+        char ack[ kAtAckMaxLen ] {};
+        const char * cmd { nullptr };
+
+        switch( classType )
         {
-            char ack[ kAtAckMaxLen ] {};
-            const char * cmd { nullptr };
+            case DeviceClass::A:
+                cmd = "AT+CLASS=CLASS_A";
+                break;
+            case DeviceClass::C:
+                cmd = "AT+CLASS=CLASS_C";
+                break;
+            default: 
+                /* Invalid class */
+                break;
+        }
 
-            switch( classType )
+        if( cmd != nullptr )
+        {
+            if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
             {
-                case DeviceClass::A:
-                    cmd = "AT+CLASS=CLASS_A";
-                    break;
-                case DeviceClass::C:
-                    cmd = "AT+CLASS=CLASS_C";
-                    break;
-                default: 
-                    /* Invalid class */
-                    break;
-
-            }
-
-            if( cmd != nullptr )
-            {
-                if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
+                if( ackEquals( ack, "+CLASS=OK\r\n" ) )
                 {
-                    if( ackEquals( ack, "+CLASS=OK\r\n" ) )
-                    {
-                        result = true;
-                    }
+                    result = true;
                 }
             }
         }
@@ -425,31 +373,26 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ )
+        char dataRateStr[ kDataRateMaxDecChars + 1U ] {};
+
+        if( num_fmt_u8toa( dataRate, dataRateStr, sizeof( dataRateStr ) ) )
         {
+            char cmd[ kDataRateCmdLen ] {};
+            char ack[ kAtAckMaxLen ] {};
 
-            char dataRateStr[ kDataRateMaxDecChars + 1U ] {};
+            const size_t len { str_ext_strnlen( dataRateStr, sizeof( dataRateStr ) ) };
 
-            if( num_fmt_u8toa( dataRate, dataRateStr, sizeof( dataRateStr ) ) )
+            static_cast< void >( std::memcpy( cmd, kDataRatePrefix, kDataRatePrefixLen ) );
+            static_cast< void >( std::memcpy( &cmd[ kDataRatePrefixLen ], dataRateStr, len ) );
+
+            cmd[ kDataRatePrefixLen + len ] = '\0';
+
+            if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
             {
-                char cmd[ kDataRateCmdLen ] {};
-                char ack[ kAtAckMaxLen ] {};
-
-                const size_t len { str_ext_strnlen( dataRateStr, sizeof( dataRateStr ) ) };
-
-                static_cast< void >( std::memcpy( cmd, kDataRatePrefix, kDataRatePrefixLen ) );
-
-                static_cast< void >( std::memcpy( &cmd[ kDataRatePrefixLen ], dataRateStr, len ) );
-
-                cmd[ kDataRatePrefixLen + len ] = '\0';
-
-                if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
+                if( ackEquals( ack, "+DATARATE=OK\r\n" ) )
                 {
-                    if( ackEquals( ack, "+DATARATE=OK\r\n" ) )
-                    {
-                        dataRate_ = dataRate;
-                        result = true;
-                    }
+                    dataRate_ = dataRate;
+                    result = true;
                 }
             }
         }
@@ -461,28 +404,25 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ )
+        char numStr[ kEirpMaxDecChars + 1U ] {};
+
+        if( num_fmt_u8toa( eirp, numStr, sizeof( numStr ) ) )
         {
-            char numStr[ kEirpMaxDecChars + 1U ] {};
+            char cmd[ kEirpCmdLen ] {};
+            char ack[ kAtAckMaxLen ] {};
 
-            if( num_fmt_u8toa( eirp, numStr, sizeof( numStr ) ) )
+            const size_t len = str_ext_strnlen( numStr, sizeof( numStr ) );
+
+            static_cast< void >( std::memcpy( cmd, kEirpPrefix, kEirpPrefixLen ) );
+            static_cast< void >( std::memcpy( &cmd[ kEirpPrefixLen ], numStr, len ) );
+
+            cmd[ kEirpPrefixLen + len ] = '\0';
+
+            if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
             {
-                char cmd[ kEirpCmdLen ] {};
-                char ack[ kAtAckMaxLen ] {};
-
-                const size_t len = str_ext_strnlen( numStr, sizeof( numStr ) );
-
-                static_cast< void >( std::memcpy( cmd, kEirpPrefix, kEirpPrefixLen ) );
-                static_cast< void >( std::memcpy( &cmd[ kEirpPrefixLen ], numStr, len ) );
-
-                cmd[ kEirpPrefixLen + len ] = '\0';
-
-                if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
+                if( ackEquals( ack, "+EIRP=OK\r\n" ) )
                 {
-                    if( ackEquals( ack, "+EIRP=OK\r\n" ) )
-                    {
-                        result = true;
-                    }
+                    result = true;
                 }
             }
         }
@@ -494,7 +434,7 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( region_ != Region::EU868 ) )
+        if( region_ != Region::EU868 )
         {
             char numStr[ kSubbandMaxDecChars + 1U ] {};
 
@@ -528,61 +468,55 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ )
+        char cmd[ kAdrCmdLen ] {};
+        char ack[ kAtAckMaxLen ] {};
+
+        /* Build Command: "AT+ADR=" + '0' or '1' */
+        static_cast< void >( std::memcpy( cmd, kAdrPrefix, kAdrPrefixLen ) );
+
+        cmd[ kAdrPrefixLen ] = ( adr ? '1' : '0' );
+        cmd[ kAdrPrefixLen + 1U ] = '\0';
+
+        if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
         {
-            char cmd[ kAdrCmdLen ] {};
-            char ack[ kAtAckMaxLen ] {};
-
-            /* Build Command: "AT+ADR=" + '0' or '1' */
-            static_cast< void >( std::memcpy( cmd, kAdrPrefix, kAdrPrefixLen ) );
-
-            cmd[ kAdrPrefixLen ] = ( adr ? '1' : '0' );
-            cmd[ kAdrPrefixLen + 1U ] = '\0';
-
-            if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
+            if( ackEquals( ack, "+ADR=OK\r\n" ) )
             {
-                if( ackEquals( ack, "+ADR=OK\r\n" ) )
-                {
-                    adr_ = adr;
-                    result = true;
-                }
+                adr_ = adr;
+                result = true;
             }
         }
 
         return result;
     }
 
-    bool Lwnode::setPacketType( PacketType type) noexcept
+    bool Lwnode::setPacketType( PacketType type ) noexcept
     {
         bool result { false };
-    
-        if( isInitialized_ )
+
+        const char * cmd { nullptr };
+
+        switch( type )
         {
-            const char * cmd { nullptr };
-
-            switch( type )
-            {
-                case PacketType::UNCONFIRMED:
-                    cmd = "AT+UPLINKTYPE=UNCONFIRMED";
-                    break;
-                case PacketType::CONFIRMED:
-                    cmd = "AT+UPLINKTYPE=CONFIRMED"; 
-                    break;
-                default:
-                    /* Invalid type */
-                    break;
-            }
+            case PacketType::UNCONFIRMED:
+                cmd = "AT+UPLINKTYPE=UNCONFIRMED";
+                break;
+            case PacketType::CONFIRMED:
+                cmd = "AT+UPLINKTYPE=CONFIRMED"; 
+                break;
+            default:
+                /* Invalid type */
+                break;
+        }
             
-            if( cmd != nullptr )
-            {
-                char ack[ kAtAckMaxLen ] {};
+        if( cmd != nullptr )
+        {
+            char ack[ kAtAckMaxLen ] {};
 
-                if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
+            if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
+            {
+                if( ackEquals( ack, "+UPLINKTYPE=OK\r\n") )
                 {
-                    if( ackEquals( ack, "+UPLINKTYPE=OK\r\n") )
-                    {
-                        result = true;
-                    }
+                    result = true;
                 }
             }
         }
@@ -594,75 +528,72 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( sensor_ != nullptr ) )
+        char ack[ kAtAckMaxLen ] {};
+        uint8_t retry { kBeginRetryCount };
+
+        result = sendAtCmd( "AT+REBOOT", ack, sizeof( ack ) );
+        delay_ms( 100U );
+
+        if( result )
         {
-            char ack[ kAtAckMaxLen ] {};
-            uint8_t retry { kBeginRetryCount };
-
-            result = sendAtCmd( "AT+REBOOT", ack, sizeof( ack ) );
-            delay_ms( 100U );
-
-            if( result )
+            /* AT Test */
+            while( retry > 0U )
             {
-                /* AT Test */
-                while( retry > 0U )
+                if( atTest() )
                 {
-                    if( atTest() )
-                    {
-                        result = true;
-                        break;
-                    }
-                    retry--;
-                    delay_ms( 10U );
+                    result = true;
+                    break;
+                }
+                retry--;
+                delay_ms( 10U );
+            }
+        }
+
+        if( result )
+        {
+            /* Enable receive queue */
+            result = sendAtCmd( "AT+RECV=1", ack, sizeof( ack ) );
+        }
+
+        if( result )
+        {
+            /* Set mode to LoRaWAN: OTAA and ABP */
+            result = sendAtCmd( "AT+LORAMODE=LORAWAN", ack, sizeof( ack ) );
+        }
+
+        /* Join Type Specific Configuration */
+        if( result )
+        {
+            if( joinMode_ == JoinMode::ABP )
+            {
+                result = sendAtCmd( "AT+JOINTYPE=ABP", ack, sizeof( ack ) );
+                result = result && ackEquals( ack, "+JOINTYPE=OK\r\n" );
+
+                if( result && ( nwkSkey_[ 0 ] != '\0' ) )
+                {
+                    result = setNwkSkey( nwkSkey_ );
+                }
+                if( result && ( appSkey_[ 0 ] != '\0' ) )
+                {
+                    result = setAppSkey( appSkey_ );
+                }
+                if( result && ( devAddr_ != 0U ) )
+                {
+                    result = setDevAddr( devAddr_ );
                 }
             }
-
-            if( result )
+            else /* LWNODE_JOIN_OTAA */
             {
-                /* Enable receive queue */
-                result = sendAtCmd( "AT+RECV=1", ack, sizeof( ack ) );
-            }
+                result = sendAtCmd( "AT+JOINTYPE=OTAA", ack, sizeof( ack ) );
+                result = result && ackEquals( ack, "+JOINTYPE=OK\r\n" );
 
-            if( result )
-            {
-                /* Set mode to LoRaWAN: OTAA and ABP */
-                result = sendAtCmd( "AT+LORAMODE=LORAWAN", ack, sizeof( ack ) );
-            }
-
-            /* Join Type Specific Configuration */
-            if( result )
-            {
-                if( joinMode_ == JoinMode::ABP )
+                if( result && ( appEui_[ 0 ] != '\0' ) )
                 {
-                    result = sendAtCmd( "AT+JOINTYPE=ABP", ack, sizeof( ack ) );
-                    result = result && ackEquals( ack, "+JOINTYPE=OK\r\n" );
-
-                    if( result && ( nwkSkey_[ 0 ] != '\0' ) )
-                    {
-                        result = setNwkSkey( nwkSkey_ );
-                    }
-                    if( result && ( appSkey_[ 0 ] != '\0' ) )
-                    {
-                        result = setAppSkey( appSkey_ );
-                    }
-                    if( result && ( devAddr_ != 0U ) )
-                    {
-                        result = setDevAddr( devAddr_ );
-                    }
+                    result = setAppEui( appEui_ );
                 }
-                else /* LWNODE_JOIN_OTAA */
+                if( result && ( appKey_[ 0 ] != '\0' ) )
                 {
-                    result = sendAtCmd( "AT+JOINTYPE=OTAA", ack, sizeof( ack ) );
-                    result = result && ackEquals( ack, "+JOINTYPE=OK\r\n" );
-
-                    if( result && ( appEui_[ 0 ] != '\0' ) )
-                    {
-                        result = setAppEui( appEui_ );
-                    }
-                    if( result && ( appKey_[ 0 ] != '\0' ) )
-                    {
-                        result = setAppKey( appKey_ );
-                    }
+                    result = setAppKey( appKey_ );
                 }
             }
         }
@@ -674,15 +605,12 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ )
+        char ack[ kAtAckMaxLen ] {};
+        if( sendAtCmd( "AT+JOIN=1", ack, sizeof( ack ) ) )
         {
-            char ack[ kAtAckMaxLen ] {};
-            if( sendAtCmd( "AT+JOIN=1", ack, sizeof( ack ) ) )
+            if( ackEquals( ack, "+JOIN=OK\r\n") )
             {
-                if( ackEquals( ack, "+JOIN=OK\r\n") )
-                {
-                    result = true;
-                }
+                result = true;
             }
         }
 
@@ -692,16 +620,13 @@ namespace lorawan
     bool Lwnode::isJoined() noexcept
     {
         bool result { false };
-        
-        if( isInitialized_ )
+
+        char ack[ kAtAckMaxLen ] {};
+        if( sendAtCmd( "AT+JOIN?", ack, sizeof( ack ) ) )
         {
-            char ack[ kAtAckMaxLen ] {};
-            if( sendAtCmd( "AT+JOIN?", ack, sizeof( ack ) ) )
+            if( ackEquals(ack, "+JOIN=1\r\n") )
             {
-                if( ackEquals(ack, "+JOIN=1\r\n") )
-                {
-                    result = true;
-                }
+                result = true;
             }
         }
 
@@ -713,17 +638,17 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( data != nullptr ) && ( len > 0U ) )
+        if( ( data != nullptr ) && ( len > 0U ) )
         {    
             char hex[ ( kMaxRxBytes * 2U ) + 1U ] {};
-            
+
             /* Hex encode the raw bytes into ASCII hex */
             if( num_fmt_hex_encode( data, len, hex, sizeof( hex ) ) )
             {
                 char cmd[ kAtCmdMaxLen ] {};
 
                 const size_t hexLen { str_ext_strnlen( hex, sizeof( hex ) ) };
-            
+
                 static_cast< void >( std::memcpy( cmd, kSendPrefix, kSendPrefixLen ) );
 
                 if( ( 8U + hexLen ) < sizeof( cmd ) )
@@ -752,32 +677,29 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ )
+        uint32_t t { 0U };
+        uint16_t rxLen { 0U };
+
+        while (t < ms)
         {
-            uint32_t t { 0U };
-            uint16_t rxLen { 0U };
-
-            while (t < ms)
+            /* If no callbacks registered, just delay in bounded steps */
+            if( rxCb_ == nullptr )
             {
-                /* If no callbacks registered, just delay in bounded steps */
-                if( rxCb_ == nullptr )
-                {
-                    uint32_t remaining { ms - t };
-                    uint32_t step { ( remaining > 100U ) ? 100U : remaining };
-                    delay_ms( step );
-                    t += step;
-                    continue;
-                }
-
-                /* Poll for queued data */
-                if( readLoraData( &rxLen ) )
-                {
-                    static_cast< void >( processRecvFrames( rxBuf_, rxLen ) );
-                }
-
-                delay_ms( 1U );
-                t += 1U;
+                uint32_t remaining { ms - t };
+                uint32_t step { ( remaining > 100U ) ? 100U : remaining };
+                delay_ms( step );
+                t += step;
+                continue;
             }
+
+            /* Poll for queued data */
+            if( readLoraData( &rxLen ) )
+            {
+                static_cast< void >( processRecvFrames( rxBuf_, rxLen ) );
+            }
+
+            delay_ms( 1U );
+            t += 1U;
             result = true;
         }
 
@@ -790,7 +712,7 @@ namespace lorawan
     {
         bool result { false };
         
-        if( isInitialized_ && ( out != nullptr ) && ( outLen != nullptr ) && ( outMax != 0U ) )
+        if( ( out != nullptr ) && ( outLen != nullptr ) && ( outMax != 0U ) )
         {
             uint16_t rxLen { 0U };
             *outLen = 0U;
@@ -826,16 +748,13 @@ namespace lorawan
     bool Lwnode::atTest() noexcept
     {
         bool result { false };
-        
-        if( isInitialized_ )
+
+        char ack[ kAtAckMaxLen ] {};
+        if( sendAtCmd( "AT", ack, sizeof( ack ) ) )
         {
-            char ack[ kAtAckMaxLen ] {};
-            if( sendAtCmd( "AT", ack, sizeof( ack ) ) )
+            if( ackEquals( ack, "OK\r\n" ) )
             {
-                if( ackEquals( ack, "OK\r\n" ) )
-                {
-                    result = true;
-                }
+                result = true;
             }
         }
 
@@ -846,7 +765,7 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( sensor_ != nullptr ) && ( data != nullptr ) )
+        if( data != nullptr )
         {
             uint16_t left { len };
             uint16_t offset { 0U };
@@ -855,7 +774,7 @@ namespace lorawan
             /* Process data in 30-byte chunks */
             while( ( left > static_cast< uint16_t >( kI2cChunkSize ) ) && !writeFailed )
             {
-                if( lwnode_hal_write( sensor_,
+                if( lwnode_hal_write( &sensor_,
                                       kRegWriteAtLong,
                                       &data[ offset ],
                                       kI2cChunkSize ) )
@@ -873,7 +792,7 @@ namespace lorawan
             /* Process the remaining bytes (final chunk) */
             if( !writeFailed && ( left > 0U ) )
             {
-                if( lwnode_hal_write( sensor_,
+                if( lwnode_hal_write( &sensor_,
                                       kRegWriteAt,
                                       &data[ offset ],
                                       static_cast< size_t >( left ) ) )
@@ -899,13 +818,13 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( sensor_ != nullptr ) && ( outLen != nullptr ) )
+        if( outLen != nullptr )
         {
             uint8_t ucLen { 0U };
             *outLen = 0U;
 
             /* Read the length of the pending ACK */
-            if( lwnode_hal_read( sensor_, kRegReadAtLen, &ucLen, 1U ) )
+            if( lwnode_hal_read( &sensor_, kRegReadAtLen, &ucLen, 1U ) )
             {
                 const uint16_t usLen { static_cast< uint16_t >( ucLen ) };
 
@@ -919,7 +838,7 @@ namespace lorawan
                     /* Read ACK data in chunks */
                     while( ( left > kI2cChunkSize ) && !readFailed )
                     {
-                        if( lwnode_hal_read( sensor_,
+                        if( lwnode_hal_read( &sensor_,
                                              kRegReadAt,
                                              &rxBuf_[ offset ],
                                              kI2cChunkSize ) )
@@ -936,7 +855,7 @@ namespace lorawan
                     /* Read final partial chunk */
                     if( ( !readFailed ) && ( left > 0U ) )
                     {
-                        if( lwnode_hal_read( sensor_,
+                        if( lwnode_hal_read( &sensor_,
                                              kRegReadAt,
                                              &rxBuf_[ offset ],
                                              static_cast< size_t >( left ) ) )
@@ -989,13 +908,13 @@ namespace lorawan
     {
         bool result { false };
 
-        if ( isInitialized_ && ( sensor_ != nullptr ) && ( outLen != nullptr ) )
+        if ( outLen != nullptr )
         {
             uint8_t ucLen { 0U };
             *outLen = 0U;
 
             /* Read the length of the data packet in the queue */
-            if( lwnode_hal_read( sensor_, kRegReadDataLen, &ucLen, 1U ) )
+            if( lwnode_hal_read( &sensor_, kRegReadDataLen, &ucLen, 1U ) )
             {
                 const uint16_t usLen { static_cast< uint16_t >( ucLen ) };
 
@@ -1013,7 +932,7 @@ namespace lorawan
                     /* Read packet data in chunks */
                     while( ( left > kI2cChunkSize ) && !readFailed )
                     {
-                        if( lwnode_hal_read( sensor_,
+                        if( lwnode_hal_read( &sensor_,
                                              kRegReadData,
                                              &rxBuf_[ offset ],
                                              kI2cChunkSize ) )
@@ -1030,7 +949,7 @@ namespace lorawan
                     /* Read final partial chunk */
                     if( ( !readFailed ) && ( left > 0U ) )
                     {
-                        if( lwnode_hal_read( sensor_,
+                        if( lwnode_hal_read( &sensor_,
                                              kRegReadData,
                                              &rxBuf_[ offset ],
                                              static_cast< size_t >( left ) ) )
@@ -1064,7 +983,7 @@ namespace lorawan
         uint16_t left { len };
         bool processActive { false };
 
-        if( isInitialized_ && ( buf != nullptr ) && ( len != 0U ) && ( rxCb_ != nullptr ) )
+        if( ( buf != nullptr ) && ( len != 0U ) && ( rxCb_ != nullptr ) )
         {
             processActive = true;
             /* Default to true once we start,only set false if protocol error */
@@ -1148,7 +1067,7 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( outLen != nullptr ) )
+        if( outLen != nullptr )
         {
             uint16_t attempts { 0U };
             while( attempts < kAtAckTimeoutLoops )
@@ -1173,8 +1092,7 @@ namespace lorawan
     {
         bool result { false };
 
-        if( isInitialized_ && ( sensor_ != nullptr ) && ( cmdAscii != nullptr ) && 
-            ( ackBuf != nullptr ) && ( ackCap >= 2U ) ) 
+        if( ( cmdAscii != nullptr ) && ( ackBuf != nullptr ) && ( ackCap >= 2U ) ) 
         {
             const size_t cmdLen { str_ext_strnlen( cmdAscii, ( kAtCmdMaxLen - 3U ) ) };
 

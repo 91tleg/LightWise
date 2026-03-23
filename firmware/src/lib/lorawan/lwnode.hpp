@@ -13,7 +13,7 @@ namespace lorawan
     class Lwnode final : public LorawanSensor
     {
     public:
-        explicit constexpr Lwnode( LwnodeHw * const sensor )
+        explicit constexpr Lwnode( LwnodeHw & sensor )
             : sensor_ { sensor }
             , joinMode_ { JoinMode::OTAA }
             , region_ { Region::US915 }
@@ -31,22 +31,9 @@ namespace lorawan
             , rxCb_ { nullptr }
             , intEnabled_ { true }
             , rxBuf_ {}
-            , isInitialized_ { false }
         {
 
         }
-
-        /** @defgroup LwnodeInitialization Initialization and Configuration */
-        /** @{ */
-
-        /**
-         * @brief Initialize a LWNode device instance
-         * 
-         * @return true if initialization successful, false otherwise
-         */
-        [[nodiscard]] bool init() noexcept;
-
-        /** @} */
 
         /** @defgroup LwnodeConfiguration Configuration Functions */
         /** @{ */
@@ -154,17 +141,13 @@ namespace lorawan
 
         /**
          * @brief Configure device for OTAA (Over-The-Air Activation)
-         * 
-         * @return true if configured successfully, false otherwise
          */
-        [[nodiscard]] bool configOtaa() noexcept;
+        void configOtaa() noexcept;
 
         /**
          * @brief Configure device for ABP (Activation By Personalization)
-         * 
-         * @return true if configured successfully, false otherwise
          */
-        [[nodiscard]] bool configAbp() noexcept;
+        void configAbp() noexcept;
 
         /**
          * @brief Initialize device hardware and perform AT test
@@ -268,7 +251,7 @@ namespace lorawan
         /** @} */
 
     private:
-        LwnodeHw * const sensor_;                     /**< Hardware interface pointer */
+        LwnodeHw & sensor_; /**< Reference to LwNode hardware configuration */
         static constexpr size_t kMaxRxBytes { 256U }; /**< Maximum receive buffer size in bytes */
 
         /* Device config/state */
@@ -296,8 +279,6 @@ namespace lorawan
 
         bool intEnabled_;               /**< Internal: Interrupt enable flag */
         uint8_t rxBuf_[ kMaxRxBytes ];  /**< Internal: Receive buffer */
-
-        bool isInitialized_;            /**< Device initialization flag */
 
         [[nodiscard]] bool atTest() noexcept;
         [[nodiscard]] bool writeAtBytes( const uint8_t * data, uint16_t len ) const noexcept;
