@@ -1,5 +1,7 @@
 #include "dht11.hpp"
 
+#include <array>
+
 #include "hal/dht11.h"
 #include "utils/time/delay.h"
 #include "utils/time/timer.h"
@@ -14,47 +16,28 @@ namespace th
         constexpr uint32_t kBitSampleDelayUs { 30U };  /**< Delay before sampling bit */
         constexpr uint32_t kTimeoutUs { 100U };        /**< Timeout for signal level wait */
         constexpr uint32_t kReadDelayMs { 500U };      /**< Delay between reads */
+        constexpr uint32_t kReleaseDelayUs   { 40U  }; /**< Host release delay after pull-high */
 
     } /* anonymous namespace */
-
-    bool Dht11::init() noexcept
-    {
-        bool result { false };
-
-        if( sensor_ != nullptr )
-        {
-            isInitialized_ = true;
-            result = true;
-        }
-        return result;
-    }
 
     bool Dht11::read( uint8_t & temperature, uint8_t & humidity ) const noexcept
     {
         bool result { false };
-        uint8_t data[ 5 ] {};
-        
-        if( isInitialized_ )
+        std::array< uint8_t, 5U > data {};
+
+        if( readRaw( data ) )
         {
-            if( readRaw( data ) )
-            {
-                humidity = data[ 0 ];
-                temperature = data[ 2 ];
-                result = true;
-            }
+            humidity = data[ 0U ];
+            temperature = data[ 2U ];
+            result = true;
         }
 
         return result;
     }
 
-    bool Dht11::readRaw( uint8_t data[ 5 ] ) const noexcept
+    bool Dht11::readRaw( std::span< uint8_t, 5U > data ) const noexcept
     {
         bool success { true };
-
-        for( uint8_t i { 0U }; i < 5U; ++i )
-        {
-            data[ i ] = 0U;
-        }
 
         delay_ms( kReadDelayMs );
 
@@ -78,11 +61,11 @@ namespace th
 
         if( success )
         {
-            const uint8_t checksum = static_cast< uint8_t >( data[ 0 ] +
-                                                             data[ 1 ] +
-                                                             data[ 2 ] +
-                                                             data[ 3 ] );
-            if( checksum != data[ 4 ] )
+            const uint8_t checksum { static_cast< uint8_t >( data[ 0U ] +
+                                                             data[ 1U ] +
+                                                             data[ 2U ] +
+                                                             data[ 3U ] ) };
+            if( checksum != data[ 4U ] )
             {
                 success = false;
             }
@@ -107,7 +90,7 @@ namespace th
                 delay_us( kBitSampleDelayUs );
 
                 uint32_t level { 0U };
-                if( !dht11_hal_read( sensor_, &level ) )
+                if( !dht11_hal_read( &sensor_, &level ) )
                 {
                     success = false;
                 }
@@ -129,16 +112,16 @@ namespace th
     {
         bool success { false };
 
-        if( dht11_hal_set_output( sensor_ ) )
+        if( dht11_hal_set_output( &sensor_ ) )
         {
-            if( dht11_hal_write( sensor_, 0U ) )
+            if( dht11_hal_write( &sensor_, 0U ) )
             {
                 delay_ms( kStartSignalMs );
                 
-                if( dht11_hal_write( sensor_, 1U ) )
+                if( dht11_hal_write( &sensor_, 1U ) )
                 {
-                    delay_us( 40U );
-                    success = dht11_hal_set_input( sensor_ );
+                    delay_us( kReleaseDelayUs );
+                    success = dht11_hal_set_input( &sensor_ );
                 }
             }
         }
@@ -156,7 +139,7 @@ namespace th
         {
             uint32_t currentLevel { 0U };
 
-            if( !dht11_hal_read( sensor_, &currentLevel ) )
+            if( !dht11_hal_read( &sensor_, &currentLevel ) )
             {
                 timeout = true;
             }
