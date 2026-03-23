@@ -33,7 +33,6 @@ typedef struct C4001Hw
 
     size_t rxBufSize;
     size_t txBufSize;
-
 } C4001Hw;
 
 /**
@@ -42,37 +41,37 @@ typedef struct C4001Hw
  * Configures the UART port with the specified baud rate, pins, and buffer sizes,
  * and enables UART event handling through the configured queue.
  *
- * @param sensor Pointer to hardware configuration structure
+ * @param hw Pointer to hardware configuration structure
  *
  * @return true  Initialization successful
  * @return false Initialization failed or invalid parameter
  */
-bool c4001_hal_init( const C4001Hw * sensor );
+bool c4001_hal_init( const C4001Hw * hw );
 
 /**
  * @brief De-initialize C4001 UART hardware interface
  *
  * Removes the UART driver and reset pins
  *
- * @param sensor Pointer to hardware configuration structure
+ * @param hw Pointer to hardware configuration structure
  *
  * @return true  De-initialization successful
  * @return false De-initialization failed or invalid parameter
  */
-bool c4001_hal_deinit( const C4001Hw * sensor );
+bool c4001_hal_deinit( const C4001Hw * hw );
 /**
  * @brief Write data to C4001 UART
  *
  * Transmits data bytes through the UART interface.
  *
- * @param sensor Pointer to hardware configuration structure
+ * @param hw     Pointer to hardware configuration structure
  * @param data   Pointer to data buffer to transmit
  * @param len    Number of bytes to write
  *
  * @return true  Write successful
  * @return false Write failed or invalid parameter
  */
-bool c4001_hal_write( const C4001Hw * sensor,
+bool c4001_hal_write( const C4001Hw * hw,
                       const uint8_t * data,
                       size_t len );
 
@@ -81,7 +80,7 @@ bool c4001_hal_write( const C4001Hw * sensor,
  *
  * Receives data bytes from the UART interface with an optional timeout.
  *
- * @param sensor      Pointer to hardware configuration structure
+ * @param hw          Pointer to hardware configuration structure
  * @param data        Pointer to output buffer for received data
  * @param maxLen      Maximum number of bytes to read
  * @param timeoutMs   Read timeout in milliseconds (0 for non-blocking)
@@ -89,7 +88,7 @@ bool c4001_hal_write( const C4001Hw * sensor,
  * @return >=0 Number of bytes successfully read
  * @return -1  Read failed or invalid parameter
  */
-int c4001_hal_read( const C4001Hw * sensor,
+int c4001_hal_read( const C4001Hw * hw,
                     uint8_t * data,
                     size_t maxLen,
                     uint32_t timeoutMs );
@@ -99,26 +98,12 @@ size_t c4001_hal_available( const C4001Hw * sensor );
 /**
  * @brief Flush the C4001 UART stream buffer
  * 
- * @param sensor      Pointer to hardware configuration structure
+ * @param hw Pointer to hardware configuration structure
  * 
  * @return true  Flush successful
  * @return false Flush failed or invalid parameter
  */
-bool c4001_hal_flush( const C4001Hw * sensor );
-
-/**
- * @brief Delay execution for specified milliseconds
- *
- * @param delayMs Delay duration in milliseconds
- */
-void c4001_hal_delay_ms( uint32_t delayMs );
-
-/**
- * @brief Get time in microseconds since boot
- * 
- * @return Number of microseconds since the initialization of timer
- */
-int64_t c4001_hal_timer_get_time_ms( void );
+bool c4001_hal_flush( const C4001Hw * hw );
 
 #ifdef __cplusplus
 }
