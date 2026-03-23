@@ -19,7 +19,7 @@ namespace ambient
          * @return true  if the read succeeded and lux is valid.
          * @return false if the sensor is unavailable or returned an error.
          */
-        [[nodiscard]] virtual bool read( float &lux ) const noexcept = 0;
+        [[nodiscard]] virtual bool read( float & lux ) const noexcept = 0;
 
     protected:
         AmbientSensor()                                   = default;
