@@ -12,31 +12,16 @@ namespace ambient
 
     } /* anonymous namespace */
 
-    bool Alspt19::init() noexcept
-    {
-        bool result { false };
-
-        if( sensor_ != nullptr )
-        {
-            isInitialized_ = true;
-            result = true;
-        }
-        return result;
-    }
-
     bool Alspt19::read( float & lux ) const noexcept
     {
         bool result { false };
 
-        if(  isInitialized_ )
-        {
-            uint16_t rawReading { 0U };
+        uint16_t rawReading { 0U };
 
-            if( alspt19_hal_read( sensor_, &rawReading ) )
-            {
-                lux = adcToLux( rawReading );
-                result = true;
-            }
+        if( alspt19_hal_read( &sensor_, &rawReading ) )
+        {
+            lux = adcToLux( rawReading );
+            result = true;
         }
 
         return result;

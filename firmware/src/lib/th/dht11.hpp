@@ -2,6 +2,7 @@
 #define SRC_LIB_TH_DHT11_HPP
 
 #include <cstdint>
+#include <span>
 
 #include "th_sensor.hpp"
 
@@ -15,8 +16,8 @@ namespace th
      * @brief DHT11 temperature and humidity sensor driver.
      * 
      * Implements the THSensor interface for the DHT11 digital temperature
-     * and humidity sensor. Handles initialization and reading of sensor data
-     * through a single-wire digital protocol.
+     * and humidity sensor. Handles reading sensor data through a single-wire
+     * digital protocol.
      */
     class Dht11 final : public THSensor
     {
@@ -24,21 +25,13 @@ namespace th
         /**
          * @brief Constructs a DHT11 sensor instance.
          * 
-         * @param sensor Pointer to the hardware config structure for the DHT11 sensor.
+         * @param sensor Reference to the hardware config structure for the DHT11 sensor.
          */
-        explicit constexpr Dht11( const Dht11Hw * const sensor )
+        explicit constexpr Dht11( const Dht11Hw & sensor )
             : sensor_ { sensor }
-            , isInitialized_ { false }
         {
 
         }
-
-        /**
-         * @brief Initializes the DHT11 sensor.
-         * 
-         * @return true if initialization successful, false otherwise.
-         */
-        [[nodiscard]] bool init() noexcept;
 
         /**
          * @brief Reads temperature and humidity from the sensor.
@@ -51,8 +44,7 @@ namespace th
                                  uint8_t & humidity ) const noexcept override;
 
     private:
-        const Dht11Hw * const sensor_;  /**< Pointer to hardware configuration structure */
-        bool isInitialized_;            /**< Initialization status flag */
+        const Dht11Hw & sensor_;  /**< Reference to hardware configuration structure */
 
         /**
          * @brief Sends the start signal to initiate sensor communication.
@@ -63,11 +55,12 @@ namespace th
 
         /**
          * @brief Reads raw 5-byte data from the sensor.
-         * 
-         * @param[out] data Array of 5 bytes containing sensor data and checksum.
+         *
+         * @param data Span of 5 bytes written with raw sensor data and checksum
+         *             on success. Contents are undefined on failure.
          * @return true if read successful and checksum valid, false otherwise.
          */
-        [[nodiscard]] bool readRaw( uint8_t data[ 5 ] ) const noexcept;
+        [[nodiscard]] bool readRaw( std::span< uint8_t, 5U > data ) const noexcept;
 
         /**
          * @brief Reads a single byte from the sensor.

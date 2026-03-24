@@ -13,8 +13,8 @@ typedef struct AlsPt19Hw
 
 } AlsPt19Hw;
 
-bool alspt19_hal_read_raw( const AlsPt19Hw * sensor, 
-                           uint16_t * out );
+bool alspt19_hal_read( const AlsPt19Hw * sensor, 
+                       uint16_t * out );
 
 #ifdef __cplusplus
 }

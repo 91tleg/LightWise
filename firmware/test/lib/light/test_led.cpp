@@ -4,8 +4,8 @@
 #include "hal/led.h"
 #include "lib/light/led.hpp"
 
-static uint32_t g_lastPwmValue = 0U;
-static bool g_halReturnSuccess = true;
+static uint32_t g_lastPwmValue { 0U };
+static bool g_halReturnSuccess { true };
 
 extern "C"
 {
@@ -23,7 +23,7 @@ extern "C"
 class LedTest : public ::testing::Test
 {
 protected:
-    const LedHw hw{};
+    const LedHw hw {};
 
     void SetUp() override
     {
@@ -32,22 +32,9 @@ protected:
     }
 };
 
-TEST_F( LedTest, InitSuccess )
-{
-    light::Led led( &hw );
-    EXPECT_TRUE( led.init() );
-}
-
-TEST_F( LedTest, InitFailsWithNullHw )
-{
-    light::Led led( nullptr );
-    EXPECT_FALSE( led.init() );
-}
-
 TEST_F( LedTest, SetLevelUpdatesPwmWithGamma )
 {
-    light::Led led( &hw );
-    ASSERT_TRUE( led.init() );
+    light::Led led { hw };
 
     /* 0% level */
     EXPECT_TRUE( led.setLevel( 0U ) );
@@ -64,8 +51,7 @@ TEST_F( LedTest, SetLevelUpdatesPwmWithGamma )
 
 TEST_F( LedTest, SetLevelClampsAtMax )
 {
-    light::Led led( &hw );
-    ASSERT_TRUE( led.init() );
+    light::Led led { hw };
 
     /* 100% level should be the 12-bit max (4095U) */
     EXPECT_TRUE( led.setLevel( 100U ) );
@@ -77,34 +63,19 @@ TEST_F( LedTest, SetLevelClampsAtMax )
 
 TEST_F( LedTest, GetLevelReturnsLastSet )
 {
-    light::Led led( &hw );
-    ASSERT_TRUE( led.init() );
+    light::Led led { hw };
 
-    uint8_t level = 0U;
-    led.setLevel( 42U );
+    static_cast< void >( led.setLevel( 42U ) );
     
-    EXPECT_TRUE( led.getLevel( level ) );
-    EXPECT_EQ( level, 42U );
-}
-
-TEST_F( LedTest, FailsIfNotInitialized )
-{
-    light::Led led( &hw );
-    
-    /* Set level before .init() */
-    EXPECT_FALSE( led.setLevel( 50U ) );
-    
-    uint8_t level = 0;
-    EXPECT_FALSE( led.getLevel( level ) );
+    EXPECT_EQ( led.getLevel(), 42U );
 }
 
 TEST_F( LedTest, FailsWhenHalFails )
 {
-    light::Led led( &hw );
-    ASSERT_TRUE( led.init() );
+    light::Led led { hw };
 
     g_halReturnSuccess = false;
     
     /* Even if input is valid, if HAL fails setLevel should return false */
-    EXPECT_FALSE( led.setLevel( 10 ) );
+    EXPECT_FALSE( led.setLevel( 10U ) );
 }

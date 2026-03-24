@@ -25,57 +25,33 @@ namespace light
 
     } /* anonymous namespace */
 
-    bool Led::init() noexcept
+    bool Led::setLevel( uint8_t powerPct ) noexcept
     {
         bool result { false };
 
-        if( sensor_ != nullptr )
+        if( powerPct <= kMaxLevel )
         {
-            isInitialized_ = true;
-            result = true;
-        }
+            const uint32_t pwmValue { levelToPwmDuty( powerPct ) };
 
-        return result;
-    }
-
-    bool Led::setLevel( uint8_t level ) noexcept
-    {
-        bool result { false };
-
-        if( isInitialized_ )
-        {
-            if( level <= kMaxLevel )
+            if( led_hal_set_level( &sensor_, pwmValue ) )
             {
-                const uint32_t pwmValue { levelToPwmDuty( level ) };
-
-                if( led_hal_set_level( sensor_, pwmValue ) )
-                {
-                    level_ = level;
-                    result = true;
-                }
+                level_ = powerPct;
+                result = true;
             }
         }
 
         return result;
     }
 
-    bool Led::getLevel( uint8_t & level ) const noexcept
+    uint8_t Led::getLevel() const noexcept
     {
-        bool result { false };
-
-        if( isInitialized_ )
-        {
-           level = level_; 
-           result = true;
-        }
-
-        return result;
+        return level_;
     }
 
     uint32_t Led::levelToPwmDuty( uint8_t level ) noexcept
     {
         const uint8_t clampedLevel { ( level <= kMaxLevel ) ? level : kMaxLevel };
-        return static_cast<uint32_t>( kGammaTable[ clampedLevel ] );
+        return static_cast< uint32_t >( kGammaTable[ clampedLevel ] );
     }
 
 } /* namesapce light */

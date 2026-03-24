@@ -14,25 +14,14 @@ namespace mmwave
     {
     public:
 
-        explicit constexpr C4001( C4001Hw * const sensor )
+        explicit constexpr C4001( C4001Hw & sensor )
             : sensor_ { sensor }
             , cache_ {}
             , flashCount_ { 0U }
             , lastExist_ { false }
-            , isInitialized_ { false }
         {
 
         }
-
-        /**
-         * @brief Initialize C4001 device structure.
-         *
-         * @param[out] device Pointer to device structure to initialize.
-         * @param[in]  sensor Pointer to initialized hardware abstraction.
-         *
-         * @return true on success, false on invalid parameters.
-         */
-        [[nodiscard]] bool init();
 
         /**
          * @brief Detect whether a C4001 sensor is connected and responsive.
@@ -107,7 +96,7 @@ namespace mmwave
 
         [[nodiscard]] bool updateTarget( uint8_t & outNumber );
 
-        [[nodiscard]] bool getTarget( Target & outTarget );
+        void getTarget( Target & outTarget );
 
         /* Detection threshold */
 
@@ -148,11 +137,10 @@ namespace mmwave
         [[nodiscard]] bool setGpioPolarity( uint8_t value );
 
     private:
-        C4001Hw * sensor_;
+        C4001Hw & sensor_;
         Target cache_;
         uint8_t flashCount_;
         bool lastExist_;
-        bool isInitialized_;
 
         /* Response parsing structure */
         struct ResponseData
