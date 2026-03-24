@@ -10,8 +10,6 @@
 namespace device
 {
 
-    void init();
-
     extern ambient::Alspt19 xAlsPt19Primary;
     extern ambient::Alspt19 xAlsPt19Secondary;
     extern light::Led xLed;
