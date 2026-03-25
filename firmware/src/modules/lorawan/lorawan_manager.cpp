@@ -4,7 +4,8 @@
 #include "types/lorawan_keys.hpp"
 #include "utils/log/log.h"
 #include "utils/time/delay.h"
-#include "payloads/uplink_payload.hpp"
+#include "utils/security/secure_zero.hpp"
+#include "payloads/v1.hpp"
 
 namespace lorawan
 {
@@ -16,115 +17,106 @@ namespace lorawan
 
     } /* anonymous namespace */
 
-    Manager::Manager( LorawanSensor & device,
-                      UplinkPayload & payload,
-                      std::span< uint8_t > buf ) noexcept
+    Manager::Manager( LorawanSensor & device ) noexcept
         : device_ { device }
-        , payload_ { payload }
-        , buf_ { buf }
         , mutexBuffer_ {}
         , mutex_ { xSemaphoreCreateMutexStatic( &mutexBuffer_ ) }
-        , state_ { State::UNINITIALISED }
+        , state_ { State::UNINITIALIZED }
         , lastJoinMs_ { 0U }
     {
         configASSERT( mutex_ != nullptr );
     }
 
-    bool Manager::setup( const Keys & keys ) noexcept
+    bool Manager::setup( const Keys & keys, uint32_t nowMs ) noexcept
     {
-        bool result { false };
+        bool ok { false };
+        const MutexGuard guard { mutex_ };
 
-        state_ = State::CONFIGURING;
+        if( guard.locked() )
+        {
+            state_ = State::CONFIGURING;
 
-        /* Keys are provisioned to the device then zeroed */
-        Keys localKeys { keys };
+            Keys localKeys { keys };
 
-        if( !device_.get().setAppKey( localKeys.appKey.data() ) )
-        {
-            LOGE( kTag, "setAppKey failed" );
-            state_ = State::FAILED;
-        }
-        else if( !device_.get().setAppEui( localKeys.appEui.data() ) )
-        {
-            LOGE( kTag, "setAppEui failed" );
-            state_ = State::FAILED;
-        }
-        else if( !device_.get().begin() )
-        {
-            LOGE( kTag, "begin failed" );
-            state_ = State::FAILED;
-        }
-        else if( !configure() )
-        {
-            state_ = State::FAILED;
-        }
-        else
-        {
-            result = issueJoin();
+            ok = ( device_.setAppKey( localKeys.appKey.data() ) &&
+                   device_.setAppEui( localKeys.appEui.data() ) &&
+                   device_.begin()                              &&
+                   configure() );
+
+            security::secureZero( localKeys );
+
+            if( ok )
+            {
+                ok = issueJoin( nowMs );
+            }
+            else
+            {
+                LOGE( kTag, "setup failed — caller should retry" );
+                state_ = State::UNINITIALIZED;
+            }
         }
 
-        /* Zero local key copy immediately after provisioning. */
-        localKeys = Keys{};
-
-        return result;
+        return ok;
     }
 
-    bool Manager::issueJoin() noexcept
+    bool Manager::issueJoin( uint32_t nowMs ) noexcept
     {
+        /* Called from setup() which holds mutex_ — do not acquire here */
         bool result { false };
-
-        if( device_.get().join() )
+        if( device_.join() )
         {
             LOGI( kTag, "JOIN request sent — waiting for accept" );
-            state_      = State::JOINING;
-            lastJoinMs_ = 0U;  /* caller sets time on first call */
+            state_ = State::JOINING;
+            lastJoinMs_ = nowMs;  /* start retry window from now */
             result      = true;
         }
         else
         {
-            LOGE( kTag, "join failed" );
-            state_ = State::FAILED;
+            LOGE( kTag, "issueJoin failed — rewinding to UNINITIALIZED" );
+            state_ = State::UNINITIALIZED;
         }
-
         return result;
     }
 
     bool Manager::tryAdvanceJoin( uint32_t nowMs ) noexcept
     {
         bool ready { false };
+        const MutexGuard guard { mutex_ };
 
-        if( state_ == State::JOINING )
+        if( guard.locked() )
         {
-            if( device_.get().isJoined() )
+            if( state_ == State::JOINING )
             {
-                LOGI( kTag, "JOIN successful" );
-                state_ = State::READY;
-                ready  = true;
-            }
-            else if( ( nowMs - lastJoinMs_ ) >= kJoinRetryMs )
-            {
-                /* Network has not responded — re-issue join request.
-                * Failure here stays in JOINING so the next call retries. */
-                LOGI( kTag, "JOIN timeout: retrying" );
-                lastJoinMs_ = nowMs;
-
-                if( !device_.get().join() )
+                if( device_.isJoined() )
                 {
-                    LOGW( kTag, "join retry failed" );
+                    LOGI( kTag, "JOIN successful" );
+                    state_ = State::READY;
+                    ready  = true;
                 }
+                else if( ( nowMs - lastJoinMs_ ) >= kJoinRetryMs )
+                {
+                    /* Failure stays in JOINING so the next call retries. */
+                    LOGI( kTag, "JOIN timeout: retrying" );
+                    lastJoinMs_ = nowMs;
+
+                    if( !device_.join() )
+                    {
+                        LOGW( kTag, "join retry failed" );
+                    }
+                }
+                else
+                {
+                    /* Still within the wait window — nothing to do. */
+                }
+            }
+            else if( state_ == State::READY )
+            {
+                ready = true;
             }
             else
             {
-                /* Still within the wait window — nothing to do. */
+                /* UNINITIALIZED — caller must call setup() first. */
             }
-        }
-        else if( state_ == State::READY )
-        {
-            ready = true;
-        }
-        else
-        {
-            /* UNINITIALISED or FAILED — caller must call setup() first. */
         }
 
         return ready;
@@ -132,110 +124,123 @@ namespace lorawan
 
     bool Manager::isReady() const noexcept
     {
-        return ( state_ == State::READY );
+        const MutexGuard guard { mutex_ };
+        return guard.locked() && ( state_ == State::READY );
     }
 
     Manager::State Manager::state() const noexcept
     {
-        return state_;
+        const MutexGuard guard { mutex_ };
+        return guard.locked() ? state_ : State::UNINITIALIZED;
+    }
+
+    void Manager::setRxCb( LorawanSensor::RxCallback cb ) noexcept
+    {
+        const MutexGuard guard { mutex_ };
+        if( guard.locked() )
+        {
+            device_.setRxCb( cb );
+        }
     }
 
     bool Manager::configure() noexcept
     {
+        /* Called from setup() which holds mutex_ — do not acquire here */
         bool ok { true };
 
-        if( ok && !device_.get().setRegion( kRegion ) )
+        if( ok && !device_.setRegion( kRegion ) )
         {
             LOGE( kTag, "setRegion failed" );
             ok = false;
         }
-        delay_ms( kSetupDelayMs );
+        if( ok )
+        {
+            delay_ms( kSetupDelayMs );
+        }
 
-        if( ok && !device_.get().setClass( kDeviceClass ) )
+        if( ok && !device_.setClass( kDeviceClass ) )
         {
             LOGE( kTag, "setClass failed" );
             ok = false;
         }
-        delay_ms( kSetupDelayMs );
+        if( ok )
+        {
+            delay_ms( kSetupDelayMs );
+        }
 
-        if( ok && !device_.get().setDatarate( kDatarate ) )
+        if( ok && !device_.setDatarate( kDatarate ) )
         {
             LOGE( kTag, "setDatarate failed" );
             ok = false;
         }
-        delay_ms( kSetupDelayMs );
+        if( ok )
+        {
+            delay_ms( kSetupDelayMs );
+        }
 
-        if( ok && !device_.get().setEirp( kEirp ) )
+        if( ok && !device_.setEirp( kEirp ) )
         {
             LOGE( kTag, "setEirp failed" );
             ok = false;
         }
-        delay_ms( kSetupDelayMs );
+        if( ok )
+        {
+            delay_ms( kSetupDelayMs );
+        }
 
-        if( ok && !device_.get().setSubband( kSubband ) )
+        if( ok && !device_.setSubband( kSubband ) )
         {
             LOGE( kTag, "setSubband failed" );
             ok = false;
         }
-        delay_ms( kSetupDelayMs );
+        if( ok )
+        {
+            delay_ms( kSetupDelayMs );
+        }
 
-        if( ok && !device_.get().enableAdr( kAdrEnabled ) )
+        if( ok && !device_.enableAdr( kAdrEnabled ) )
         {
             LOGE( kTag, "enableAdr failed" );
             ok = false;
         }
-        delay_ms( kSetupDelayMs );
+        if( ok )
+        {
+            delay_ms( kSetupDelayMs );
+        }
 
-        if( ok && !device_.get().setPacketType( kPacketType ) )
+        if( ok && !device_.setPacketType( kPacketType ) )
         {
             LOGE( kTag, "setPacketType failed" );
             ok = false;
         }
-        delay_ms( kSetupDelayMs );
 
         return ok;
     }
 
-    bool Manager::sendUplink( const UplinkData & data ) noexcept
+    bool Manager::send( std::span< const uint8_t > buf ) noexcept
     {
         bool result { false };
-
-        if( isReady() )
+        const MutexGuard guard { mutex_ };
+        if( guard.locked() )
         {
-            payload_.get().encode( data, buf_ );
-
-            const MutexGuard guard { mutex_ };
-
-            if( guard.locked() )
+            if( state_ == State::READY )
             {
-                result = device_.get().sendPacket(
-                            buf_.data(),
-                            static_cast< uint8_t >( buf_.size() ) );
+                result = device_.sendPacket( buf.data(),
+                                             static_cast< uint8_t >( buf.size() ) );
             }
             else
             {
-                LOGE( kTag, "sendUplink: failed to acquire mutex" );
+                LOGW( kTag, "send: not joined — dropping packet" );
             }
         }
-
         return result;
     }
 
-    void Manager::pollReceive() noexcept
+    bool Manager::sendUplink( const UplinkData & data ) noexcept
     {
-        /* sleepMs() is intentionally outside the mutex scope — sleeping under
-         * a lock would block sendUplink() for the full kPollWindowMs.          */
-        {
-            const MutexGuard guard { mutex_ };
-
-            if( !guard.locked() )
-            {
-                LOGE( kTag, "pollReceive: failed to acquire mutex" );
-                return;
-            }
-        } /* mutex released here */
-
-        device_.get().sleepMs( kPollWindowMs );
+        std::array< uint8_t, payload::v1::kSize > buf {};
+        payload::v1::encode( data, buf );
+        return send( buf );
     }
 
 } /* namespace lorawan */

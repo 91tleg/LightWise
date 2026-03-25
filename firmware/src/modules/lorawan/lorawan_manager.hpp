@@ -1,3 +1,6 @@
+#ifndef SRC_MODULES_LORAWAN_LORAWAN_MANAGER_HPP
+#define SRC_MODULES_LORAWAN_LORAWAN_MANAGER_HPP
+
 /**
  * @file  src/modules/lorawan/lorawan_manager.hpp
  * @brief LoRaWAN connection, uplink, and downlink manager.
@@ -17,18 +20,14 @@
  * - isReady()         — gates sendUplink(); uplinks nop until READY.
  *
  * States:
- * UNINITIALISED → CONFIGURING → JOINING ⇄ (retry) → READY
- * Any config step failure → FAILED
+ * UNINITIALIZED → CONFIGURING → JOINING ⇄ (retry) → READY
  *
  * @section MutexSafety Mutex safety
  * device_ is shared between the uplink task and the downlink task.
  * A mutex serialises access. RAII MutexGuard ensures the lock is always released.
  */
-#ifndef SRC_MODULES_LORAWAN_LORAWAN_MANAGER_HPP
-#define SRC_MODULES_LORAWAN_LORAWAN_MANAGER_HPP
 
 #include <cstdint>
-#include <functional>
 #include <span>
 
 #include <freertos/FreeRTOS.h>
@@ -48,24 +47,18 @@ namespace lorawan
     public:
         enum class State : uint8_t
         {
-            UNINITIALISED = 0U,
+            UNINITIALIZED = 0U,
             CONFIGURING   = 1U,
             JOINING       = 2U,
-            READY         = 3U,
-            FAILED        = 4U
+            READY         = 3U
         };
 
         /**
          * @brief  Construct with all dependencies injected.
          *
-         * @param  device    LoRaWAN radio driver (static lifetime).
-         * @param  payload   Uplink payload encoder (static lifetime).
-         * @param  buf       Caller-owned buffer of exactly payload.kSize bytes.
-         *                   Lifetime must exceed Manager's.
+         * @param  device LoRaWAN radio driver (static lifetime).
          */
-        Manager( LorawanSensor & device,
-                 UplinkPayload & payload,
-                 std::span< uint8_t > buf ) noexcept;
+        Manager( LorawanSensor & device ) noexcept;
 
         ~Manager()                            = default;
         Manager( const Manager & )            = delete;
@@ -82,7 +75,7 @@ namespace lorawan
          * @return true  if all config steps succeeded and join was issued.
          * @return false if any config step failed (state → FAILED).
          */
-        [[nodiscard]] bool setup( const Keys & keys ) noexcept;
+        [[nodiscard]] bool setup( const Keys & keys, uint32_t nowMs ) noexcept;
 
         /**
          * @brief  Poll join state; re-issue join request after kJoinRetryMs.
@@ -108,7 +101,17 @@ namespace lorawan
         [[nodiscard]] State state() const noexcept;
 
         /**
-         * @brief  Encode and transmit one uplink packet.
+         * @brief  Register a callback for received downlink packets.
+         *
+         * Thin pass-through to the device driver.  Call once at task startup
+         * before pollReceive() — no mutex needed (single-threaded at init time).
+         *
+         * @param  cb  Callback function from LorawanSensor::RxCallback.
+         */
+        void setRxCb( LorawanSensor::RxCallback cb ) noexcept;
+
+        /**
+         * @brief  Encode and transmit a uplink telemetry packet.
          *
          * No-ops and returns false if not READY.
          * Thread-safe — acquires the device mutex.
@@ -119,14 +122,18 @@ namespace lorawan
         [[nodiscard]] bool sendUplink( const UplinkData & data ) noexcept;
 
         /**
-         * @brief  Open the receive window (Class A downlink poll).
+         * @brief  Transmit a raw packet.
          *
-         * sleepMs() is called outside the mutex — does not block sendUplink().
-         * Thread-safe — acquires the device mutex for window interaction only.
+         * No-ops and returns false if not READY.
+         * Thread-safe — acquires the device mutex.
+         *
+         * @param  buf   Bytes.
+         * @return true  if the packet was accepted by the radio.
          */
-        void pollReceive() noexcept;
+        [[nodiscard]] bool send( std::span< const uint8_t > buf ) noexcept;
 
     private:
+
         /**
          * @brief RAII mutex guard 
          */
@@ -161,19 +168,16 @@ namespace lorawan
         };
 
         [[nodiscard]] bool configure() noexcept;
-        [[nodiscard]] bool issueJoin() noexcept;
+        [[nodiscard]] bool issueJoin( uint32_t nowMs ) noexcept;
 
-        std::reference_wrapper< LorawanSensor > device_;
-        std::reference_wrapper< UplinkPayload > payload_;
-        std::span< uint8_t > buf_;
+        LorawanSensor & device_;
 
         StaticSemaphore_t mutexBuffer_;
         SemaphoreHandle_t mutex_;
 
-        State    state_       { State::UNINITIALISED };
-        uint32_t lastJoinMs_  { 0U };
+        State state_ { State::UNINITIALIZED };
+        uint32_t lastJoinMs_ { 0U };
 
-        static constexpr uint32_t kPollWindowMs { 100U  };
         static constexpr uint32_t kSetupDelayMs { 300U  };
         static constexpr uint32_t kJoinRetryMs  { 5000U };
 
