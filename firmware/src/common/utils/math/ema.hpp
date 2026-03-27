@@ -76,8 +76,8 @@ namespace filter
         [[nodiscard]] float alpha() const noexcept;
 
     private:
-        float value_  { 0.0f };
-        float alpha_  { k_alphaDefkAt };
+        float value_ { 0.0f };
+        float alpha_ { kAlphaDefault };
         bool  isInitialized_ { false };
 
         [[nodiscard]] static constexpr float clampAlpha( float alpha ) noexcept;
