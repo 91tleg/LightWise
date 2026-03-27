@@ -1,6 +1,5 @@
 #include "lorawan_manager.hpp"
 
-#include "types/lorawan_data.hpp"
 #include "types/lorawan_keys.hpp"
 #include "utils/log/log.h"
 #include "utils/time/delay.h"

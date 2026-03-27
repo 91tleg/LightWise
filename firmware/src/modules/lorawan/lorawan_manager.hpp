@@ -60,11 +60,11 @@ namespace lorawan
          */
         Manager( LorawanSensor & device ) noexcept;
 
-        ~Manager()                            = default;
-        Manager( const Manager & )            = delete;
-        Manager &operator=( const Manager & ) = delete;
-        Manager( Manager && )                 = delete;
-        Manager &operator=( Manager && )      = delete;
+        ~Manager()                             = default;
+        Manager( const Manager & )             = delete;
+        Manager & operator=( const Manager & ) = delete;
+        Manager( Manager && )                  = delete;
+        Manager & operator=( Manager && )      = delete;
 
         /**
          * @brief  Configure the radio and fire the first join request.
@@ -157,10 +157,10 @@ namespace lorawan
 
             [[nodiscard]] bool locked() const noexcept { return locked_; }
 
-            MutexGuard( const MutexGuard & )            = delete;
-            MutexGuard &operator=( const MutexGuard & ) = delete;
-            MutexGuard( MutexGuard && )                 = delete;
-            MutexGuard &operator=( MutexGuard && )      = delete;
+            MutexGuard( const MutexGuard & )             = delete;
+            MutexGuard & operator=( const MutexGuard & ) = delete;
+            MutexGuard( MutexGuard && )                  = delete;
+            MutexGuard & operator=( MutexGuard && )      = delete;
 
         private:
             SemaphoreHandle_t mutex_;
