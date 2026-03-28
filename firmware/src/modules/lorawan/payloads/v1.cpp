@@ -31,10 +31,10 @@ namespace lorawan::payload::v1
 
         const uint8_t flags1 {
             static_cast< uint8_t >(
-                ( ambientBits                                     ) |
-                ( static_cast< uint8_t >( mmwaveBits << 3U )      ) |
-                ( data.motionDetected ? kFlags1MotionPresent : 0U ) |
-                ( overallOk           ? kFlags1OverallOk     : 0U )
+                ( ambientBits                                            ) |
+                ( static_cast< uint8_t >( ( mmwaveBits & 0x07U ) << 3U ) ) |
+                ( data.motionDetected ? kFlags1MotionPresent : 0U        ) |
+                ( overallOk           ? kFlags1OverallOk     : 0U        )
             )
         };
 
@@ -49,7 +49,7 @@ namespace lorawan::payload::v1
         buf[ 1U ] = kType;
         buf[ 2U ] = static_cast< uint8_t >( lux >> 8U );   /* lux MSB */
         buf[ 3U ] = static_cast< uint8_t >( lux & 0xFFU ); /* lux LSB */
-        buf[ 4U ] = data.tempC;
+        buf[ 4U ] = static_cast< uint8_t >( data.tempC );
         buf[ 5U ] = data.humidity;
         buf[ 6U ] = flags1;
         buf[ 7U ] = flags2;
