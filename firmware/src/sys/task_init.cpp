@@ -24,14 +24,16 @@
 #include "modules/ambient/ambient_task.hpp"
 #include "modules/fsm/fsm_task.hpp"
 #include "modules/light/light_task.hpp"
-#include "modules/lorawan/lorawan_task.hpp"
+#include "modules/lorawan/uplink_task.hpp"
+#include "modules/lorawan/downlink_task.hpp"
 #include "modules/mmwave/mmwave_task.hpp"
 #include "modules/th/th_task.hpp"
 
 #include "types/ambient_data.hpp"
-#include "types/lorawan_data.hpp"
 #include "types/mmwave_data.hpp"
 #include "types/th_data.hpp"
+#include "types/lorawan_uplink.hpp"
+#include "types/lorawan_downlink.hpp"
 
 #include "utils/log/log.h"
 
@@ -44,77 +46,82 @@ namespace task
         constexpr char kTag[] { "TaskInit" };
 
         /* Queue configuration */
-        static constexpr uint32_t kAmbientQueueLength  { 1U };
-        static constexpr uint32_t kThQueueLength       { 8U };
-        static constexpr uint32_t kMmwaveQueueLength   { 1U };
-        static constexpr uint32_t kLorawanQueueLength  { 1U };
+        constexpr uint32_t kAmbientQueueLength  { 1U };
+        constexpr uint32_t kThQueueLength       { 8U };
+        constexpr uint32_t kMmwaveQueueLength   { 1U };
+        constexpr uint32_t kLorawanQueueLength  { 1U };
+        constexpr uint32_t kFsmCmdQueueLength   { 4U };
 
         /* Stack sizes (bytes) */
-        static constexpr uint32_t kAmbientStackSize    { 4096U };
-        static constexpr uint32_t kThStackSize         { 2048U };
-        static constexpr uint32_t kFsmStackSize        { 4096U };
-        static constexpr uint32_t kLightStackSize      { 2048U };
-        static constexpr uint32_t kLorawanStackSize    { 8192U };
-        static constexpr uint32_t kMmwaveStackSize     { 4096U };
+        constexpr uint32_t kAmbientStackSize    { 4096U };
+        constexpr uint32_t kThStackSize         { 2048U };
+        constexpr uint32_t kFsmStackSize        { 4096U };
+        constexpr uint32_t kLightStackSize      { 2048U };
+        constexpr uint32_t kLorawanStackSize    { 8192U };
+        constexpr uint32_t kMmwaveStackSize     { 4096U };
 
         /* Task priorities */
-        static constexpr UBaseType_t kAmbientPriority  { 6U };
-        static constexpr UBaseType_t kThPriority       { 6U };
-        static constexpr UBaseType_t kFsmPriority      { 2U };
-        static constexpr UBaseType_t kLightPriority    { 5U };
-        static constexpr UBaseType_t kLorawanPriority  { 6U };
-        static constexpr UBaseType_t kMmwavePriority   { 1U };
+        constexpr UBaseType_t kAmbientPriority  { 6U };
+        constexpr UBaseType_t kThPriority       { 6U };
+        constexpr UBaseType_t kFsmPriority      { 2U };
+        constexpr UBaseType_t kLightPriority    { 5U };
+        constexpr UBaseType_t kLorawanPriority  { 6U };
+        constexpr UBaseType_t kMmwavePriority   { 1U };
 
-        /* Queue static storage */
-        static StaticQueue_t xAmbientQueueBuffer;
-        static StaticQueue_t xThQueueBuffer;
-        static StaticQueue_t xMmwaveQueueBuffer;
-        static StaticQueue_t xLorawanQueueBuffer;
+        /* Queue storage */
+        StaticQueue_t xAmbientQueueBuffer;
+        StaticQueue_t xThQueueBuffer;
+        StaticQueue_t xMmwaveQueueBuffer;
+        StaticQueue_t xLorawanQueueBuffer;
+        StaticQueue_t xFsmCmdQueueBuffer;
 
-        static uint8_t ucAmbientQueueStorage[ kAmbientQueueLength * sizeof( ambient::Data ) ];
-        static uint8_t ucThQueueStorage[ kThQueueLength * sizeof( th::Data ) ];
-        static uint8_t ucMmwaveQueueStorage[ kMmwaveQueueLength * sizeof( mmwave::Data ) ];
-        static uint8_t ucLorawanQueueStorage[ kLorawanQueueLength * sizeof( lorawan::UplinkData ) ];
+        uint8_t ucAmbientQueueStorage[ kAmbientQueueLength * sizeof( ambient::Data ) ];
+        uint8_t ucThQueueStorage[ kThQueueLength * sizeof( th::Data ) ];
+        uint8_t ucMmwaveQueueStorage[ kMmwaveQueueLength * sizeof( mmwave::Data ) ];
+        uint8_t ucLorawanQueueStorage[ kLorawanQueueLength * sizeof( lorawan::UplinkData ) ];
+        uint8_t ucFsmCmdQueueStorage  [ kFsmCmdQueueLength   * sizeof( lorawan::DownlinkEvent ) ];
 
         /* Queue handles */
-        static QueueHandle_t xAmbientQueueHandle { nullptr };
-        static QueueHandle_t xThQueueHandle { nullptr };
-        static QueueHandle_t xMmwaveQueueHandle { nullptr };
-        static QueueHandle_t xLorawanQueueHandle { nullptr };
+        QueueHandle_t xAmbientQueueHandle { nullptr };
+        QueueHandle_t xThQueueHandle { nullptr };
+        QueueHandle_t xMmwaveQueueHandle { nullptr };
+        QueueHandle_t xLorawanQueueHandle { nullptr };
+        QueueHandle_t xFsmCmdQueueHandle   { nullptr };
 
         /* Task TCBs and stacks */
-        static StaticTask_t xAmbientTaskTcb;
-        static StaticTask_t xThTaskTcb;
-        static StaticTask_t xFsmTaskTcb;
-        static StaticTask_t xLightTaskTcb;
-        static StaticTask_t xLorawanUplinkTaskTcb;
-        static StaticTask_t xLorawanDownlinkTaskTcb;
-        static StaticTask_t xMmwaveTaskTcb;
+        StaticTask_t xAmbientTaskTcb;
+        StaticTask_t xThTaskTcb;
+        StaticTask_t xFsmTaskTcb;
+        StaticTask_t xLightTaskTcb;
+        StaticTask_t xLorawanUplinkTaskTcb;
+        StaticTask_t xLorawanDownlinkTaskTcb;
+        StaticTask_t xMmwaveTaskTcb;
 
-        static StackType_t xAmbientStack[ kAmbientStackSize ];
-        static StackType_t xThStack[ kThStackSize ];
-        static StackType_t xFsmStack[ kFsmStackSize ];
-        static StackType_t xLightStack[ kLightStackSize ];
-        static StackType_t xLorawanUplinkStack[ kLorawanStackSize ];
-        static StackType_t xLorawanDownlinkStack[ kLorawanStackSize ];
-        static StackType_t xMmwaveStack[ kMmwaveStackSize ];
+        StackType_t xAmbientStack[ kAmbientStackSize ];
+        StackType_t xThStack[ kThStackSize ];
+        StackType_t xFsmStack[ kFsmStackSize ];
+        StackType_t xLightStack[ kLightStackSize ];
+        StackType_t xLorawanUplinkStack[ kLorawanStackSize ];
+        StackType_t xLorawanDownlinkStack[ kLorawanStackSize ];
+        StackType_t xMmwaveStack[ kMmwaveStackSize ];
 
         /* Task handles */
-        static TaskHandle_t xAmbientTaskHandle { nullptr };
-        static TaskHandle_t xThTaskHandle { nullptr };
-        static TaskHandle_t xFsmTaskHandle { nullptr };
-        static TaskHandle_t xLightTaskHandle { nullptr };
-        static TaskHandle_t xLorawanUplinkTaskHandle { nullptr };
-        static TaskHandle_t xLorawanDownlinkTaskHandle { nullptr };
-        static TaskHandle_t xMmwaveTaskHandle { nullptr };
+        TaskHandle_t xAmbientTaskHandle { nullptr };
+        TaskHandle_t xThTaskHandle { nullptr };
+        TaskHandle_t xFsmTaskHandle { nullptr };
+        TaskHandle_t xLightTaskHandle { nullptr };
+        TaskHandle_t xLorawanUplinkTaskHandle { nullptr };
+        TaskHandle_t xLorawanDownlinkTaskHandle { nullptr };
+        TaskHandle_t xMmwaveTaskHandle { nullptr };
 
         /* TaskParams( emplaced inside init() after handles are valid ) */
-        static std::optional< ambient::TaskParams > xAmbientTaskParams;
-        static std::optional< th::TaskParams > xThTaskParams;
-        static std::optional< fsm::TaskParams > xFsmTaskParams;
-        static std::optional< light::TaskParams > xLightTaskParams;
-        static std::optional< lorawan::UplinkTaskParams > xLorawanUplinkTaskParams;
-        static std::optional< mmwave::TaskParams > xMmwaveTaskParams;
+        std::optional< ambient::TaskParams > xAmbientTaskParams;
+        std::optional< th::TaskParams > xThTaskParams;
+        std::optional< fsm::TaskParams > xFsmTaskParams;
+        std::optional< light::TaskParams > xLightTaskParams;
+        std::optional< lorawan::UplinkTaskParams > xLorawanUplinkTaskParams;
+        std::optional< lorawan::DownlinkTaskParams > xLorawanDownlinkTaskParams;
+        std::optional< mmwave::TaskParams > xMmwaveTaskParams;
 
     } /* anonymous namespace */
 
@@ -144,6 +151,12 @@ namespace task
                                                   ucLorawanQueueStorage,
                                                   &xLorawanQueueBuffer );
         configASSERT( xLorawanQueueHandle != nullptr );
+
+        xFsmCmdQueueHandle = xQueueCreateStatic( kFsmCmdQueueLength,
+                                                 sizeof( lorawan::DownlinkEvent ),
+                                                 ucFsmCmdQueueStorage,
+                                                 &xFsmCmdQueueBuffer );
+        configASSERT( xFsmCmdQueueHandle != nullptr );
 
         LOGI( kTag, "Queues created" );
 
@@ -177,6 +190,7 @@ namespace task
                                 xThQueueHandle,
                                 xMmwaveQueueHandle,
                                 xLorawanQueueHandle,
+                                xFsmCmdQueueHandle,
                                 xThTaskHandle,
                                 xLightTaskHandle );
 
@@ -207,18 +221,18 @@ namespace task
                                    xFsmTaskHandle );
 
         xMmwaveTaskHandle = xTaskCreateStatic( mmwave::task,
-                                              "MmwaveTask",
-                                              kMmwaveStackSize,
-                                              static_cast< void * >( &xMmwaveTaskParams.value() ),
-                                              kMmwavePriority,
-                                              xMmwaveStack,
-                                              &xMmwaveTaskTcb );
+                                               "MmwaveTask",
+                                               kMmwaveStackSize,
+                                               static_cast< void * >( &xMmwaveTaskParams.value() ),
+                                               kMmwavePriority,
+                                               xMmwaveStack,
+                                               &xMmwaveTaskTcb );
         configASSERT( xMmwaveTaskHandle != nullptr );
 
         /* LoRaWAN uplink task */
         xLorawanUplinkTaskParams.emplace( mgr::getLorawanManager(), xLorawanQueueHandle );
 
-        xLorawanUplinkTaskHandle = xTaskCreateStatic( lorawan::uplink_task,
+        xLorawanUplinkTaskHandle = xTaskCreateStatic( lorawan::uplinkTask,
                                                       "LorawanUplinkTask",
                                                       kLorawanStackSize,
                                                       static_cast< void * >( &xLorawanUplinkTaskParams.value() ),
@@ -226,6 +240,20 @@ namespace task
                                                       xLorawanUplinkStack,
                                                       &xLorawanUplinkTaskTcb );
         configASSERT( xLorawanUplinkTaskHandle != nullptr );
+
+        /* LoRaWAN downlink task */
+        xLorawanDownlinkTaskParams.emplace( mgr::getLorawanManager(),
+                                            mgr::getConfigStore(),
+                                            xFsmCmdQueueHandle );
+
+        xLorawanDownlinkTaskHandle = xTaskCreateStatic( lorawan::downlinkTask,
+                                                        "LorawanDownlinkTask",
+                                                        kLorawanStackSize,
+                                                        static_cast< void * >( &xLorawanDownlinkTaskParams.value() ),
+                                                        kLorawanPriority,
+                                                        xLorawanDownlinkStack,
+                                                        &xLorawanDownlinkTaskTcb );
+        configASSERT( xLorawanDownlinkTaskHandle != nullptr );
 
         LOGI( kTag, "All tasks created" );
     }
