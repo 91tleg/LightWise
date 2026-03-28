@@ -19,40 +19,28 @@
 
 #include "types/lorawan_keys.hpp"
 #include "utils/security/secure_zero.hpp"
+#include "utils/nvs/nvs_utils.hpp"
 
 namespace lorawan
 {
 
     bool loadKeysFromNvs( Keys & keys ) noexcept
     {
-        bool result { false };
-
-        nvs_handle_t handle {};
-        const esp_err_t openErr { nvs_open( "lwnode", NVS_READONLY, &handle ) };
-
-        if( openErr == ESP_OK )
+        bool ok { false };
+        nvs::Handle handle { "lwnode", NVS_READONLY };
+        if( handle.ok() )
         {
+
             std::array< char, Keys::kAppKeyHexLen + 1U > appKey {};
             std::array< char, Keys::kAppEuiHexLen + 1U > appEui {};
-            //char appKey[ Keys::kAppKeyHexLen + 1U ] {};
-            size_t appKeySize { sizeof( appKey ) };
 
-            const esp_err_t keyErr { nvs_get_str( handle,
-                                                  "appkey",
-                                                  appKey.data(),
-                                                  &appKeySize ) };
+            size_t appKeySize { appKey.size() };
+            size_t appEuiSize { appEui.size() };
 
-            //char appEui[ Keys::kAppEuiHexLen + 1U ] {};
-            size_t appEuiSize { sizeof( appEui ) };
+            ok = handle.readStr( "appkey", appKey.data(), appKeySize ) &&
+                 handle.readStr( "appEui", appEui.data(), appEuiSize );
 
-            const esp_err_t euiErr { nvs_get_str( handle,
-                                                  "appEui",
-                                                  appEui.data(),
-                                                  &appEuiSize ) };
-
-            nvs_close( handle );
-
-            if( ( keyErr == ESP_OK ) && ( euiErr == ESP_OK ) )
+            if( ok )
             {
                 static_cast< void >( std::memcpy( keys.appKey.data(),
                                                   appKey.data(),
@@ -63,16 +51,13 @@ namespace lorawan
                                                   appEui.data(),
                                                   Keys::kAppEuiHexLen ) );
                 keys.appEui[ Keys::kAppEuiHexLen ] = '\0';
-
-                result = true;
             }
 
-            /* Zero keys from stack regardless of success. */
             security::secureZero( appKey );
             security::secureZero( appEui );
         }
 
-        return result;
+        return ok;
     }
 
 } /* namespace lorawan */
