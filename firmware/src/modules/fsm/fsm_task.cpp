@@ -5,6 +5,7 @@
 #include "types/ambient_data.hpp"
 #include "types/mmwave_data.hpp"
 #include "types/th_data.hpp"
+#include "types/lorawan_downlink.hpp"
 #include "fsm_manager.hpp"
 #include "utils/log/log.h"
 
@@ -17,19 +18,19 @@ namespace fsm
         constexpr char kTag[] { "FsmTask" };
         constexpr uint32_t kMotionTimeoutMs       { 30UL * 1000UL              };
         constexpr uint32_t kManualTimeoutMs       { 8UL * 60UL * 60UL * 1000UL };
-        constexpr uint32_t kAmbientSamplePeriodMs { 60UL * 1000UL              };
+        constexpr uint32_t kAmbientSamplePeriodMs { 15UL * 1000UL              };
         constexpr uint32_t kThReceiveTimeoutMs    { 100U                       };
         constexpr uint32_t kQueueReceiveTimeoutMs { 1000U                      };
         constexpr uint32_t kClearAllBits          { 0xFFFFFFFFU                };
 
         /* Timer callbacks cannot carry context, store task handle at init. */
-        static TaskHandle_t  sFsmTaskHandle    { nullptr };
-        static TimerHandle_t sMotionTimer      { nullptr };
-        static TimerHandle_t sManualTimer      { nullptr };
-        static StaticTimer_t sMotionTimerBuf   {};
-        static StaticTimer_t sManualTimerBuf   {};
+        TaskHandle_t  sFsmTaskHandle  { nullptr };
+        TimerHandle_t sMotionTimer    { nullptr };
+        TimerHandle_t sManualTimer    { nullptr };
+        StaticTimer_t sMotionTimerBuf {};
+        StaticTimer_t sManualTimerBuf {};
 
-        static void onMotionTimeout( TimerHandle_t ) noexcept
+        void onMotionTimeout( TimerHandle_t ) noexcept
         {
             if( sFsmTaskHandle != nullptr )
             {
@@ -40,7 +41,7 @@ namespace fsm
             }
         }
 
-        static void onManualTimeout( TimerHandle_t ) noexcept
+        void onManualTimeout( TimerHandle_t ) noexcept
         {
             if( sFsmTaskHandle != nullptr )
             {
@@ -51,7 +52,7 @@ namespace fsm
             }
         }
 
-        static void startMotionTimer() noexcept
+        void startMotionTimer() noexcept
         {
             if( sMotionTimer != nullptr )
             {
@@ -59,7 +60,7 @@ namespace fsm
             }
         }
 
-        static void stopMotionTimer() noexcept
+        void stopMotionTimer() noexcept
         {
             if( sMotionTimer != nullptr )
             {
@@ -67,7 +68,7 @@ namespace fsm
             }
         }
 
-        static void startManualTimer() noexcept
+        void startManualTimer() noexcept
         {
             if( sManualTimer != nullptr )
             {
@@ -75,7 +76,7 @@ namespace fsm
             }
         }
 
-        static void stopManualTimer() noexcept
+        void stopManualTimer() noexcept
         {
             if( sManualTimer != nullptr )
             {
@@ -83,7 +84,7 @@ namespace fsm
             }
         }
 
-        static void handleTimers( State previous, State next ) noexcept
+        void handleTimers( State previous, State next ) noexcept
         {
             if( next == State::MotionActive )
             {
@@ -117,8 +118,8 @@ namespace fsm
             }
         }
 
-        static void dispatchOutputs( const Outputs & outputs,
-                                     TaskParams & params ) noexcept
+        void dispatchOutputs( const Outputs & outputs,
+                              TaskParams & params ) noexcept
         {
             static_cast< void >(
                 xTaskNotify( params.lightTaskHandle,
@@ -132,18 +133,13 @@ namespace fsm
             {
                 static_cast< void >( xQueueOverwrite( params.lorawanTxQueue,
                                                       &outputs.uplinkData ) );
-                LOGI( kTag, "Uplink - flags: %d, hum: %d, lvl: %d, lux: %d, temp: %d",
-                      outputs.uplinkData.flags,
-                      outputs.uplinkData.humidity,
-                      outputs.uplinkData.lightLevel,
-                      outputs.uplinkData.lux_x10,
-                      outputs.uplinkData.tempC );
+
             }
         }
 
-        static EventData makeEventData( const ambient::Data & ambient,
-                                        const th::Data & th,
-                                        const mmwave::Data & mmwave ) noexcept
+        [[nodiscard]] EventData makeEventData( const ambient::Data & ambient,
+                                               const th::Data & th,
+                                               const mmwave::Data & mmwave ) noexcept
         {
             EventData ed {};
             ed.lux           = ambient.lux;
@@ -155,7 +151,7 @@ namespace fsm
             return ed;
         }
 
-        static void readTh( TaskParams &params, th::Data & thOut ) noexcept
+        void readTh( TaskParams & params, th::Data & thOut ) noexcept
         {
             static_cast< void >( xTaskNotifyGive( params.thTaskHandle ) );
 
@@ -165,36 +161,34 @@ namespace fsm
             LOGD( kTag, "TH read: %s", result == pdPASS ? "ok" : "timeout" );
         }
 
-        static void pollAmbient( TaskParams & params,
-                                 Manager & manager,
-                                 ambient::Data & lastAmbient,
-                                 TickType_t & lastPollTick,
-                                 const th::Data & lastTh,
-                                 const mmwave::Data & lastMmwave ) noexcept
+        void pollAmbient( TaskParams & params,
+                          Manager & manager,
+                          ambient::Data & lastAmbient,
+                          TickType_t & lastPollTick,
+                          const th::Data & lastTh,
+                          const mmwave::Data & lastMmwave ) noexcept
         {
             const TickType_t now { xTaskGetTickCount() };
 
-            if( ( now - lastPollTick ) < pdMS_TO_TICKS( kAmbientSamplePeriodMs ) )
+            if( ( now - lastPollTick ) >= pdMS_TO_TICKS( kAmbientSamplePeriodMs ) )
             {
-                return;
-            }
+                ambient::Data fresh {};
+                if( xQueueReceive( params.ambientRxQueue, &fresh, 0U ) == pdTRUE )
+                {
+                    lastAmbient  = fresh;
+                    lastPollTick = now;
 
-            ambient::Data fresh {};
-            if( xQueueReceive( params.ambientRxQueue, &fresh, 0U ) == pdTRUE )
-            {
-                lastAmbient  = fresh;
-                lastPollTick = now;
+                    EventData ed { makeEventData( fresh, lastTh, lastMmwave ) };
+                    const State before { manager.currentState() };
 
-                EventData ed { makeEventData( fresh, lastTh, lastMmwave ) };
-                const State before { manager.currentState() };
+                    const Event event { ( fresh.lux <= 1000.0f )
+                                        ? Event::PhotocellDark
+                                        : Event::PhotocellLight };
 
-                const Event event { ( fresh.lux <= 1000.0f )
-                                    ? Event::PhotocellDark
-                                    : Event::PhotocellLight };
-
-                const Outputs out { manager.process( event, ed ) };
-                handleTimers( before, manager.currentState() );
-                dispatchOutputs( out, params );
+                    const Outputs out { manager.process( event, ed ) };
+                    handleTimers( before, manager.currentState() );
+                    dispatchOutputs( out, params );
+                }
             }
         }
 
@@ -204,7 +198,7 @@ namespace fsm
     {
         configASSERT( pvParameters != nullptr );
 
-        TaskParams &params { *static_cast< TaskParams * >( pvParameters ) };
+        TaskParams & params { *static_cast< TaskParams * >( pvParameters ) };
 
         configASSERT( params.ambientRxQueue  != nullptr );
         configASSERT( params.thRxQueue       != nullptr );
@@ -274,6 +268,19 @@ namespace fsm
                                     : Event::MotionTimeout };
                 const State   before { params.manager.currentState() };
                 const Outputs out    { params.manager.process( event, ed ) };
+                handleTimers( before, params.manager.currentState() );
+                dispatchOutputs( out, params );
+            }
+
+            lorawan::DownlinkEvent dlEvent {};
+            while( xQueueReceive( params.fsmCmdQueue, &dlEvent, 0U ) == pdTRUE )
+            {
+                LOGI( kTag, "Downlink event: %u",
+                      static_cast< unsigned >( dlEvent.event ) );
+
+                const State before { params.manager.currentState() };
+                const Outputs out { params.manager.process( dlEvent.event,
+                                                            dlEvent.data ) };
                 handleTimers( before, params.manager.currentState() );
                 dispatchOutputs( out, params );
             }

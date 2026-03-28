@@ -1,5 +1,6 @@
 #include "state_handlers.hpp"
 #include "utils/log/log.h"
+#include "common/types/fsm_event.hpp"
 
 namespace fsm
 {
