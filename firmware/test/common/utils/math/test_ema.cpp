@@ -31,7 +31,7 @@ TEST( EmaCtor, AlphaZeroDefaults )
 {
     EMA< float > f( 0.0f );
 
-    EXPECT_FLOAT_EQ( f.alpha(), filter::k_alphaDefault );
+    EXPECT_FLOAT_EQ( f.alpha(), filter::kAlphaDefault );
 }
 
 TEST( EmaUpdate, FirstSampleInitializes )
@@ -175,7 +175,7 @@ TEST( EmaReconfigure, ZeroUsesDefault )
 
     static_cast< void >( f.reconfigure( 0.0f ) );
 
-    EXPECT_FLOAT_EQ( f.alpha(), filter::k_alphaDefault );
+    EXPECT_FLOAT_EQ( f.alpha(), filter::kAlphaDefault );
 }
 
 TEST( EmaReconfigure, DoesNotResetState )
