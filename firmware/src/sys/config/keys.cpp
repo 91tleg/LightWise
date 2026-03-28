@@ -10,85 +10,54 @@
 
 #include "keys.hpp"
 
+#include <cstddef>
 #include <cstring>
+#include <array>
 
 #include <nvs.h>
 #include <nvs_flash.h>
 
 #include "types/lorawan_keys.hpp"
+#include "utils/security/secure_zero.hpp"
+#include "utils/nvs/nvs_utils.hpp"
 
 namespace lorawan
 {
 
-    namespace
-    {
-
-        /**
-         * @brief  Zero a buffer in a way the compiler cannot optimise away.
-         *         memset can be elided if the buffer is not read afterwards.
-         *         volatile write prevents that.
-         */
-        void secureZero( void * const buf, size_t len ) noexcept
-        {
-            volatile auto * p { static_cast< volatile uint8_t * >( buf ) };
-            while( len > 0U )
-            {
-                *p = 0U;
-                ++p;
-                --len;
-            }
-        }
-
-    } /* anonymous namespace */
-
     bool loadKeysFromNvs( Keys & keys ) noexcept
     {
-        bool result { false };
-
-        nvs_handle_t handle {};
-        const esp_err_t openErr { nvs_open( "lwnode", NVS_READONLY, &handle ) };
-
-        if( openErr == ESP_OK )
+        bool ok { false };
+        nvs::Handle handle { "lwnode", NVS_READONLY };
+        if( handle.ok() )
         {
-            char appKey[ Keys::kAppKeyHexLen + 1U ] {};
-            size_t appKeySize { sizeof( appKey ) };
 
-            const esp_err_t keyErr { nvs_get_str( handle,
-                                                  "appkey",
-                                                  appKey,
-                                                  &appKeySize ) };
+            std::array< char, Keys::kAppKeyHexLen + 1U > appKey {};
+            std::array< char, Keys::kAppEuiHexLen + 1U > appEui {};
 
-            char appEui[ Keys::kAppEuiHexLen + 1U ] {};
-            size_t appEuiSize { sizeof( appEui ) };
+            size_t appKeySize { appKey.size() };
+            size_t appEuiSize { appEui.size() };
 
-            const esp_err_t euiErr { nvs_get_str( handle,
-                                                  "appEui",
-                                                  appEui,
-                                                  &appEuiSize ) };
+            ok = handle.readStr( "appkey", appKey.data(), appKeySize ) &&
+                 handle.readStr( "appEui", appEui.data(), appEuiSize );
 
-            nvs_close( handle );
-
-            if( ( keyErr == ESP_OK ) && ( euiErr == ESP_OK ) )
+            if( ok )
             {
                 static_cast< void >( std::memcpy( keys.appKey.data(),
-                                                  appKey,
+                                                  appKey.data(),
                                                   Keys::kAppKeyHexLen ) );
                 keys.appKey[ Keys::kAppKeyHexLen ] = '\0';
 
                 static_cast< void >( std::memcpy( keys.appEui.data(),
-                                                  appEui,
+                                                  appEui.data(),
                                                   Keys::kAppEuiHexLen ) );
                 keys.appEui[ Keys::kAppEuiHexLen ] = '\0';
-
-                result = true;
             }
 
-            /* Zero keys from stack regardless of success. */
-            secureZero( appKey, sizeof( appKey ) );
-            secureZero( appEui, sizeof( appEui ) );
+            security::secureZero( appKey );
+            security::secureZero( appEui );
         }
 
-        return result;
+        return ok;
     }
 
 } /* namespace lorawan */

@@ -1,5 +1,5 @@
-#ifndef SRC_MODULES_LORAWAN_LORAWAN_TASK_HPP
-#define SRC_MODULES_LORAWAN_LORAWAN_TASK_HPP
+#ifndef SRC_MODULES_LORAWAN_UPLINK_TASK_HPP
+#define SRC_MODULES_LORAWAN_UPLINK_TASK_HPP
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -8,8 +8,6 @@ namespace lorawan
 {
 
     class Manager;
-    class LorawanSensor;
-    class UplinkPayload;
 
     /**
      * @brief Parameters passed to the task.
@@ -30,8 +28,8 @@ namespace lorawan
      *
      * @param[in] pvParameters Pointer to a TaskParams structure.
      */
-    void uplink_task( void * pvParameters );
+    void uplinkTask( void * pvParameters );
 
 } /* namespace lorawan */
 
-#endif /* SRC_MODULES_LORAWAN_LORAWAN_TASK_HPP */
+#endif /* SRC_MODULES_LORAWAN_UPLINK_TASK_HPP */

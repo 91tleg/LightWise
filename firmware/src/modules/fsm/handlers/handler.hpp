@@ -2,6 +2,7 @@
 #define SRC_MODULES_FSM_HANDLERS_HANDLER_HPP
 
 #include "fsm_types.hpp"
+#include "common/types/fsm_event.hpp"
 
 namespace fsm
 {
@@ -24,11 +25,11 @@ namespace fsm
                                                      Config & config ) noexcept = 0;
 
     protected:
-        Handler()                             = default;
-        Handler( const Handler & )            = default;
-        Handler &operator=( const Handler & ) = default;
-        Handler( Handler && )                 = default;
-        Handler &operator=( Handler && )      = default;
+        Handler()                              = default;
+        Handler( const Handler & )             = default;
+        Handler & operator=( const Handler & ) = default;
+        Handler( Handler && )                  = default;
+        Handler & operator=( Handler && )      = default;
     };
 
 } /* namespace fsm */

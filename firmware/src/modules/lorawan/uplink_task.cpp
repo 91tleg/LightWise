@@ -1,11 +1,10 @@
-#include "lorawan_task.hpp"
+#include "uplink_task.hpp"
 
 #include <freertos/task.h>
 
 #include "lib/lorawan/lorawan_sensor.hpp"
-#include "payloads/uplink_payload.hpp"
 #include "lorawan_manager.hpp"
-#include "types/lorawan_data.hpp"
+#include "types/lorawan_uplink.hpp"
 #include "utils/log/log.h"
 
 namespace lorawan
@@ -18,15 +17,14 @@ namespace lorawan
         constexpr uint8_t  kMaxRetries     { 3U    };
         constexpr uint32_t kRetryDelayMs   { 500U  };
         constexpr uint32_t kJoinPollMs     { 1000U };
-        constexpr uint32_t kDownlinkPollMs { 2000U };
 
     } /* anonymous namespace */
 
-    void uplink_task( void * pvParameters )
+    void uplinkTask( void * pvParameters )
     {
         configASSERT( pvParameters != nullptr );
 
-        UplinkTaskParams &params { *static_cast< UplinkTaskParams * >( pvParameters ) };
+        UplinkTaskParams & params { *static_cast< UplinkTaskParams * >( pvParameters ) };
 
         configASSERT( params.rxQueue != nullptr );
 

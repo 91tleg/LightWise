@@ -1,20 +1,12 @@
-/**
- * @file  src/common/utils/math/ema.cpp
- * @brief EMA<T> method definitions + explicit instantiations.
- *
- * Standards compliance: MISRA C++:2023 / DO-332 / DO-178C / ESP-IDF.
- * See ema.hpp for full rationale and rule index.
- */
-
 #include "ema.hpp"
 
 namespace filter
 {
 
     template< typename T >
-    bool EMA< T >::update( T input, T &out ) noexcept
+    bool EMA< T >::update( T input, T & out ) noexcept
     {
-        if( isInit_ )
+        if( isInitialized_ )
         {
             /* EMA: value += alpha * (input - value) */
             const float inputF { static_cast< float >( input ) };
@@ -24,7 +16,7 @@ namespace filter
         {
             /* First sample seeds the accumulator. */
             value_  = static_cast< float >( input );
-            isInit_ = true;
+            isInitialized_ = true;
         }
 
         out = static_cast< T >( value_ );
@@ -34,7 +26,7 @@ namespace filter
     template< typename T >
     bool EMA< T >::reset() noexcept
     {
-        isInit_ = false;
+        isInitialized_ = false;
         return true;
     }
 

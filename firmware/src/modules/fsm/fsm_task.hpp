@@ -16,6 +16,7 @@ namespace fsm
         QueueHandle_t thRxQueue;      /**< Receives th::Data.               */
         QueueHandle_t mmwaveRxQueue;  /**< Receives mmwave::Data.           */
         QueueHandle_t lorawanTxQueue; /**< Sends lorawan::UplinkData.       */
+        QueueHandle_t fsmCmdQueue;    /**< Receives lorawan::DownlinkEvent. */
         TaskHandle_t thTaskHandle;    /**< Notified to trigger a TH sample. */
         TaskHandle_t lightTaskHandle; /**< Notified with new light level.   */
     };

@@ -1,14 +1,14 @@
 #ifndef SRC_COMMON_UTILS_MATH_EMA_HPP
 #define SRC_COMMON_UTILS_MATH_EMA_HPP
 
-#include <cstdint>      /* uint8_t            */
+#include <cstdint> 
 #include <type_traits>  /* std::is_arithmetic */
 
 namespace filter
 {
-    inline constexpr float k_alphaMin     { 0.0f };
-    inline constexpr float k_alphaMax     { 1.0f };
-    inline constexpr float k_alphaDefault { 0.1f };
+    inline constexpr float kAlphaMin     { 0.0f };
+    inline constexpr float kAlphaMax     { 1.0f };
+    inline constexpr float kAlphaDefault { 0.1f };
 
     /**
      * @brief  EMA filter parameterised on sample type T.
@@ -29,13 +29,13 @@ namespace filter
          * @brief  Construct with optional alpha.
          *
          * @param  alpha  Smoothing factor in (0, 1].
-         *                Pass 0.0f (default) to use k_alphaDefault.
-         *                Values outside [k_alphaMin, k_alphaMax] are clamped.
+         *                Pass 0.0f (default) to use k_alphaDefkAt.
+         *                Values outside [kAlphaMin, kAlphaMax] are clamped.
          *
          * Post-condition: object is fully configured; update() may be called
          * immediately — no separate initialisation step required or exists.
          */
-        constexpr explicit EMA( float alpha = k_alphaDefault ) noexcept;
+        constexpr explicit EMA( float alpha = kAlphaDefault ) noexcept;
 
         ~EMA()                             = default;
         EMA( const EMA & )                 = default;
@@ -52,7 +52,7 @@ namespace filter
          * @param  out    Filled with the filtered result.
          * @return true (retained for [[nodiscard]] enforcement and API symmetry).
          */
-        [[nodiscard]] bool update( T input, T &out ) noexcept;
+        [[nodiscard]] bool update( T input, T & out ) noexcept;
 
         /**
          * @brief  Reset filter state.
@@ -64,21 +64,21 @@ namespace filter
         /**
          * @brief  Change the smoothing factor at runtime.
          *
-         * @param  alpha  New factor in (0, 1]. Pass 0.0f to restore k_alphaDefault.
+         * @param  alpha  New factor in (0, 1]. Pass 0.0f to restore k_alphaDefkAt.
          * @return true.
          */
         [[nodiscard]] bool reconfigure( float alpha ) noexcept;
 
         /**
          * @brief  Read the current smoothing factor.
-         * @return alpha in [k_alphaMin, k_alphaMax].
+         * @return alpha in [kAlphaMin, kAlphaMax].
          */
         [[nodiscard]] float alpha() const noexcept;
 
     private:
-        float value_  { 0.0f           };
-        float alpha_  { k_alphaDefault };
-        bool  isInit_ { false          };
+        float value_ { 0.0f };
+        float alpha_ { kAlphaDefault };
+        bool  isInitialized_ { false };
 
         [[nodiscard]] static constexpr float clampAlpha( float alpha ) noexcept;
         [[nodiscard]] static constexpr float resolveAlpha( float alpha ) noexcept;
@@ -89,9 +89,9 @@ namespace filter
 
     template< typename T >
     constexpr EMA< T >::EMA( float alpha ) noexcept
-        : value_  { 0.0f                  }
+        : value_  { 0.0f }
         , alpha_  { resolveAlpha( alpha ) }
-        , isInit_ { false                 }
+        , isInitialized_ { false }
     {
 
     }
@@ -101,13 +101,13 @@ namespace filter
     {
         float clamped { alpha };
 
-        if( alpha < k_alphaMin )
+        if( alpha < kAlphaMin )
         {
-            clamped = k_alphaMin;
+            clamped = kAlphaMin;
         }
-        else if( alpha > k_alphaMax )
+        else if( alpha > kAlphaMax )
         {
-            clamped = k_alphaMax;
+            clamped = kAlphaMax;
         }
         else
         {
@@ -120,7 +120,7 @@ namespace filter
     template< typename T >
     constexpr float EMA< T >::resolveAlpha( float alpha ) noexcept
     {
-        return ( alpha == 0.0f ) ? k_alphaDefault : clampAlpha( alpha );
+        return ( alpha == 0.0f ) ? kAlphaDefault : clampAlpha( alpha );
     }
 
 } /* namespace filter */

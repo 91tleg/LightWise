@@ -24,24 +24,23 @@
 
 #include <array>
 #include <cstdint>
-#include <functional>  /* std::reference_wrapper */
 
-#include "fsm_types.hpp"
 #include "handlers/state_handlers.hpp"
 
 namespace fsm
 {
+    struct EventData;
 
     class Manager
     {
     public:
         Manager() noexcept;
 
-        ~Manager()                            = default;
-        Manager( const Manager & )            = delete;
-        Manager &operator=( const Manager & ) = delete;
-        Manager( Manager && )                 = delete;
-        Manager &operator=( Manager && )      = delete;
+        ~Manager()                             = default;
+        Manager( const Manager & )             = delete;
+        Manager & operator=( const Manager & ) = delete;
+        Manager( Manager && )                  = delete;
+        Manager & operator=( Manager && )      = delete;
 
         /**
          * @brief  Reset FSM to initial state (AutoOff, default config).
