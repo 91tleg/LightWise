@@ -10,6 +10,7 @@ typedef struct LwnodeHw LwnodeHw;
 
 namespace lorawan
 {
+
     class Lwnode final : public LorawanSensor
     {
     public:
@@ -68,7 +69,7 @@ namespace lorawan
          * @param nwkSkeyHex32 Hex string (32 chars, null-terminated)
          * @return true if set successfully, false otherwise
          */
-        [[nodiscard]] bool setNwkSkey( const char * nwkSkeyHex32 ) noexcept override;
+        [[nodiscard]] bool setNwkSkey( const char * nwkSkeyHex32 ) noexcept;
 
         /**
          * @brief Set Application Session Key for ABP
@@ -76,7 +77,7 @@ namespace lorawan
          * @param appSkeyHex32 Hex string (32 chars, null-terminated)
          * @return true if set successfully, false otherwise
          */
-        [[nodiscard]] bool setAppSkey( const char * appSkeyHex32 ) noexcept override;
+        [[nodiscard]] bool setAppSkey( const char * appSkeyHex32 ) noexcept;
 
         /**
          * @brief Set Device Address for ABP
@@ -198,7 +199,7 @@ namespace lorawan
          * @param sleepMs Sleep duration in milliseconds
          * @return true if sleep completed successfully, false otherwise
          */
-        [[nodiscard]] bool sleepMs( uint32_t sleepMs) noexcept override;
+        [[nodiscard]] bool sleepMs( uint32_t sleepMs) noexcept;
 
         /**
          * @brief Read received data (polling mode)
@@ -289,5 +290,6 @@ namespace lorawan
         [[nodiscard]] bool processRecvFrames( const uint8_t * buf, uint16_t len ) noexcept;
         [[nodiscard]] bool readAckWithYield( uint16_t * outLen ) noexcept;
     };
+
 }
 #endif /* SRC_LIB_LORAWAN_LWNODE_HPP */
