@@ -22,7 +22,9 @@ namespace lorawan
     {
 
         constexpr char kTag[] { "LoRaWANDownlinkTask" };
-        constexpr uint8_t kDownlinkMaxPayload { 16U };
+        constexpr uint8_t  kDownlinkMaxPayload { 16U  };
+        constexpr uint8_t  kMaxAckRetries      { 3U   };
+        constexpr uint32_t kAckRetryDelayMs    { 200U };
 
         struct RxMessage
         {
@@ -58,18 +60,59 @@ namespace lorawan
         {
             std::array< uint8_t, payload::acknack::kSize > buf {};
             payload::acknack::encode( { ResponseCode::Ack, cmd, ReasonCode::Ok }, buf );
-            static_cast< void >( manager.send( buf ) );
-            LOGI( kTag, "ACK cmd=0x%02X", static_cast< unsigned >( cmd ) );
+
+            bool sent { false };
+ 
+            for( uint8_t attempt { 0U };
+                 ( attempt < kMaxAckRetries ) && !sent;
+                 ++attempt )
+            {
+                sent = manager.send( buf );
+                if( !sent && ( attempt < ( kMaxAckRetries - 1U ) ) )
+                {
+                    vTaskDelay( pdMS_TO_TICKS( kAckRetryDelayMs ) );
+                }
+            }
+
+            if( sent )
+            {
+                LOGI( kTag, "ACK sent. cmd=0x%02X", static_cast< unsigned >( cmd ) );
+            }
+            else
+            {
+                LOGE( kTag, "ACK dropped cmd=0x%02X", static_cast< unsigned >( cmd ) );
+            }
         }
 
         void sendNack( Manager & manager, DownlinkCmd cmd, ReasonCode reason ) noexcept
         {
             std::array< uint8_t, payload::acknack::kSize > buf {};
             payload::acknack::encode( { ResponseCode::Nack, cmd, reason }, buf );
-            static_cast< void >( manager.send( buf ) );
-            LOGW( kTag, "NACK cmd=0x%02X reason=0x%02X",
-                  static_cast< unsigned >( cmd ),
-                  static_cast< unsigned >( reason ) );
+
+            bool sent { false };
+            for( uint8_t attempt { 0U };
+                 ( attempt < kMaxAckRetries ) && !sent;
+                 ++attempt )
+            {
+                sent = manager.send( buf );
+                if( !sent && ( attempt < ( kMaxAckRetries - 1U ) ) )
+                {
+                    vTaskDelay( pdMS_TO_TICKS( kAckRetryDelayMs ) );
+                }
+            }
+
+            if( sent )
+            {
+                LOGI( kTag, "NACK cmd=0x%02X reason=0x%02X",
+                      static_cast< unsigned >( cmd ),
+                      static_cast< unsigned >( reason ) );
+            }
+            else
+            {
+                LOGE( kTag, "NACK dropped cmd=0x%02X reason=0x%02X",
+                      static_cast< unsigned >( cmd ),
+                      static_cast< unsigned >( reason ) );
+            }
         }
 
         static void postToFsm( QueueHandle_t queue, const DownlinkEvent & ev ) noexcept
@@ -268,10 +311,10 @@ namespace lorawan
             }
         }
 
-        void decodeAndDispatch( Context & ctx, const RxMessage & msg ) noexcept
+        void decodeAndDispatch( Context & ctx,
+                                const RxMessage & msg ) noexcept
         {
-            const std::span< const uint8_t > payload { msg.payload.data(),
-                                                       msg.payload.data() + msg.len };
+            const std::span< const uint8_t > payload { std::span { msg.payload }.first( msg.len ) };
 
             LOGI( kTag, "Downlink len=%u rssi=%d snr=%d",
                   static_cast< unsigned >( msg.len ),
@@ -289,42 +332,43 @@ namespace lorawan
                         ? ReasonCode::PayloadTooShort
                         : ReasonCode::InvalidVersion };
                 sendNack( ctx.manager, DownlinkCmd::ResumeAuto, reason );
-                return;
             }
-
-            const DownlinkCmd cmd { static_cast< DownlinkCmd >( payload[ 1U ] ) };
-
-            DownlinkPayload pl {};
-            pl.version  = payload[ 0U ];
-            pl.cmd      = cmd;
-            pl.paramLen = static_cast< uint8_t >(
-                ( payload.size() > kDownlinkMinLen )
-                    ? std::min( static_cast< uint8_t >( payload.size() - kDownlinkMinLen ),
-                                kDownlinkMaxParams )
-                    : 0U );
-
-            for( uint8_t i { 0U }; i < pl.paramLen; ++i )
+            else
             {
-                pl.params[ i ] = payload[ kDownlinkMinLen + i ];
-            }
+                const DownlinkCmd cmd { static_cast< DownlinkCmd >( payload[ 1U ] ) };
 
-            switch( cmd )
-            {
-                case DownlinkCmd::SetLevels:            handleSetLevels( ctx, pl );            break;
-                case DownlinkCmd::SetMotionTimeout:     handleSetMotionTimeout( ctx, pl );     break;
-                case DownlinkCmd::OverrideOn:           handleOverrideOn( ctx, pl );           break;
-                case DownlinkCmd::OverrideOff:          handleOverrideOff( ctx, pl );          break;
-                case DownlinkCmd::ResumeAuto:           handleResumeAuto( ctx, pl );           break;
-                case DownlinkCmd::RequestUplink:        handleRequestUplink( ctx, pl );        break;
-                case DownlinkCmd::Reboot:               handleReboot( ctx, pl );               break;
-                case DownlinkCmd::SetMotionSensitivity: handleSetMotionSensitivity( ctx, pl ); break;
-                case DownlinkCmd::SetHeartbeatInterval: handleSetHeartbeatInterval( ctx, pl ); break;
-                case DownlinkCmd::SetTempDim:           handleSetTempDim( ctx, pl );           break;
-                default:
-                    LOGW( kTag, "Unknown cmd 0x%02X",
-                          static_cast< unsigned >( payload[ 1U ] ) );
-                    sendNack( ctx.manager, cmd, ReasonCode::InvalidCmd );
-                    break;
+                DownlinkPayload pl {};
+                pl.version  = payload[ 0U ];
+                pl.cmd      = cmd;
+                pl.paramLen = static_cast< uint8_t >(
+                    ( payload.size() > kDownlinkMinLen )
+                        ? std::min( static_cast< uint8_t >( payload.size() - kDownlinkMinLen ),
+                                    kDownlinkMaxParams )
+                        : 0U );
+
+                for( uint8_t i { 0U }; i < pl.paramLen; ++i )
+                {
+                    pl.params[ i ] = payload[ kDownlinkMinLen + i ];
+                }
+
+                switch( cmd )
+                {
+                    case DownlinkCmd::SetLevels:            handleSetLevels( ctx, pl );            break;
+                    case DownlinkCmd::SetMotionTimeout:     handleSetMotionTimeout( ctx, pl );     break;
+                    case DownlinkCmd::OverrideOn:           handleOverrideOn( ctx, pl );           break;
+                    case DownlinkCmd::OverrideOff:          handleOverrideOff( ctx, pl );          break;
+                    case DownlinkCmd::ResumeAuto:           handleResumeAuto( ctx, pl );           break;
+                    case DownlinkCmd::RequestUplink:        handleRequestUplink( ctx, pl );        break;
+                    case DownlinkCmd::Reboot:               handleReboot( ctx, pl );               break;
+                    case DownlinkCmd::SetMotionSensitivity: handleSetMotionSensitivity( ctx, pl ); break;
+                    case DownlinkCmd::SetHeartbeatInterval: handleSetHeartbeatInterval( ctx, pl ); break;
+                    case DownlinkCmd::SetTempDim:           handleSetTempDim( ctx, pl );           break;
+                    default:
+                        LOGW( kTag, "Unknown cmd 0x%02X",
+                              static_cast< unsigned >( payload[ 1U ] ) );
+                        sendNack( ctx.manager, cmd, ReasonCode::InvalidCmd );
+                        break;
+                }
             }
         }
 
@@ -333,9 +377,7 @@ namespace lorawan
     void downlinkTask( void * pvParameters )
     {
         configASSERT( pvParameters != nullptr );
-
         DownlinkTaskParams & params { *static_cast< DownlinkTaskParams * >( pvParameters ) };
-
         configASSERT( params.fsmCmdQueue != nullptr );
 
         sRxQueue = xQueueCreateStatic( 4U,
@@ -344,16 +386,10 @@ namespace lorawan
                                        &sRxQueueBuffer );
         configASSERT( sRxQueue != nullptr );
 
-        config::SystemConfig config {};
-        static_cast< void >( params.configStore.load( config ) );
-
-        Context ctx
-        {
-            params.manager,
-            params.configStore,
-            params.fsmCmdQueue,
-            config
-        };
+        Context ctx { params.manager,
+                      params.configStore,
+                      params.fsmCmdQueue,
+                      params.config };
 
         /* Wait for join before accepting downlinks — no point to receive
          * commands since we cannot ACK/NACK until the network is ready.    */
