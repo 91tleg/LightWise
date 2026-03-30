@@ -4,7 +4,6 @@
 #include "utils/log/log.h"
 #include "utils/time/delay.h"
 #include "utils/security/secure_zero.hpp"
-#include "payloads/v1.hpp"
 
 namespace lorawan
 {
@@ -233,13 +232,6 @@ namespace lorawan
             }
         }
         return result;
-    }
-
-    bool Manager::sendUplink( const UplinkData & data ) noexcept
-    {
-        std::array< uint8_t, payload::v1::kSize > buf {};
-        payload::v1::encode( data, buf );
-        return send( buf );
     }
 
 } /* namespace lorawan */
