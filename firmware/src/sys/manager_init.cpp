@@ -32,6 +32,8 @@ namespace mgr
         constinit filter::EMA< uint8_t > sTempFilter   { 0.1f };
         constinit filter::EMA< uint8_t > sHumFilter    { 0.1f };
 
+        constinit config::SystemConfig sSystemConfig {};
+
         ambient::Manager sAmbientManager { device::xAlsPt19Primary,
                                            device::xAlsPt19Secondary,
                                            sAmbientFilterA,
@@ -56,19 +58,18 @@ namespace mgr
 
     void init()
     {
-        config::SystemConfig config {};
-        static_cast< void >( sConfigStore.load( config ) );
+        static_cast< void >( sConfigStore.load( sSystemConfig ) );
 
         fsm::Config fsmConfig {};
-        fsmConfig.maxLevel = config.maxLevel;
-        fsmConfig.dimLevel = config.dimLevel;
+        fsmConfig.maxLevel = sSystemConfig.maxLevel;
+        fsmConfig.dimLevel = sSystemConfig.dimLevel;
         sFsmManager.setConfig( fsmConfig );
 
         LOGI( kTag, "Config: maxLevel=%u dimLevel=%u motionTimeout=%us heartbeat=%umin",
-              static_cast< unsigned >( config.maxLevel       ),
-              static_cast< unsigned >( config.dimLevel       ),
-              static_cast< unsigned >( config.motionTimeoutS ),
-              static_cast< unsigned >( config.heartbeatMin   ) );
+              static_cast< unsigned >( sSystemConfig.maxLevel       ),
+              static_cast< unsigned >( sSystemConfig.dimLevel       ),
+              static_cast< unsigned >( sSystemConfig.motionTimeoutS ),
+              static_cast< unsigned >( sSystemConfig.heartbeatMin   ) );
 
         lorawan::Keys keys {};
         if( lorawan::loadKeysFromNvs( keys ) )
@@ -112,6 +113,11 @@ namespace mgr
     config::ConfigStore & getConfigStore() noexcept
     {
         return sConfigStore;
+    }
+
+    config::SystemConfig & getSystemConfig() noexcept
+    {
+        return sSystemConfig;
     }
 
 } /* namespace mgr */

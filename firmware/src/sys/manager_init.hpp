@@ -33,6 +33,7 @@ namespace fsm
 
 namespace config
 {
+    struct SystemConfig;
     class ConfigStore;
 }
 
@@ -41,13 +42,14 @@ namespace mgr
 
     void init();
 
-    [[nodiscard]] ambient::Manager    & getAmbientManager() noexcept;
-    [[nodiscard]] th::Manager         & getThManager()      noexcept;
-    [[nodiscard]] mmwave::Manager     & getMmwaveManager()  noexcept;
-    [[nodiscard]] light::Manager      & getLightManager()   noexcept;
-    [[nodiscard]] lorawan::Manager    & getLorawanManager() noexcept;
-    [[nodiscard]] fsm::Manager        & getFsmManager()     noexcept;
-    [[nodiscard]] config::ConfigStore & getConfigStore()    noexcept;
+    [[nodiscard]] ambient::Manager     & getAmbientManager() noexcept;
+    [[nodiscard]] th::Manager          & getThManager()      noexcept;
+    [[nodiscard]] mmwave::Manager      & getMmwaveManager()  noexcept;
+    [[nodiscard]] light::Manager       & getLightManager()   noexcept;
+    [[nodiscard]] lorawan::Manager     & getLorawanManager() noexcept;
+    [[nodiscard]] fsm::Manager         & getFsmManager()     noexcept;
+    [[nodiscard]] config::ConfigStore  & getConfigStore()    noexcept;
+    [[nodiscard]] config::SystemConfig & getSystemConfig()   noexcept;
 
 } /* namespace mgr */
 
