@@ -67,8 +67,6 @@ namespace lorawan
         [[nodiscard]] virtual bool setRegion( Region region ) noexcept = 0;
         [[nodiscard]] virtual bool setAppEui( const char * appEui ) noexcept = 0;
         [[nodiscard]] virtual bool setAppKey( const char * appKey ) noexcept = 0;
-        [[nodiscard]] virtual bool setNwkSkey( const char * nwkSkey ) noexcept = 0;
-        [[nodiscard]] virtual bool setAppSkey( const char * appSkey ) noexcept = 0;
         [[nodiscard]] virtual bool setClass( DeviceClass classType ) noexcept = 0;
         [[nodiscard]] virtual bool setDatarate( uint8_t dataRate ) noexcept = 0;
         [[nodiscard]] virtual bool setEirp( uint8_t eirp ) noexcept = 0;
@@ -76,15 +74,14 @@ namespace lorawan
         [[nodiscard]] virtual bool enableAdr( bool adr ) noexcept = 0;
         [[nodiscard]] virtual bool setPacketType( PacketType type ) noexcept = 0;
         [[nodiscard]] virtual bool sendPacket( const uint8_t * data, uint8_t len ) noexcept = 0;
-        [[nodiscard]] virtual bool sleepMs( uint32_t ms ) noexcept = 0;
         [[nodiscard]] virtual bool setRxCb( RxCallback callback ) noexcept = 0;
 
     protected:
-        LorawanSensor()                                   = default;
-        LorawanSensor( const LorawanSensor & )            = default;
-        LorawanSensor &operator=( const LorawanSensor & ) = default;
-        LorawanSensor( LorawanSensor && )                 = default;
-        LorawanSensor &operator=( LorawanSensor && )      = default;
+        LorawanSensor()                                    = default;
+        LorawanSensor( const LorawanSensor & )             = default;
+        LorawanSensor & operator=( const LorawanSensor & ) = default;
+        LorawanSensor( LorawanSensor && )                  = default;
+        LorawanSensor & operator=( LorawanSensor && )      = default;
     };
 
 } /* namespace lorawan */
