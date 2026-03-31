@@ -40,7 +40,7 @@ Subscribes the connection to real-time telemetry for a specific streetlight.
 ```json
 {
   "action": "subscribe",
-  "streetlight_id": "LW-00042"
+  "streetlight_id": "LW-00100"
 }
 ```
 
@@ -63,7 +63,7 @@ Sent by the server to all subscribed connections on each uplink from a streetlig
 ```json
 {
   "tenant_id": "tenant-001",
-  "streetlight_id": "LW-00042",
+  "streetlight_id": "LW-00100",
   "timestamp": "2026-02-27T03:41:12+00:00",
   "health": "DEGRADED",
   "data": {
@@ -86,3 +86,4 @@ Sent by the server to all subscribed connections on each uplink from a streetlig
 ```
 
 **Health values:** `OK`, `DEGRADED`, `CRITICAL`
+

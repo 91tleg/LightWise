@@ -75,7 +75,8 @@ body.dark {
 .lwPage.lwPageLocked {
   height: calc(100vh - var(--topH));
   padding: var(--pagePad);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   box-sizing: border-box;
 }
 

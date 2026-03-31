@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 
 /**
  * PoleManager (presentational)
- * Poles = array of streetlight_id strings (ex: ["LW-00042"])
+ * Poles = array of streetlight_id strings (ex: ["LW-00100"])
  *
  * Props:
  *  - poles: string[]
@@ -21,7 +21,7 @@ export default function PoleManager({ poles = [], onAdd, onRemove, onClearAll })
     setError("");
     const id = streetlightId.trim();
     if (!id) {
-      setError("Streetlight ID is required (example: LW-00042).");
+      setError("Streetlight ID is required (example: LW-00100).");
       return;
     }
     if (typeof onAdd === "function") onAdd(id);
@@ -44,7 +44,7 @@ export default function PoleManager({ poles = [], onAdd, onRemove, onClearAll })
           <input
             value={streetlightId}
             onChange={(e) => setStreetlightId(e.target.value)}
-            placeholder="LW-00042"
+            placeholder="LW-00100"
             style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #d1d5db" }}
           />
         </div>

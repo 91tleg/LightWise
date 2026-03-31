@@ -25,17 +25,17 @@ function makeStreetlight(overrides = {}) {
 export function mockListStreetlights(tenantId) {
   return [
     makeStreetlight({
-      streetlight_id:  "LW-00042",
-      tenant_id:       tenantId,
-      name:            "main",
-      lat:             47.6101,
-      lng:             -122.2015,
-      motion_detected: true,
-    }),
-    makeStreetlight({
       streetlight_id: "LW-00043",
       tenant_id:      tenantId,
-      name:           "secondary",
+      name:           "main corridor",
+      lat:            47.6101,
+      lng:            -122.2015,
+      motion_detected:true,
+    }),
+    makeStreetlight({
+      streetlight_id: "LW-00044",
+      tenant_id:      tenantId,
+      name:           "lakefront path",
       lat:            47.6112,
       lng:            -122.2025,
     }),

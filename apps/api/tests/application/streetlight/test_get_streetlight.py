@@ -8,7 +8,7 @@ from application.streetlight.get_streetlight import GetStreetlight
 
 
 def make_state(
-    streetlight_id: str = "LW-00042",
+    streetlight_id: str = "LW-00100",
     tenant_id: str = "tenant-001",
     health: HealthStatus = HealthStatus.OK,
     last_seen: Optional[str] = "2026-02-27T03:41:12+00:00",
@@ -34,7 +34,7 @@ def make_state(
 
 
 def make_metadata(
-    streetlight_id: str = "LW-00042",
+    streetlight_id: str = "LW-00100",
     lat: float = 47.6101,
     lng: float = -122.2015,
     name: str = "Main St 5th Ave",
@@ -75,7 +75,7 @@ class TestGetStreetlight:
         repo.get.return_value = None
 
         result = service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
         assert result is None
@@ -91,11 +91,11 @@ class TestGetStreetlight:
         metadata_repo.get.return_value = make_metadata()
 
         result = service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
         assert result is not None
-        assert result.streetlight_id == "LW-00042"
+        assert result.streetlight_id == "LW-00100"
         assert result.tenant_id == "tenant-001"
         assert result.lat == 47.6101
         assert result.lng == -122.2015
@@ -111,7 +111,7 @@ class TestGetStreetlight:
         metadata_repo.get.return_value = None
 
         result = service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
         assert result is not None
@@ -131,7 +131,7 @@ class TestGetStreetlight:
         metadata_repo.get.return_value = None
 
         result = service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
         assert result.health == HealthStatus.DEGRADED
@@ -149,7 +149,7 @@ class TestGetStreetlight:
         metadata_repo.get.return_value = None
 
         result = service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
         assert result.ambient_primary_ok is True
@@ -169,7 +169,7 @@ class TestGetStreetlight:
         metadata_repo.get.return_value = None
 
         result = service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
         assert result.last_seen == "2026-02-27T03:41:12+00:00"
@@ -186,7 +186,7 @@ class TestGetStreetlight:
         metadata_repo.get.return_value = None
 
         result = service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
         assert result.motion_detected is True
@@ -200,10 +200,10 @@ class TestGetStreetlight:
         repo.get.return_value = None
 
         service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
-        repo.get.assert_called_once_with("tenant-001", "LW-00042")
+        repo.get.assert_called_once_with("tenant-001", "LW-00100")
 
     def test_calls_metadata_repo_with_streetlight_id(
         self,
@@ -215,10 +215,10 @@ class TestGetStreetlight:
         metadata_repo.get.return_value = None
 
         service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
-        metadata_repo.get.assert_called_once_with("LW-00042")
+        metadata_repo.get.assert_called_once_with("LW-00100")
 
     def test_metadata_lat_lng_overrides_none(
         self,
@@ -232,7 +232,7 @@ class TestGetStreetlight:
         )
 
         result = service.execute(
-            tenant_id="tenant-001", streetlight_id="LW-00042"
+            tenant_id="tenant-001", streetlight_id="LW-00100"
         )
 
         assert result.lat == 37.7749
@@ -250,8 +250,9 @@ class TestGetStreetlight:
         metadata_repo.get.return_value = None
 
         result = service.execute(
-            tenant_id="tenant-002", streetlight_id="LW-00042"
+            tenant_id="tenant-002", streetlight_id="LW-00100"
         )
 
         assert result.tenant_id == "tenant-002"
-        repo.get.assert_called_once_with("tenant-002", "LW-00042")
+        repo.get.assert_called_once_with("tenant-002", "LW-00100")
+

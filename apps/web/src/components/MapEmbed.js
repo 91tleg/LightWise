@@ -44,7 +44,7 @@ function getMarkerPosition(pole, bounds) {
 
   return {
     left: `${Math.min(94, Math.max(6, left)).toFixed(2)}%`,
-    top: `${Math.min(92, Math.max(10, top)).toFixed(2)}%`,
+      top: `${Math.min(92, Math.max(10, top)).toFixed(2)}%`,
   };
 }
 

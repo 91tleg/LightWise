@@ -1,4 +1,4 @@
-import { loadPoleMetaMap } from "./poleStorage";
+import { loadPoleMetaMap, pruneStoredPoleState } from "./poleStorage";
 import { normalizeStreetlightFromApi } from "../utils/poleHelpers";
 import { fetchIdTokenSilently, emitAuthRequired, redirectToSignIn } from "./auth";
 import { LIGHTWISE_ENV } from "../config/env";
@@ -128,9 +128,15 @@ export async function getOperatorProfile(token) {
 
 export async function listStreetlights() {
   const { USE_MOCK, TENANT_ID } = LIGHTWISE_ENV;
-  if (USE_MOCK) return mergeLocalMeta(mockListStreetlights(TENANT_ID));
+  if (USE_MOCK) {
+    const rows = mockListStreetlights(TENANT_ID);
+    pruneStoredPoleState(rows.map((row) => row?.streetlight_id));
+    return mergeLocalMeta(rows);
+  }
   const data = await apiFetch("/streetlights", { method: "GET" });
-  return mergeLocalMeta(normalizeStreetlightListResponse(data));
+  const rows = normalizeStreetlightListResponse(data);
+  pruneStoredPoleState(rows.map((row) => row?.streetlight_id));
+  return mergeLocalMeta(rows);
 }
 
 export async function getStreetlight(id) {

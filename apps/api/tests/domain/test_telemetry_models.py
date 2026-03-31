@@ -7,7 +7,7 @@ from domain.telemetry.models import TelemetryPayload
 def payload():
     return TelemetryPayload(
         tenant_id="tenant-001",
-        streetlight_id="LW-00042",
+        streetlight_id="LW-00100",
         lux=134.2,
         temperature_c=22,
         humidity=48,
@@ -20,7 +20,7 @@ def payload():
 def test_to_dict_structure(payload):
     result = payload.to_dict()
     assert result["tenant_id"] == "tenant-001"
-    assert result["streetlight_id"] == "LW-00042"
+    assert result["streetlight_id"] == "LW-00100"
     assert "data" in result
     assert "diagnostics" in result
 
@@ -42,7 +42,7 @@ def test_to_dict_timestamp_iso(payload):
 def test_to_dict_timestamp_none():
     payload = TelemetryPayload(
         tenant_id="tenant-001",
-        streetlight_id="LW-00042",
+        streetlight_id="LW-00100",
         lux=0.0,
         temperature_c=0,
         humidity=0,
@@ -64,7 +64,7 @@ def test_to_dict_default_flags(payload):
 def test_to_dict_degraded_flags():
     payload = TelemetryPayload(
         tenant_id="tenant-001",
-        streetlight_id="LW-00042",
+        streetlight_id="LW-00100",
         lux=0.0,
         temperature_c=0,
         humidity=0,
@@ -77,3 +77,4 @@ def test_to_dict_degraded_flags():
     diagnostics = payload.to_dict()["diagnostics"]
     assert diagnostics["ambient_secondary_ok"] is False
     assert diagnostics["system_degraded"] is True
+

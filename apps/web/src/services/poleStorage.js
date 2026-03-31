@@ -1,6 +1,10 @@
 const POLES_KEY = "lightwise_poles";
 const META_KEY = "lightwise_pole_meta_map";
 const TELEMETRY_KEY = "lightwise_telemetry_cache";
+const ACTIVE_POLE_KEY = "lightwise_active_pole_id";
+const OVERVIEW_SNAPSHOTS_KEY = "lightwise_overview_snapshots_cache_v6";
+const OVERVIEW_SELECTED_KEY = "lightwise_overview_selected_v6";
+export const POLE_META_UPDATED_EVENT = "lightwise:pole-meta-updated";
 
 /* ----------------------------- */
 /* basic safe localStorage utils */
@@ -20,6 +24,12 @@ function safeWrite(key, value) {
   } catch {
     // ignore storage errors
   }
+}
+
+function emitPoleMetaUpdated() {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(new CustomEvent(POLE_META_UPDATED_EVENT));
 }
 
 /* ----------------------------- */
@@ -48,6 +58,7 @@ export function loadPoleMetaMap() {
 
 export function savePoleMetaMap(metaMap) {
   safeWrite(META_KEY, metaMap && typeof metaMap === "object" ? metaMap : {});
+  emitPoleMetaUpdated();
 }
 
 export function getPoleMeta(streetlightId) {
@@ -99,6 +110,21 @@ export function clearPoleMeta(streetlightId) {
 
 export function clearAllPoleMeta() {
   savePoleMetaMap({});
+}
+
+export function subscribeToPoleMetaChanges(callback) {
+  if (typeof window === "undefined" || typeof callback !== "function") {
+    return () => {};
+  }
+
+  const handleChange = () => callback();
+  window.addEventListener(POLE_META_UPDATED_EVENT, handleChange);
+  window.addEventListener("storage", handleChange);
+
+  return () => {
+    window.removeEventListener(POLE_META_UPDATED_EVENT, handleChange);
+    window.removeEventListener("storage", handleChange);
+  };
 }
 
 export function mergePoleWithLocalMeta(pole = {}) {
@@ -201,6 +227,107 @@ export function savePoleTelemetry(streetlightId, telemetry = {}) {
   writeTelemetryCache(cache);
 }
 
+export function deletePoleCompletely(streetlightId) {
+  const id = String(streetlightId || "").trim();
+  if (!id) return;
+
+  const metaMap = loadPoleMetaMap();
+  if (metaMap[id]) {
+    delete metaMap[id];
+    savePoleMetaMap(metaMap);
+  }
+
+  const poles = loadPoles().filter((poleId) => String(poleId || "").trim() !== id);
+  savePoles(poles);
+
+  const telemetry = readTelemetryCache();
+  if (telemetry[id]) {
+    delete telemetry[id];
+    writeTelemetryCache(telemetry);
+  }
+
+  try {
+    if (localStorage.getItem(ACTIVE_POLE_KEY) === id) {
+      localStorage.removeItem(ACTIVE_POLE_KEY);
+    }
+
+    const overviewSelected = localStorage.getItem(OVERVIEW_SELECTED_KEY);
+    if (overviewSelected === JSON.stringify(id) || overviewSelected === id) {
+      localStorage.removeItem(OVERVIEW_SELECTED_KEY);
+    }
+
+    const overviewSnapshots = JSON.parse(localStorage.getItem(OVERVIEW_SNAPSHOTS_KEY) || "{}");
+    if (overviewSnapshots && typeof overviewSnapshots === "object" && overviewSnapshots[id]) {
+      delete overviewSnapshots[id];
+      localStorage.setItem(OVERVIEW_SNAPSHOTS_KEY, JSON.stringify(overviewSnapshots));
+    }
+  } catch {
+    // ignore storage failures
+  }
+
+  emitPoleMetaUpdated();
+}
+
+export function pruneStoredPoleState(validStreetlightIds = []) {
+  const validIds = new Set(
+    (Array.isArray(validStreetlightIds) ? validStreetlightIds : [])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean)
+  );
+
+  const pruneUnknownId = (id) => {
+    const normalized = String(id || "").trim();
+    return normalized && !validIds.has(normalized);
+  };
+
+  const metaMap = loadPoleMetaMap();
+  const nextMetaMap = Object.fromEntries(
+    Object.entries(metaMap).filter(([id]) => !pruneUnknownId(id))
+  );
+  if (Object.keys(nextMetaMap).length !== Object.keys(metaMap).length) {
+    savePoleMetaMap(nextMetaMap);
+  }
+
+  const poles = loadPoles();
+  const nextPoles = poles.filter((id) => !pruneUnknownId(id));
+  if (nextPoles.length !== poles.length) {
+    savePoles(nextPoles);
+  }
+
+  const telemetry = readTelemetryCache();
+  const nextTelemetry = Object.fromEntries(
+    Object.entries(telemetry).filter(([id]) => !pruneUnknownId(id))
+  );
+  if (Object.keys(nextTelemetry).length !== Object.keys(telemetry).length) {
+    writeTelemetryCache(nextTelemetry);
+  }
+
+  try {
+    if (pruneUnknownId(localStorage.getItem(ACTIVE_POLE_KEY))) {
+      localStorage.removeItem(ACTIVE_POLE_KEY);
+    }
+
+    const overviewSelected = JSON.parse(localStorage.getItem(OVERVIEW_SELECTED_KEY) || "null");
+    if (pruneUnknownId(overviewSelected)) {
+      localStorage.removeItem(OVERVIEW_SELECTED_KEY);
+    }
+
+    const overviewSnapshots = JSON.parse(localStorage.getItem(OVERVIEW_SNAPSHOTS_KEY) || "{}");
+    if (overviewSnapshots && typeof overviewSnapshots === "object") {
+      const nextSnapshots = Object.fromEntries(
+        Object.entries(overviewSnapshots).filter(([id]) => !pruneUnknownId(id))
+      );
+      if (Object.keys(nextSnapshots).length !== Object.keys(overviewSnapshots).length) {
+        localStorage.setItem(OVERVIEW_SNAPSHOTS_KEY, JSON.stringify(nextSnapshots));
+      }
+    }
+  } catch {
+    // ignore storage failures
+  }
+
+  emitPoleMetaUpdated();
+}
+
 export function mergeTelemetryWithBackend(streetlights = []) {
   const telemetry = readTelemetryCache();
 
@@ -265,6 +392,7 @@ const poleStorage = {
   removePoleMeta,
   clearPoleMeta,
   clearAllPoleMeta,
+  subscribeToPoleMetaChanges,
   mergePoleWithLocalMeta,
   savePoleCoords,
   clearPoleCoords,
@@ -275,6 +403,8 @@ const poleStorage = {
   writeTelemetryCache,
   savePoleTelemetry,
   mergeTelemetryWithBackend,
+  deletePoleCompletely,
+  pruneStoredPoleState,
 };
 
 export default poleStorage;
