@@ -48,7 +48,7 @@ foreach(TEST_FILE ${TEST_FILES})
     set(POSSIBLE_SRC
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_DIR}/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/${MODULE_DIR}/${MODULE_NAME}.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/lorawan/payloads/uplink_payload_v1.cpp" 
+        "${CMAKE_CURRENT_SOURCE_DIR}/../src/modules/lorawan/payloads/v1.cpp" 
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/ambient/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/th/${MODULE_NAME}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../src/lib/light/${MODULE_NAME}.cpp"

@@ -8,6 +8,7 @@
 
 namespace config
 {
+    struct SystemConfig;
     class ConfigStore;
 }
 
@@ -20,6 +21,7 @@ namespace lorawan
     {
         Manager & manager;                 /**< Fully constructed, statically allocated Manager. */
         config::ConfigStore & configStore; /**< Persistence. */
+        config::SystemConfig & config;     /**< Live config reference */
         QueueHandle_t fsmCmdQueue;         /**< Queue sending DownlinkEvent to FSM task. */
     };
 

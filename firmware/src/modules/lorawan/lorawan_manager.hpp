@@ -38,8 +38,6 @@
 namespace lorawan
 {
 
-    class UplinkPayload;
-    class UplinkData;
     class Keys;
 
     class Manager
@@ -109,17 +107,6 @@ namespace lorawan
          * @param  cb  Callback function from LorawanSensor::RxCallback.
          */
         void setRxCb( LorawanSensor::RxCallback cb ) noexcept;
-
-        /**
-         * @brief  Encode and transmit a uplink telemetry packet.
-         *
-         * No-ops and returns false if not READY.
-         * Thread-safe — acquires the device mutex.
-         *
-         * @param  data  Data to encode and send.
-         * @return true  if the packet was accepted by the radio.
-         */
-        [[nodiscard]] bool sendUplink( const UplinkData & data ) noexcept;
 
         /**
          * @brief  Transmit a raw packet.

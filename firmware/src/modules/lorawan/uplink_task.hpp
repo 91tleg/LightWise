@@ -4,6 +4,11 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
+namespace config
+{
+    struct SystemConfig;
+}
+
 namespace lorawan
 {
 
@@ -18,6 +23,7 @@ namespace lorawan
     {
         Manager & manager;     /**< Fully constructed, statically allocated Manager. */
         QueueHandle_t rxQueue; /**< Queue for receiving uplink data */
+        config::SystemConfig & config; /**< Read heartbeat min */
     };
 
     /**

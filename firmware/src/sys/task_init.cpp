@@ -79,14 +79,14 @@ namespace task
         uint8_t ucThQueueStorage[ kThQueueLength * sizeof( th::Data ) ];
         uint8_t ucMmwaveQueueStorage[ kMmwaveQueueLength * sizeof( mmwave::Data ) ];
         uint8_t ucLorawanQueueStorage[ kLorawanQueueLength * sizeof( lorawan::UplinkData ) ];
-        uint8_t ucFsmCmdQueueStorage  [ kFsmCmdQueueLength   * sizeof( lorawan::DownlinkEvent ) ];
+        uint8_t ucFsmCmdQueueStorage[ kFsmCmdQueueLength * sizeof( lorawan::DownlinkEvent ) ];
 
         /* Queue handles */
         QueueHandle_t xAmbientQueueHandle { nullptr };
         QueueHandle_t xThQueueHandle { nullptr };
         QueueHandle_t xMmwaveQueueHandle { nullptr };
         QueueHandle_t xLorawanQueueHandle { nullptr };
-        QueueHandle_t xFsmCmdQueueHandle   { nullptr };
+        QueueHandle_t xFsmCmdQueueHandle { nullptr };
 
         /* Task TCBs and stacks */
         StaticTask_t xAmbientTaskTcb;
@@ -230,7 +230,9 @@ namespace task
         configASSERT( xMmwaveTaskHandle != nullptr );
 
         /* LoRaWAN uplink task */
-        xLorawanUplinkTaskParams.emplace( mgr::getLorawanManager(), xLorawanQueueHandle );
+        xLorawanUplinkTaskParams.emplace( mgr::getLorawanManager(),
+                                          xLorawanQueueHandle,
+                                          mgr::getSystemConfig() );
 
         xLorawanUplinkTaskHandle = xTaskCreateStatic( lorawan::uplinkTask,
                                                       "LorawanUplinkTask",
@@ -244,6 +246,7 @@ namespace task
         /* LoRaWAN downlink task */
         xLorawanDownlinkTaskParams.emplace( mgr::getLorawanManager(),
                                             mgr::getConfigStore(),
+                                            mgr::getSystemConfig(),
                                             xFsmCmdQueueHandle );
 
         xLorawanDownlinkTaskHandle = xTaskCreateStatic( lorawan::downlinkTask,
