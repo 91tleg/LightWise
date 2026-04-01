@@ -1,4 +1,8 @@
-import { normalizeTelemetryRows } from "./analytics.helpers";
+import {
+  buildAnalyticsReport,
+  buildRawTelemetryCsv,
+  normalizeTelemetryRows,
+} from "./analytics.helpers";
 
 describe("normalizeTelemetryRows", () => {
   test("handles array payload directly", () => {
@@ -81,5 +85,140 @@ describe("normalizeTelemetryRows", () => {
   test("returns empty array for unsupported payload", () => {
     expect(normalizeTelemetryRows(null)).toEqual([]);
     expect(normalizeTelemetryRows({})).toEqual([]);
+  });
+});
+
+describe("buildAnalyticsReport", () => {
+  const streetlights = [
+    {
+      streetlight_id: "LW-10001",
+      name: "Northwest Plaza",
+      lat: 47.62,
+      lng: -122.33,
+      health: "OK",
+      last_seen: "2026-03-10T04:00:00",
+    },
+    {
+      streetlight_id: "LW-10002",
+      name: "South Pier",
+      lat: 47.6,
+      lng: -122.3,
+      health: "OK",
+      last_seen: "2026-03-10T01:00:00",
+    },
+  ];
+
+  const telemetry = {
+    "LW-10001": {
+      data: [
+        {
+          time: "2026-03-10T00:00:00",
+          lux: 14,
+          temp_c: 19,
+          humidity: 60,
+          motion: true,
+          light_level_pct: 80,
+          health: "OK",
+        },
+        {
+          time: "2026-03-10T01:00:00",
+          lux: 12,
+          temp_c: 19,
+          humidity: 60,
+          motion: false,
+          light_level_pct: 62,
+          health: "WARNING",
+        },
+        {
+          time: "2026-03-10T02:00:00",
+          lux: 10,
+          temp_c: 18,
+          humidity: 58,
+          motion: true,
+          light_level_pct: 48,
+          health: "OK",
+        },
+        {
+          time: "2026-03-10T03:00:00",
+          lux: 9,
+          temp_c: 18,
+          humidity: 58,
+          motion: true,
+          light_level_pct: 56,
+          health: "WARNING",
+        },
+        {
+          time: "2026-03-10T04:00:00",
+          lux: 8,
+          temp_c: 17,
+          humidity: 57,
+          motion: false,
+          light_level_pct: 44,
+          health: "OK",
+        },
+      ],
+    },
+    "LW-10002": {
+      data: [
+        {
+          time: "2026-03-10T00:00:00",
+          lux: 15,
+          temp_c: 18,
+          humidity: 55,
+          motion: false,
+          light_level_pct: 90,
+          health: "OK",
+        },
+        {
+          time: "2026-03-10T01:00:00",
+          lux: 13,
+          temp_c: 18,
+          humidity: 55,
+          motion: true,
+          light_level_pct: 84,
+          health: "OK",
+        },
+      ],
+    },
+  };
+
+  test("aggregates zone, fault, and motion analytics", () => {
+    const report = buildAnalyticsReport(streetlights, telemetry, {
+      from: "2026-03-10T00:00:00",
+      to: "2026-03-10T04:00:00",
+      interval: "1h",
+    });
+
+    expect(report.zones.map((zone) => zone.zone)).toEqual(
+      expect.arrayContaining(["North West", "South East"])
+    );
+    expect(report.headline.energySavedKwh).toBeGreaterThan(0);
+    expect(report.headline.faultsResolved).toBe(2);
+    expect(report.headline.activeFaults).toBe(0);
+    expect(report.faults.some((fault) => fault.recurring)).toBe(true);
+    expect(report.hourlyMotion.find((bucket) => bucket.hour === 0)?.activityPct).toBe(50);
+    expect(report.metricSeries.light_level[0]).toMatchObject({
+      timestamp: "2026-03-10T00:00:00",
+      value: 85,
+    });
+    expect(report.metricSeries.motion[0]).toMatchObject({
+      timestamp: "2026-03-10T00:00:00",
+      value: 50,
+    });
+  });
+
+  test("exports raw telemetry csv with analytics columns", () => {
+    const report = buildAnalyticsReport(streetlights, telemetry, {
+      from: "2026-03-10T00:00:00",
+      to: "2026-03-10T04:00:00",
+      interval: "1h",
+    });
+
+    const csv = buildRawTelemetryCsv(report);
+
+    expect(csv).toContain("timestamp,pole_id,pole_name,zone,health,motion");
+    expect(csv).toContain("LW-10001");
+    expect(csv).toContain("Northwest Plaza");
+    expect(csv).toContain("actual_kwh");
   });
 });

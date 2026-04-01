@@ -1,138 +1,730 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Layout from "../components/Layout";
 import Card from "../components/Card";
+import UiIcon from "../components/UiIcon";
 import { useLightWise } from "../hooks/useLightWise";
 import { getStreetlightTelemetry } from "../services/api";
+import { formatTableTimestamp } from "../utils/formatters";
 import {
-  formatDateTimeLocal,
-  formatTableTimestamp,
-  roundValue,
-  safeNum,
-} from "../utils/formatters";
-import { normalizeTelemetryRows } from "./analytics.helpers";
+  buildAnalyticsReport,
+  buildRawTelemetryCsv,
+  buildReportDateLabel,
+  buildZoneCsv,
+  formatHourLabel,
+  getPresetRange,
+  inferTelemetryInterval,
+} from "./analytics.helpers";
 import "../styles/lightwise.css";
 import "../styles/analytics.css";
 
-const ALLOWED_INTERVALS = [
-  "1m",
-  "5m",
-  "10m",
-  "15m",
-  "30m",
-  "1h",
-  "6h",
-  "12h",
-  "1d",
-  "7d",
-  "30d",
+const RANGE_STORAGE_KEY = "lightwise.analytics.range.v2";
+
+const RANGE_PRESETS = [
+  { id: "7d", label: "7 days" },
+  { id: "30d", label: "30 days" },
+  { id: "quarter", label: "Quarter" },
+  { id: "year", label: "Year" },
+  { id: "custom", label: "Custom" },
 ];
 
-function getPresetRange(preset) {
-  const now = new Date();
-  const from = new Date(now);
+const FAULT_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "active", label: "Active" },
+  { id: "resolved", label: "Resolved" },
+  { id: "recurring", label: "Recurring" },
+];
 
-  if (preset === "24h") from.setHours(now.getHours() - 24);
-  if (preset === "7d") from.setDate(now.getDate() - 7);
-  if (preset === "30d") from.setDate(now.getDate() - 30);
-  if (preset === "90d") from.setDate(now.getDate() - 90);
+const CHART_METRICS = {
+  energy: {
+    id: "energy",
+    label: "Energy",
+    title: "Energy Consumption",
+    description: "Actual network draw against the baseline lighting profile.",
+  },
+  light_level: {
+    id: "light_level",
+    label: "Brightness",
+    title: "Brightness Intensity",
+    description: "Average dimming output across reporting poles.",
+  },
+  lux: {
+    id: "lux",
+    label: "Lux",
+    title: "Lux",
+    description: "Average ambient light level reported by the network.",
+  },
+  temp_c: {
+    id: "temp_c",
+    label: "Temperature",
+    title: "Temperature",
+    description: "Average reported fixture temperature across the network.",
+  },
+  humidity: {
+    id: "humidity",
+    label: "Humidity",
+    title: "Humidity",
+    description: "Average reported humidity across reporting poles.",
+  },
+  motion: {
+    id: "motion",
+    label: "Motion",
+    title: "Motion Activity",
+    description: "Share of reporting poles detecting motion during each interval.",
+  },
+};
+
+const CHART_METRIC_ORDER = [
+  "energy",
+  "light_level",
+  "lux",
+  "temp_c",
+  "humidity",
+  "motion",
+];
+
+function readStoredRange() {
+  const fallback = getPresetRange("30d");
+
+  try {
+    const raw = window.localStorage.getItem(RANGE_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.from === "string" &&
+      typeof parsed.to === "string" &&
+      typeof parsed.preset === "string"
+    ) {
+      return parsed;
+    }
+  } catch {}
 
   return {
-    from: formatDateTimeLocal(from),
-    to: formatDateTimeLocal(now),
+    preset: "30d",
+    from: fallback.from,
+    to: fallback.to,
   };
 }
 
-function MiniStat({ label, value, sub }) {
+function persistRange(nextState) {
+  try {
+    window.localStorage.setItem(RANGE_STORAGE_KEY, JSON.stringify(nextState));
+  } catch {}
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat().format(Number(value || 0));
+}
+
+function formatEnergy(value) {
+  if (value === null || value === undefined) return "--";
+
+  return `${new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: Number(value) >= 100 ? 0 : 1,
+  }).format(Number(value))} kWh`;
+}
+
+function formatPercent(value) {
+  if (value === null || value === undefined) return "--";
+
+  return `${new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: Number(value) >= 100 ? 0 : 1,
+  }).format(Number(value))}%`;
+}
+
+function formatMetricValue(metricId, value, compact = false) {
+  if (value === null || value === undefined) return "--";
+
+  const numericValue = Number(value);
+  const digits = compact ? (numericValue >= 100 ? 0 : 1) : 1;
+  const number = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: digits,
+  }).format(numericValue);
+
+  if (metricId === "light_level" || metricId === "humidity" || metricId === "motion") {
+    return `${number}%`;
+  }
+
+  if (metricId === "temp_c") {
+    return `${number} C`;
+  }
+
+  if (metricId === "lux") {
+    return `${number} lx`;
+  }
+
+  return number;
+}
+
+function compareValues(left, right, direction = "desc") {
+  const factor = direction === "asc" ? 1 : -1;
+
+  if (typeof left === "number" && typeof right === "number") {
+    return (left - right) * factor;
+  }
+
+  return String(left || "").localeCompare(String(right || "")) * factor;
+}
+
+function formatChartLabel(timestamp, condensed = false) {
+  if (!timestamp) return "";
+
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) return String(timestamp);
+
+  return date.toLocaleString(
+    undefined,
+    condensed
+      ? { month: "short", day: "numeric" }
+      : { month: "short", day: "numeric", hour: "numeric" }
+  );
+}
+
+function clampPercent(value, min, max) {
+  return Math.min(max, Math.max(min, Number(value || 0))).toFixed(2);
+}
+
+function getMapBounds(points, center) {
+  const coords = [...points, center].filter(
+    (point) =>
+      Number.isFinite(Number(point?.lat)) &&
+      Number.isFinite(Number(point?.lng))
+  );
+
+  const minLat = Math.min(...coords.map((point) => Number(point.lat)));
+  const maxLat = Math.max(...coords.map((point) => Number(point.lat)));
+  const minLng = Math.min(...coords.map((point) => Number(point.lng)));
+  const maxLng = Math.max(...coords.map((point) => Number(point.lng)));
+
+  const latPad = Math.max((maxLat - minLat) * 0.2, 0.0035);
+  const lngPad = Math.max((maxLng - minLng) * 0.2, 0.0035);
+
+  return {
+    minLat: minLat - latPad,
+    maxLat: maxLat + latPad,
+    minLng: minLng - lngPad,
+    maxLng: maxLng + lngPad,
+  };
+}
+
+function getMapPosition(point, bounds) {
+  const lat = Number(point?.lat);
+  const lng = Number(point?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { left: "50%", top: "50%" };
+  }
+
+  const latSpan = Math.max(bounds.maxLat - bounds.minLat, 0.0001);
+  const lngSpan = Math.max(bounds.maxLng - bounds.minLng, 0.0001);
+
+  return {
+    left: `${clampPercent(((lng - bounds.minLng) / lngSpan) * 100, 7, 93)}%`,
+    top: `${clampPercent((1 - (lat - bounds.minLat) / latSpan) * 100, 10, 90)}%`,
+  };
+}
+
+function getHeatColor(activityPct) {
+  const value = Math.max(0, Math.min(100, Number(activityPct || 0)));
+  if (value < 25) return "#45a7dd";
+  if (value < 50) return "#3ac47d";
+  if (value < 75) return "#f0b43a";
+  return "#e25c38";
+}
+
+function getHeatLabel(activityPct) {
+  const value = Number(activityPct || 0);
+  if (value < 25) return "Low";
+  if (value < 50) return "Moderate";
+  if (value < 75) return "Elevated";
+  return "High";
+}
+
+function downloadTextFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildPrintableTable(headers, rows) {
+  return `
+    <table>
+      <thead>
+        <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            (row) =>
+              `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function openPrintableReport(title, subtitle, sections) {
+  const popup = window.open("", "_blank", "noopener,noreferrer,width=1200,height=900");
+  if (!popup) return;
+
+  popup.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(title)}</title>
+        <style>
+          body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #0f172a;
+            margin: 32px;
+          }
+          h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+          }
+          h2 {
+            margin: 28px 0 12px;
+            font-size: 18px;
+          }
+          p {
+            margin: 0 0 12px;
+            color: #475569;
+          }
+          .metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+          }
+          .metric {
+            border: 1px solid #d7e3ee;
+            border-radius: 14px;
+            padding: 14px;
+            background: #f8fbff;
+          }
+          .metric strong {
+            display: block;
+            margin-top: 6px;
+            font-size: 22px;
+            color: #0f172a;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+          }
+          th,
+          td {
+            border: 1px solid #dbe5ef;
+            padding: 8px 10px;
+            text-align: left;
+          }
+          th {
+            background: #eef6fb;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(title)}</h1>
+        <p>${escapeHtml(subtitle)}</p>
+        ${sections.join("")}
+      </body>
+    </html>
+  `);
+  popup.document.close();
+
+  window.setTimeout(() => {
+    popup.focus();
+    popup.print();
+  }, 300);
+}
+
+function buildFullReportSections(report, rangeLabel) {
+  const zoneRows = (report?.zones || []).map((zone) => [
+    zone.zone,
+    String(zone.poleCount),
+    formatEnergy(zone.energySavedKwh),
+    formatPercent(zone.uptimePct),
+    String(zone.faultsResolved),
+    String(zone.activeFaults),
+  ]);
+
+  const faultRows = (report?.faults || []).slice(0, 20).map((fault) => [
+    formatTableTimestamp(fault.timestamp, "--"),
+    fault.type,
+    fault.poleName || fault.poleId,
+    fault.zone,
+    fault.status,
+    fault.recurring ? "Recurring" : "Single",
+  ]);
+
+  const hourlyRows = (report?.hourlyMotion || []).map((bucket) => [
+    formatHourLabel(bucket.hour),
+    formatPercent(bucket.activityPct),
+    String(bucket.detections),
+    String(bucket.samples),
+  ]);
+
+  return [
+    `
+      <section>
+        <div class="metrics">
+          <div class="metric">
+            Energy Saved
+            <strong>${escapeHtml(formatEnergy(report?.headline?.energySavedKwh))}</strong>
+          </div>
+          <div class="metric">
+            Uptime
+            <strong>${escapeHtml(formatPercent(report?.headline?.uptimePct))}</strong>
+          </div>
+          <div class="metric">
+            Faults Resolved
+            <strong>${escapeHtml(formatNumber(report?.headline?.faultsResolved))}</strong>
+          </div>
+        </div>
+        <p style="margin-top: 14px;">Range: ${escapeHtml(rangeLabel)}</p>
+      </section>
+    `,
+    `
+      <section>
+        <h2>Zone Breakdown</h2>
+        ${buildPrintableTable(
+          ["Zone", "Poles", "Energy Saved", "Uptime", "Resolved", "Open"],
+          zoneRows
+        )}
+      </section>
+    `,
+    `
+      <section>
+        <h2>Fault History</h2>
+        ${buildPrintableTable(
+          ["Timestamp", "Fault", "Pole", "Zone", "Status", "Pattern"],
+          faultRows.length ? faultRows : [["No fault activity in this range", "", "", "", "", ""]]
+        )}
+      </section>
+    `,
+    `
+      <section>
+        <h2>Motion by Hour</h2>
+        ${buildPrintableTable(
+          ["Hour", "Activity", "Detections", "Samples"],
+          hourlyRows
+        )}
+      </section>
+    `,
+  ];
+}
+
+function buildEnergySummarySections(report, rangeLabel) {
+  const energyRows = (report?.energySeries || []).slice(-16).map((point) => [
+    formatTableTimestamp(point.timestamp, "--"),
+    formatEnergy(point.actualKwh),
+    formatEnergy(point.baselineKwh),
+    formatEnergy(point.savedKwh),
+  ]);
+
+  const zoneRows = (report?.zones || []).slice(0, 10).map((zone) => [
+    zone.zone,
+    formatEnergy(zone.actualEnergyKwh),
+    formatEnergy(zone.baselineEnergyKwh),
+    formatEnergy(zone.energySavedKwh),
+  ]);
+
+  return [
+    `
+      <section>
+        <div class="metrics">
+          <div class="metric">
+            Energy Saved
+            <strong>${escapeHtml(formatEnergy(report?.headline?.energySavedKwh))}</strong>
+          </div>
+          <div class="metric">
+            Estimated Uptime
+            <strong>${escapeHtml(formatPercent(report?.headline?.uptimePct))}</strong>
+          </div>
+          <div class="metric">
+            Active Faults
+            <strong>${escapeHtml(formatNumber(report?.headline?.activeFaults))}</strong>
+          </div>
+        </div>
+        <p style="margin-top: 14px;">Range: ${escapeHtml(rangeLabel)}</p>
+      </section>
+    `,
+    `
+      <section>
+        <h2>Energy Trend Samples</h2>
+        ${buildPrintableTable(
+          ["Timestamp", "Actual", "Baseline", "Saved"],
+          energyRows.length ? energyRows : [["No energy samples available", "", "", ""]]
+        )}
+      </section>
+    `,
+    `
+      <section>
+        <h2>Energy by Zone</h2>
+        ${buildPrintableTable(
+          ["Zone", "Actual", "Baseline", "Saved"],
+          zoneRows.length ? zoneRows : [["No zone data available", "", "", ""]]
+        )}
+      </section>
+    `,
+  ];
+}
+
+function SkeletonBlock({ className = "", style }) {
+  return <div className={`analyticsSkeleton ${className}`.trim()} style={style} aria-hidden="true" />;
+}
+
+function EmptyState({ title, description }) {
   return (
-    <div className="analytics-mini-stat">
-      <div className="analytics-mini-label">{label}</div>
-      <div className="analytics-mini-value">{value}</div>
-      {sub ? <div className="analytics-mini-sub">{sub}</div> : null}
+    <div className="analyticsEmptyState">
+      <div className="analyticsEmptyTitle">{title}</div>
+      <div className="analyticsEmptyCopy">{description}</div>
     </div>
   );
 }
 
-function getMetricMeta(metric) {
-  switch (metric) {
-    case "light_level":
-      return {
-        label: "Light Level",
-        unit: "%",
-        description: "Brightness output / dimming level",
-      };
-    case "lux":
-      return {
-        label: "Lux",
-        unit: "lx",
-        description: "Ambient light intensity around the pole",
-      };
-    case "temp_c":
-      return {
-        label: "Temperature",
-        unit: "°C",
-        description: "Measured device temperature",
-      };
-    case "humidity":
-      return {
-        label: "Humidity",
-        unit: "%",
-        description: "Measured air moisture level",
-      };
-    default:
-      return {
-        label: "Value",
-        unit: "",
-        description: "Telemetry measurement",
-      };
-  }
+function SectionHeading({ title, description, actions }) {
+  return (
+    <div className="analyticsSectionHeading">
+      <div>
+        <div className="analyticsSectionTitle">{title}</div>
+        {description ? <div className="analyticsSectionCopy">{description}</div> : null}
+      </div>
+      {actions ? <div className="analyticsSectionActions">{actions}</div> : null}
+    </div>
+  );
 }
 
-function formatXAxisLabel(timestamp) {
-  if (!timestamp) return "";
-  const date = new Date(timestamp);
+function DateTimeField({ label, value, onChange }) {
+  const inputRef = useRef(null);
 
-  if (Number.isNaN(date.getTime())) {
-    return String(timestamp);
+  function openPicker() {
+    const input = inputRef.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+
+    input.focus();
   }
 
-  return date.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return (
+    <label className="analyticsField">
+      <span>{label}</span>
+      <div className="analyticsDateField">
+        <input
+          ref={inputRef}
+          type="datetime-local"
+          value={value}
+          onChange={onChange}
+        />
+        <button
+          type="button"
+          className="analyticsDateTrigger"
+          onClick={openPicker}
+          aria-label={`Open ${label.toLowerCase()} date and time`}
+        >
+          <UiIcon name="calendar" size={18} />
+        </button>
+      </div>
+    </label>
+  );
 }
 
-function TelemetryChart({ data, metric, poleId, from, to, interval }) {
-  const width = 1000;
+function MetricCard({ icon, label, value, note, loading }) {
+  return (
+    <article className="analyticsMetricCard">
+      <div className="analyticsMetricIcon">
+        <UiIcon name={icon} size={20} />
+      </div>
+      <div className="analyticsMetricLabel">{label}</div>
+      {loading ? (
+        <>
+          <SkeletonBlock className="analyticsMetricSkeleton" />
+          <SkeletonBlock className="analyticsMetricSkeleton analyticsMetricSkeletonSub" />
+        </>
+      ) : (
+        <>
+          <div className="analyticsMetricValue">{value}</div>
+          <div className="analyticsMetricNote">{note}</div>
+        </>
+      )}
+    </article>
+  );
+}
+
+function TrendChart({ metricId, energySeries, metricSeries, loading }) {
+  const meta = CHART_METRICS[metricId] || CHART_METRICS.energy;
+  const width = 1180;
   const height = 360;
-  const leftPad = 78;
-  const rightPad = 26;
-  const topPad = 28;
-  const bottomPad = 72;
+  const leftPad = 56;
+  const rightPad = 22;
+  const topPad = 18;
+  const bottomPad = 56;
 
-  const metricMeta = getMetricMeta(metric);
+  if (loading) {
+    return <SkeletonBlock className="analyticsVizSkeleton analyticsVizSkeletonTall" />;
+  }
 
-  const points = data
-    .map((d, i) => ({
-      xIndex: i,
-      value: safeNum(d?.[metric]),
-      label: d?.timestamp,
-      raw: d,
-    }))
-    .filter((p) => p.value !== null);
+  if (metricId === "energy") {
+    const series = energySeries;
 
-  if (!points.length) {
+    if (!series.length) {
+      return (
+        <EmptyState
+          title="No energy series available"
+          description="Telemetry is still sparse for this date range. Try a wider range or verify reporting is enabled on more poles."
+        />
+      );
+    }
+
+    const chartLeft = leftPad;
+    const chartRight = width - rightPad;
+    const chartTop = topPad;
+    const chartBottom = height - bottomPad;
+    const chartWidth = chartRight - chartLeft;
+    const chartHeight = chartBottom - chartTop;
+    const maxValue = Math.max(
+      1,
+      ...series.flatMap((point) => [point.actualKwh, point.baselineKwh])
+    );
+
+    const toX = (index) =>
+      chartLeft + (index / Math.max(series.length - 1, 1)) * chartWidth;
+
+    const toY = (value) => chartBottom - (value / maxValue) * chartHeight;
+
+    const makePath = (key) =>
+      series
+        .map((point, index) => `${index === 0 ? "M" : "L"} ${toX(index)} ${toY(point[key])}`)
+        .join(" ");
+
+    const actualPath = makePath("actualKwh");
+    const baselinePath = makePath("baselineKwh");
+    const actualArea = `${actualPath} L ${chartRight} ${chartBottom} L ${chartLeft} ${chartBottom} Z`;
+
+    const yTicks = Array.from({ length: 5 }, (_, index) => {
+      const value = (maxValue / 4) * index;
+      return {
+        value,
+        y: toY(value),
+      };
+    });
+
+    const xTicks = Array.from(
+      new Set([
+        0,
+        Math.floor((series.length - 1) * 0.25),
+        Math.floor((series.length - 1) * 0.5),
+        Math.floor((series.length - 1) * 0.75),
+        series.length - 1,
+      ])
+    );
+
     return (
-      <div className="analytics-empty">
-        No telemetry data is available for this pole, metric, and time range.
+      <div className="analyticsVizWrap">
+        <div className="analyticsVizLegend">
+          <span className="analyticsLegendItem">
+            <span className="analyticsLegendSwatch isActual" />
+            Actual consumption
+          </span>
+          <span className="analyticsLegendItem">
+            <span className="analyticsLegendSwatch isBaseline" />
+            Baseline
+          </span>
+        </div>
+
+        <svg viewBox={`0 0 ${width} ${height}`} className="analyticsViz">
+          {yTicks.map((tick) => (
+            <g key={`y-${tick.value}`}>
+              <line
+                x1={chartLeft}
+                x2={chartRight}
+                y1={tick.y}
+                y2={tick.y}
+                className="analyticsVizGrid"
+              />
+              <text
+                x={chartLeft - 10}
+                y={tick.y + 4}
+                textAnchor="end"
+                className="analyticsVizAxis"
+              >
+                {Math.round(tick.value)}
+              </text>
+            </g>
+          ))}
+
+          {xTicks.map((tick) => (
+            <g key={`x-${tick}`}>
+              <line
+                x1={toX(tick)}
+                x2={toX(tick)}
+                y1={chartTop}
+                y2={chartBottom}
+                className="analyticsVizGrid analyticsVizGridSubtle"
+              />
+              <text
+                x={toX(tick)}
+                y={chartBottom + 22}
+                textAnchor="middle"
+                className="analyticsVizAxis"
+              >
+                {formatChartLabel(series[tick]?.timestamp, series.length > 45)}
+              </text>
+            </g>
+          ))}
+
+          <path d={actualArea} className="analyticsEnergyArea" />
+          <path d={baselinePath} className="analyticsEnergyLine isBaseline" />
+          <path d={actualPath} className="analyticsEnergyLine isActual" />
+
+          {series.map((point, index) => (
+            <g key={`pt-${point.timestamp}-${index}`}>
+              <circle
+                cx={toX(index)}
+                cy={toY(point.actualKwh)}
+                r="3.4"
+                className="analyticsEnergyDot"
+              />
+              <title>{`${formatTableTimestamp(point.timestamp)} | Actual ${formatEnergy(
+                point.actualKwh
+              )} | Baseline ${formatEnergy(point.baselineKwh)}`}</title>
+            </g>
+          ))}
+        </svg>
       </div>
     );
   }
 
-  const minVal = Math.min(...points.map((p) => p.value));
-  const maxVal = Math.max(...points.map((p) => p.value));
-  const range = maxVal - minVal || 1;
+  const series = metricSeries?.[metricId] || [];
+
+  if (!series.length) {
+    return (
+      <EmptyState
+        title={`No ${meta.label.toLowerCase()} series available`}
+        description="Telemetry is still sparse for this variable in the selected range. Try a wider range or wait for more reporting intervals."
+      />
+    );
+  }
 
   const chartLeft = leftPad;
   const chartRight = width - rightPad;
@@ -140,483 +732,916 @@ function TelemetryChart({ data, metric, poleId, from, to, interval }) {
   const chartBottom = height - bottomPad;
   const chartWidth = chartRight - chartLeft;
   const chartHeight = chartBottom - chartTop;
+  const maxValue = Math.max(
+    metricId === "light_level" || metricId === "humidity" || metricId === "motion" ? 100 : 1,
+    ...series.map((point) => Number(point.value || 0))
+  );
 
-  const toX = (i) =>
-    chartLeft + (i / Math.max(points.length - 1, 1)) * chartWidth;
+  const toX = (index) =>
+    chartLeft + (index / Math.max(series.length - 1, 1)) * chartWidth;
 
-  const toY = (value) =>
-    chartBottom - ((value - minVal) / range) * chartHeight;
+  const toY = (value) => chartBottom - (value / maxValue) * chartHeight;
 
-  const path = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${toX(i)} ${toY(p.value)}`)
+  const linePath = series
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${toX(index)} ${toY(point.value)}`)
     .join(" ");
+  const areaPath = `${linePath} L ${chartRight} ${chartBottom} L ${chartLeft} ${chartBottom} Z`;
 
-  const yTicksCount = 4;
-  const yTicks = Array.from({ length: yTicksCount + 1 }, (_, i) => {
-    const value = minVal + ((maxVal - minVal) * i) / yTicksCount;
+  const yTicks = Array.from({ length: 5 }, (_, index) => {
+    const value = (maxValue / 4) * index;
     return {
       value,
       y: toY(value),
     };
   });
 
-  const xTickIndexes = Array.from(
+  const xTicks = Array.from(
     new Set([
       0,
-      Math.floor((points.length - 1) * 0.25),
-      Math.floor((points.length - 1) * 0.5),
-      Math.floor((points.length - 1) * 0.75),
-      points.length - 1,
+      Math.floor((series.length - 1) * 0.25),
+      Math.floor((series.length - 1) * 0.5),
+      Math.floor((series.length - 1) * 0.75),
+      series.length - 1,
     ])
   );
 
-  return (
-    <div className="analytics-chart-wrap">
-      <div className="analytics-chart-header">
-        <div>
-          <div className="analytics-chart-title">{metricMeta.label} Trend</div>
-          <div className="analytics-chart-subtext">
-            Showing <strong>{metricMeta.label}</strong> values for{" "}
-            <strong>{poleId || "selected pole"}</strong> from{" "}
-            <strong>{formatTableTimestamp(from)}</strong> to{" "}
-            <strong>{formatTableTimestamp(to)}</strong>, grouped by{" "}
-            <strong>{interval}</strong>.
-          </div>
-        </div>
+  const strokeColor =
+    metricId === "light_level"
+      ? "#0d73a8"
+      : metricId === "lux"
+      ? "#f0b43a"
+      : metricId === "temp_c"
+      ? "#ef5b52"
+      : metricId === "humidity"
+      ? "#14b8a6"
+      : "#5b7fff";
 
-        <div className="analytics-graph-guide">
-          <div className="analytics-graph-guide-label">GRAPH GUIDE</div>
-          <div className="analytics-graph-guide-text">
-            <strong>X-axis:</strong> Time
-            <br />
-            <strong>Y-axis:</strong> {metricMeta.label}
-            {metricMeta.unit ? ` (${metricMeta.unit})` : ""}
-            <br />
-            <strong>Meaning:</strong> {metricMeta.description}
-          </div>
-        </div>
+  const fillColor =
+    metricId === "light_level"
+      ? "rgba(13, 115, 168, 0.16)"
+      : metricId === "lux"
+      ? "rgba(240, 180, 58, 0.18)"
+      : metricId === "temp_c"
+      ? "rgba(239, 91, 82, 0.18)"
+      : metricId === "humidity"
+      ? "rgba(20, 184, 166, 0.18)"
+      : "rgba(91, 127, 255, 0.16)";
+
+  return (
+    <div className="analyticsVizWrap">
+      <div className="analyticsVizLegend">
+        <span className="analyticsLegendItem">
+          <span
+            className="analyticsLegendSwatch"
+            style={{ background: `linear-gradient(135deg, ${strokeColor}, ${strokeColor})` }}
+          />
+          {meta.label}
+        </span>
       </div>
 
-      <svg viewBox={`0 0 ${width} ${height}`} className="analytics-chart">
-        {yTicks.map((t, i) => (
-          <g key={`y-${i}`}>
+      <svg viewBox={`0 0 ${width} ${height}`} className="analyticsViz">
+        {yTicks.map((tick) => (
+          <g key={`y-${tick.value}`}>
             <line
               x1={chartLeft}
               x2={chartRight}
-              y1={t.y}
-              y2={t.y}
-              className="analytics-grid-line"
+              y1={tick.y}
+              y2={tick.y}
+              className="analyticsVizGrid"
             />
             <text
-              x={chartLeft - 12}
-              y={t.y + 4}
+              x={chartLeft - 10}
+              y={tick.y + 4}
               textAnchor="end"
-              className="analytics-axis-text"
+              className="analyticsVizAxis"
             >
-              {roundValue(t.value, 1)}
-              {metricMeta.unit ? ` ${metricMeta.unit}` : ""}
+              {formatMetricValue(metricId, tick.value, true)}
             </text>
           </g>
         ))}
 
-        {xTickIndexes.map((idx) => (
-          <g key={`x-guide-${idx}`}>
+        {xTicks.map((tick) => (
+          <g key={`x-${tick}`}>
             <line
-              x1={toX(idx)}
-              x2={toX(idx)}
+              x1={toX(tick)}
+              x2={toX(tick)}
               y1={chartTop}
               y2={chartBottom}
-              className="analytics-grid-line"
-              style={{ opacity: 0.18 }}
+              className="analyticsVizGrid analyticsVizGridSubtle"
             />
-          </g>
-        ))}
-
-        <line
-          x1={chartLeft}
-          x2={chartLeft}
-          y1={chartTop}
-          y2={chartBottom}
-          className="analytics-grid-line"
-          style={{ opacity: 0.55 }}
-        />
-
-        <line
-          x1={chartLeft}
-          x2={chartRight}
-          y1={chartBottom}
-          y2={chartBottom}
-          className="analytics-grid-line"
-          style={{ opacity: 0.55 }}
-        />
-
-        <path d={path} className="analytics-line" />
-
-        {points.map((p, i) => (
-          <g key={`dot-${i}`}>
-            <circle
-              cx={toX(i)}
-              cy={toY(p.value)}
-              r="4"
-              className="analytics-dot"
-            />
-            <title>{`${formatTableTimestamp(p.label)} | ${metricMeta.label}: ${roundValue(
-              p.value,
-              1
-            )}${metricMeta.unit ? ` ${metricMeta.unit}` : ""}`}</title>
-          </g>
-        ))}
-
-        {xTickIndexes.map((idx) => (
-          <g key={`x-label-${idx}`}>
             <text
-              x={toX(idx)}
+              x={toX(tick)}
               y={chartBottom + 22}
               textAnchor="middle"
-              className="analytics-axis-text"
+              className="analyticsVizAxis"
             >
-              {formatXAxisLabel(points[idx]?.label)}
+              {formatChartLabel(series[tick]?.timestamp, series.length > 45)}
             </text>
           </g>
         ))}
 
-        <text
-          x="18"
-          y={chartTop + chartHeight / 2}
-          transform={`rotate(-90 18 ${chartTop + chartHeight / 2})`}
-          className="analytics-axis-text"
-          style={{ fontWeight: 700 }}
-        >
-          {metricMeta.label}
-          {metricMeta.unit ? ` (${metricMeta.unit})` : ""}
-        </text>
+        <path
+          d={areaPath}
+          className="analyticsTrendArea"
+          style={{ "--analytics-trend-fill": fillColor }}
+        />
+        <path
+          d={linePath}
+          className="analyticsTrendLine"
+          style={{ "--analytics-trend-stroke": strokeColor }}
+        />
 
-        <text
-          x={chartLeft + chartWidth / 2}
-          y={height - 18}
-          textAnchor="middle"
-          className="analytics-axis-text"
-          style={{ fontWeight: 700 }}
-        >
-          Time
-        </text>
+        {series.map((point, index) => (
+          <g key={`pt-${point.timestamp}-${index}`}>
+            <circle
+              cx={toX(index)}
+              cy={toY(point.value)}
+              r="3.4"
+              className="analyticsTrendDot"
+              style={{ "--analytics-trend-stroke": strokeColor }}
+            />
+            <title>{`${formatTableTimestamp(point.timestamp)} | ${meta.label} ${formatMetricValue(
+              metricId,
+              point.value
+            )}`}</title>
+          </g>
+        ))}
       </svg>
     </div>
   );
 }
 
-function getHealthClass(health) {
-  const value = String(health || "OK").toUpperCase();
-  if (value === "OK") return "ok";
-  if (value === "WARNING") return "warn";
-  return "bad";
-}
+function MotionByHourChart({ data, loading }) {
+  if (loading) {
+    return <SkeletonBlock className="analyticsVizSkeleton" />;
+  }
 
-export default function Analytics() {
-  const { streetlights } = useLightWise();
-
-  const initialRange = getPresetRange("7d");
-
-  const [selectedPole, setSelectedPole] = useState("");
-  const [from, setFrom] = useState(initialRange.from);
-  const [to, setTo] = useState(initialRange.to);
-  const [interval, setSelectedInterval] = useState("1h");
-  const [metric, setMetric] = useState("light_level");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [telemetry, setTelemetry] = useState([]);
-
-  useEffect(() => {
-    if (streetlights.length && !selectedPole) {
-      setSelectedPole(streetlights[0]?.streetlight_id || "");
-    }
-
-    if (
-      selectedPole &&
-      streetlights.length &&
-      !streetlights.some((pole) => pole?.streetlight_id === selectedPole)
-    ) {
-      setSelectedPole(streetlights[0]?.streetlight_id || "");
-    }
-  }, [streetlights, selectedPole]);
-
-  useEffect(() => {
-    async function loadTelemetry() {
-      if (!selectedPole || !from || !to || !interval) return;
-
-      setLoading(true);
-      setError("");
-
-      try {
-        const res = await getStreetlightTelemetry(selectedPole, { from, to, interval });
-        const rows = normalizeTelemetryRows(res);
-        setTelemetry(rows);
-      } catch (err) {
-        console.error(err);
-        setTelemetry([]);
-        setError("Failed to load telemetry for the selected time range.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadTelemetry();
-  }, [selectedPole, from, to, interval]);
-
-  const metricMeta = useMemo(() => getMetricMeta(metric), [metric]);
-
-  const stats = useMemo(() => {
-    if (!telemetry.length) {
-      return {
-        latestLight: "--",
-        avgTemp: "--",
-        avgHumidity: "--",
-        motionCount: "--",
-      };
-    }
-
-    const validTemp = telemetry.map((d) => d.temp_c).filter((v) => v !== null);
-    const validHumidity = telemetry.map((d) => d.humidity).filter((v) => v !== null);
-    const motionCount = telemetry.filter((d) => d.motion).length;
-    const latest = telemetry[telemetry.length - 1];
-
-    const avg = (arr, digits = 1) =>
-      arr.length
-        ? roundValue(arr.reduce((a, b) => a + b, 0) / arr.length, digits)
-        : "--";
-
-    return {
-      latestLight:
-        latest?.light_level !== null && latest?.light_level !== undefined
-          ? `${roundValue(latest.light_level, 0)}%`
-          : "--",
-      avgTemp: validTemp.length ? `${avg(validTemp, 1)} °C` : "--",
-      avgHumidity: validHumidity.length ? `${avg(validHumidity, 1)}%` : "--",
-      motionCount,
-    };
-  }, [telemetry]);
-
-  const selectedPoleData = useMemo(() => {
+  if (!data.length || !data.some((bucket) => bucket.samples > 0)) {
     return (
-      streetlights.find((pole) => pole?.streetlight_id === selectedPole) || null
+      <EmptyState
+        title="No motion telemetry available"
+        description="As motion events arrive, this chart will show the average pedestrian activity pattern across the day."
+      />
     );
-  }, [streetlights, selectedPole]);
-
-  const applyPreset = (preset) => {
-    const range = getPresetRange(preset);
-    setFrom(range.from);
-    setTo(range.to);
-
-    if (preset === "24h") setSelectedInterval("15m");
-    if (preset === "7d") setSelectedInterval("1h");
-    if (preset === "30d") setSelectedInterval("6h");
-    if (preset === "90d") setSelectedInterval("1d");
-  };
+  }
 
   return (
-    <Layout
-      title="Analytics"
-      subtitle="Interactive telemetry trends, filters, and pole insights."
-    >
-      <div className="analytics-page">
-        <div className="analytics-top">
-          <Card title="Telemetry Filters & Time Range">
-            <div className="analytics-filters">
-              <div className="analytics-field">
-                <label>Pole</label>
-                <select value={selectedPole} onChange={(e) => setSelectedPole(e.target.value)}>
-                  {streetlights.map((pole, index) => {
-                    const id =
-                      pole?.streetlight_id || pole?.id || pole?.device_id || `pole-${index}`;
-                    const label = pole?.name || pole?.display_name || id;
+    <div className="analyticsHourlyChart">
+      {data.map((bucket) => (
+        <div key={bucket.hour} className="analyticsHourlyColumn">
+          <div className="analyticsHourlyValue">{Math.round(bucket.activityPct)}%</div>
+          <div className="analyticsHourlyBarTrack">
+            <div
+              className="analyticsHourlyBar"
+              style={{ height: `${Math.max(6, bucket.activityPct)}%` }}
+            />
+          </div>
+          <div className="analyticsHourlyLabel">{bucket.hour % 3 === 0 ? bucket.label : ""}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-                    return (
-                      <option key={id} value={id}>
-                        {label} ({id})
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
+function MotionHeatmap({ poles, center, loading }) {
+  const bounds = useMemo(() => {
+    return getMapBounds(poles, center);
+  }, [center, poles]);
 
-              <div className="analytics-field">
-                <label>From</label>
-                <input
-                  type="datetime-local"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                />
-              </div>
+  if (loading) {
+    return <SkeletonBlock className="analyticsVizSkeleton analyticsMapSkeleton" />;
+  }
 
-              <div className="analytics-field">
-                <label>To</label>
-                <input
-                  type="datetime-local"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                />
-              </div>
+  if (!poles.length) {
+    return (
+      <EmptyState
+        title="No mapped motion activity yet"
+        description="Save pole coordinates and ingest telemetry to render activity intensity across the network."
+      />
+    );
+  }
 
-              <div className="analytics-field">
-                <label>Interval</label>
-                <select value={interval} onChange={(e) => setSelectedInterval(e.target.value)}>
-                  {ALLOWED_INTERVALS.map((intv) => (
-                    <option key={intv} value={intv}>
-                      {intv}
-                    </option>
-                  ))}
-                </select>
-              </div>
+  const zoomLevel = poles.length > 5 ? 14 : poles.length > 1 ? 15 : 17;
+  const src = `https://maps.google.com/maps?ll=${encodeURIComponent(
+    `${center.lat},${center.lng}`
+  )}&z=${zoomLevel}&output=embed`;
 
-              <div className="analytics-field">
-                <label>Metric</label>
-                <select value={metric} onChange={(e) => setMetric(e.target.value)}>
-                  <option value="light_level">Light Level</option>
-                  <option value="lux">Lux</option>
-                  <option value="temp_c">Temperature</option>
-                  <option value="humidity">Humidity</option>
-                </select>
+  return (
+    <div className="analyticsHeatmap">
+      <div className="analyticsHeatmapCanvas">
+        <iframe
+          title="Motion activity heatmap"
+          className="analyticsHeatmapFrame"
+          src={src}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
+        />
+
+        <div className="analyticsHeatmapLayer">
+          {poles.map((pole) => {
+            const position = getMapPosition(pole, bounds);
+            const size = 32 + Number(pole.motionRatePct || 0) * 0.5;
+            const color = getHeatColor(pole.motionRatePct);
+
+            return (
+              <div
+                key={pole.streetlight_id}
+                className="analyticsHeatDot"
+                style={{
+                  ...position,
+                  width: size,
+                  height: size,
+                  "--analytics-heat-color": color,
+                }}
+                title={`${pole.name} (${pole.streetlight_id}) • ${Math.round(
+                  pole.motionRatePct || 0
+                )}% activity`}
+              >
+                <span className="analyticsHeatDotCore" />
+                <span className="analyticsHeatDotLabel">{pole.streetlight_id}</span>
               </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="analyticsHeatLegend">
+        {[10, 35, 60, 85].map((value) => (
+          <div key={value} className="analyticsHeatLegendItem">
+            <span
+              className="analyticsHeatLegendSwatch"
+              style={{ background: getHeatColor(value) }}
+            />
+            <span>{getHeatLabel(value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsSurface() {
+  const { streetlights } = useLightWise();
+  const storedRange = useMemo(() => readStoredRange(), []);
+
+  const [preset, setPreset] = useState(storedRange.preset);
+  const [from, setFrom] = useState(storedRange.from);
+  const [to, setTo] = useState(storedRange.to);
+  const [telemetryByPole, setTelemetryByPole] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [failedPoles, setFailedPoles] = useState([]);
+  const [lastLoadedAt, setLastLoadedAt] = useState("");
+  const [zoneSort, setZoneSort] = useState({
+    key: "energySavedKwh",
+    direction: "desc",
+  });
+  const [selectedChartMetric, setSelectedChartMetric] = useState("energy");
+  const [expandedZones, setExpandedZones] = useState([]);
+  const [faultFilter, setFaultFilter] = useState("all");
+  const [faultSearch, setFaultSearch] = useState("");
+
+  const deferredFaultSearch = useDeferredValue(faultSearch);
+  const interval = useMemo(() => inferTelemetryInterval(from, to), [from, to]);
+  const rangeLabel = useMemo(() => buildReportDateLabel(from, to), [from, to]);
+  const selectedChartMeta = CHART_METRICS[selectedChartMetric] || CHART_METRICS.energy;
+
+  const rangeError = useMemo(() => {
+    const fromMs = new Date(from).getTime();
+    const toMs = new Date(to).getTime();
+
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+      return "Choose a valid start and end date to load analytics.";
+    }
+
+    if (toMs <= fromMs) {
+      return "The end date must be later than the start date.";
+    }
+
+    return "";
+  }, [from, to]);
+
+  useEffect(() => {
+    persistRange({ preset, from, to });
+  }, [preset, from, to]);
+
+  useEffect(() => {
+    if (!streetlights.length) {
+      setTelemetryByPole({});
+      setFailedPoles([]);
+      setLoading(false);
+      return;
+    }
+
+    if (rangeError) {
+      setLoadError(rangeError);
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    async function loadNetworkTelemetry() {
+      setLoading(true);
+      setLoadError("");
+      setFailedPoles([]);
+
+      const poles = streetlights.map((pole) => pole?.streetlight_id).filter(Boolean);
+      const results = await Promise.allSettled(
+        poles.map((poleId) =>
+          getStreetlightTelemetry(poleId, {
+            from,
+            to,
+            interval,
+          })
+        )
+      );
+
+      if (!active) return;
+
+      const nextTelemetry = {};
+      const failures = [];
+
+      results.forEach((result, index) => {
+        const poleId = poles[index];
+
+        if (result.status === "fulfilled") {
+          nextTelemetry[poleId] = result.value;
+          return;
+        }
+
+        failures.push(poleId);
+      });
+
+      setTelemetryByPole(nextTelemetry);
+      setFailedPoles(failures);
+      setLoading(false);
+
+      if (failures.length === poles.length) {
+        setLoadError("Analytics data could not be loaded for the selected date range.");
+        return;
+      }
+
+      setLoadError("");
+      setLastLoadedAt(new Date().toISOString());
+    }
+
+    loadNetworkTelemetry();
+
+    return () => {
+      active = false;
+    };
+  }, [from, interval, rangeError, streetlights, to]);
+
+  const report = useMemo(
+    () =>
+      buildAnalyticsReport(streetlights, telemetryByPole, {
+        from,
+        to,
+        interval,
+      }),
+    [from, interval, streetlights, telemetryByPole, to]
+  );
+
+  useEffect(() => {
+    const zoneNames = report.zones.map((zone) => zone.zone);
+    setExpandedZones((current) => {
+      const next = current.filter((zone) => zoneNames.includes(zone));
+      if (next.length) return next;
+      return zoneNames[0] ? [zoneNames[0]] : [];
+    });
+  }, [report.zones]);
+
+  const sortedZones = useMemo(() => {
+    const items = [...report.zones];
+    const { key, direction } = zoneSort;
+
+    items.sort((left, right) =>
+      compareValues(left?.[key], right?.[key], direction)
+    );
+
+    return items;
+  }, [report.zones, zoneSort]);
+
+  const filteredFaults = useMemo(() => {
+    const query = deferredFaultSearch.trim().toLowerCase();
+
+    return report.faults.filter((fault) => {
+      if (faultFilter === "active" && fault.status !== "active") return false;
+      if (faultFilter === "resolved" && fault.status !== "resolved") return false;
+      if (faultFilter === "recurring" && !fault.recurring) return false;
+
+      if (!query) return true;
+
+      const haystack = [
+        fault.type,
+        fault.poleName,
+        fault.poleId,
+        fault.zone,
+        fault.status,
+        fault.health,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [deferredFaultSearch, faultFilter, report.faults]);
+
+  const showInitialSkeleton =
+    loading && report.rawTelemetryRows.length === 0 && streetlights.length > 0;
+
+  function applyPreset(nextPreset) {
+    setPreset(nextPreset);
+
+    if (nextPreset === "custom") return;
+
+    const nextRange = getPresetRange(nextPreset);
+    setFrom(nextRange.from);
+    setTo(nextRange.to);
+  }
+
+  function handleCustomDateChange(field, value) {
+    setPreset("custom");
+    if (field === "from") setFrom(value);
+    if (field === "to") setTo(value);
+  }
+
+  function handleZoneSort(key) {
+    setZoneSort((current) => {
+      if (current.key === key) {
+        return {
+          key,
+          direction: current.direction === "desc" ? "asc" : "desc",
+        };
+      }
+
+      return {
+        key,
+        direction: key === "zone" ? "asc" : "desc",
+      };
+    });
+  }
+
+  function toggleZone(zoneName) {
+    setExpandedZones((current) =>
+      current.includes(zoneName)
+        ? current.filter((zone) => zone !== zoneName)
+        : [...current, zoneName]
+    );
+  }
+
+  function exportRawCsv() {
+    downloadTextFile(
+      `lightwise-analytics-raw-${new Date().toISOString().slice(0, 10)}.csv`,
+      buildRawTelemetryCsv(report),
+      "text/csv;charset=utf-8"
+    );
+  }
+
+  function exportZoneCsv() {
+    downloadTextFile(
+      `lightwise-zone-breakdown-${new Date().toISOString().slice(0, 10)}.csv`,
+      buildZoneCsv(report),
+      "text/csv;charset=utf-8"
+    );
+  }
+
+  function exportFullPdf() {
+    openPrintableReport(
+      "LightWise Analytics Report",
+      `${rangeLabel} • ${report.summary.totalPoles} poles • Interval ${interval}`,
+      buildFullReportSections(report, rangeLabel)
+    );
+  }
+
+  function exportEnergyPdf() {
+    openPrintableReport(
+      "LightWise Energy Summary",
+      `${rangeLabel} • Estimated network energy performance`,
+      buildEnergySummarySections(report, rangeLabel)
+    );
+  }
+
+  return (
+    <div className="analyticsReportPage">
+      <header className="analyticsHero">
+        <div>
+          <div className="analyticsEyebrow">City Reporting Surface</div>
+          <h1 className="analyticsHeroTitle">Analytics</h1>
+          <p className="analyticsHeroCopy">
+            Council-ready reporting for energy performance, reliability, and pedestrian activity.
+          </p>
+        </div>
+
+        <div className="analyticsHeroMeta">
+          <div className="analyticsHeroBadge">
+            <UiIcon name="activity" size={16} />
+            <span>{rangeLabel}</span>
+          </div>
+          <div className="analyticsHeroBadge">
+            <UiIcon name="radio" size={16} />
+            <span>{report.summary.totalPoles} poles</span>
+          </div>
+          {lastLoadedAt ? (
+            <div className="analyticsHeroBadge">
+              <UiIcon name="save" size={16} />
+              <span>Refreshed {formatTableTimestamp(lastLoadedAt, "--")}</span>
             </div>
+          ) : null}
+        </div>
+      </header>
 
-            <div className="analytics-presets">
-              <button type="button" onClick={() => applyPreset("24h")}>
-                Last 24h
+      <section className="analyticsStickyBar">
+        <div className="analyticsPresetGroup" role="tablist" aria-label="Date range presets">
+          {RANGE_PRESETS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className={`analyticsPresetButton${preset === option.id ? " isActive" : ""}`}
+              onClick={() => applyPreset(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="analyticsStickyFields">
+          <DateTimeField
+            label="From"
+            value={from}
+            onChange={(event) => handleCustomDateChange("from", event.target.value)}
+          />
+          <DateTimeField
+            label="To"
+            value={to}
+            onChange={(event) => handleCustomDateChange("to", event.target.value)}
+          />
+          <div className="analyticsRangeMeta">
+            <span className="analyticsRangeMetaLabel">Aggregation</span>
+            <strong>{interval}</strong>
+          </div>
+        </div>
+      </section>
+
+      {rangeError ? <div className="analyticsBanner isError">{rangeError}</div> : null}
+      {!rangeError && loadError ? <div className="analyticsBanner isError">{loadError}</div> : null}
+      {!loadError && failedPoles.length ? (
+        <div className="analyticsBanner isWarning">
+          {failedPoles.length} pole{failedPoles.length === 1 ? "" : "s"} could not be included in
+          this report: {failedPoles.join(", ")}.
+        </div>
+      ) : null}
+
+      {!streetlights.length ? (
+        <Card>
+          <EmptyState
+            title="No network inventory is available"
+            description="Analytics will populate once streetlights have been provisioned for this tenant."
+          />
+        </Card>
+      ) : (
+        <>
+          <section className="analyticsMetricGrid">
+            <MetricCard
+              icon="bolt"
+              label="Energy Saved"
+              value={formatEnergy(report.headline.energySavedKwh)}
+              note="Estimated against the baseline profile for the selected range."
+              loading={showInitialSkeleton}
+            />
+            <MetricCard
+              icon="radio"
+              label="Uptime"
+              value={formatPercent(report.headline.uptimePct)}
+              note="Share of healthy reporting intervals across the network."
+              loading={showInitialSkeleton}
+            />
+            <MetricCard
+              icon="alert"
+              label="Faults Resolved"
+              value={formatNumber(report.headline.faultsResolved)}
+              note={`${formatNumber(report.headline.activeFaults)} active issues remain in view.`}
+              loading={showInitialSkeleton}
+            />
+          </section>
+
+          <Card className="analyticsWideCard">
+            <SectionHeading
+              title={selectedChartMeta.title}
+              description={selectedChartMeta.description}
+              actions={
+                <div className="analyticsMetricSwitchGroup" role="tablist" aria-label="Chart metric">
+                  {CHART_METRIC_ORDER.map((metricId) => (
+                    <button
+                      key={metricId}
+                      type="button"
+                      className={`analyticsMetricSwitch${
+                        selectedChartMetric === metricId ? " isActive" : ""
+                      }`}
+                      onClick={() => setSelectedChartMetric(metricId)}
+                    >
+                      {CHART_METRICS[metricId].label}
+                    </button>
+                  ))}
+                </div>
+              }
+            />
+
+            <TrendChart
+              metricId={selectedChartMetric}
+              energySeries={report.energySeries}
+              metricSeries={report.metricSeries}
+              loading={showInitialSkeleton}
+            />
+          </Card>
+
+          <div className="analyticsSplitGrid">
+            <Card className="analyticsSectionCard">
+              <SectionHeading
+                title="Zone Breakdown"
+                description="Sortable district rollup with expandable pole details."
+                actions={
+                  <button
+                    type="button"
+                    className="analyticsActionButton"
+                    onClick={exportZoneCsv}
+                    disabled={!report.zones.length}
+                  >
+                    CSV export
+                  </button>
+                }
+              />
+
+              {showInitialSkeleton ? (
+                <SkeletonBlock className="analyticsTableSkeleton" />
+              ) : !sortedZones.length ? (
+                <EmptyState
+                  title="No zone totals available"
+                  description="Once telemetry and coordinates are available, district rollups will appear here."
+                />
+              ) : (
+                <div className="analyticsTableWrap">
+                  <table className="analyticsTable">
+                    <thead>
+                      <tr>
+                        <th>
+                          <button type="button" onClick={() => handleZoneSort("zone")}>
+                            Zone {zoneSort.key === "zone" ? (zoneSort.direction === "desc" ? "v" : "^") : ""}
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" onClick={() => handleZoneSort("poleCount")}>
+                            Poles {zoneSort.key === "poleCount" ? (zoneSort.direction === "desc" ? "v" : "^") : ""}
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" onClick={() => handleZoneSort("energySavedKwh")}>
+                            Energy Saved {zoneSort.key === "energySavedKwh" ? (zoneSort.direction === "desc" ? "v" : "^") : ""}
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" onClick={() => handleZoneSort("uptimePct")}>
+                            Uptime {zoneSort.key === "uptimePct" ? (zoneSort.direction === "desc" ? "v" : "^") : ""}
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" onClick={() => handleZoneSort("faultsResolved")}>
+                            Faults {zoneSort.key === "faultsResolved" ? (zoneSort.direction === "desc" ? "v" : "^") : ""}
+                          </button>
+                        </th>
+                        <th>
+                          <button type="button" onClick={() => handleZoneSort("motionRatePct")}>
+                            Activity {zoneSort.key === "motionRatePct" ? (zoneSort.direction === "desc" ? "v" : "^") : ""}
+                          </button>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedZones.map((zone) => {
+                        const expanded = expandedZones.includes(zone.zone);
+
+                        return (
+                          <React.Fragment key={zone.zone}>
+                            <tr className={`analyticsZoneRow${expanded ? " isExpanded" : ""}`}>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="analyticsExpandButton"
+                                  onClick={() => toggleZone(zone.zone)}
+                                  aria-expanded={expanded}
+                                >
+                                  {expanded ? "-" : "+"}
+                                </button>
+                                <span>{zone.zone}</span>
+                              </td>
+                              <td>{zone.poleCount}</td>
+                              <td>{formatEnergy(zone.energySavedKwh)}</td>
+                              <td>{formatPercent(zone.uptimePct)}</td>
+                              <td>
+                                {zone.faultsResolved} resolved
+                                <div className="analyticsCellSubtext">
+                                  {zone.activeFaults} active
+                                </div>
+                              </td>
+                              <td>{formatPercent(zone.motionRatePct)}</td>
+                            </tr>
+
+                            {expanded
+                              ? zone.poles.map((pole) => (
+                                  <tr
+                                    key={`${zone.zone}-${pole.streetlight_id}`}
+                                    className="analyticsZoneDetailRow"
+                                  >
+                                    <td className="analyticsZoneDetailCell">
+                                      <div>{pole.name}</div>
+                                      <div className="analyticsCellSubtext">{pole.streetlight_id}</div>
+                                    </td>
+                                    <td>1</td>
+                                    <td>{formatEnergy(pole.energySavedKwh)}</td>
+                                    <td>{formatPercent(pole.uptimePct)}</td>
+                                    <td>
+                                      {pole.faultsResolved} resolved
+                                      <div className="analyticsCellSubtext">
+                                        {pole.activeFaults} active
+                                      </div>
+                                    </td>
+                                    <td>{formatPercent(pole.motionRatePct)}</td>
+                                  </tr>
+                                ))
+                              : null}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+
+            <Card className="analyticsSectionCard">
+              <SectionHeading
+                title="Fault History"
+                description="Searchable event log with recurring issue highlighting."
+              />
+
+              <div className="analyticsFaultToolbar">
+                <input
+                  className="analyticsSearchInput"
+                  type="search"
+                  value={faultSearch}
+                  onChange={(event) => setFaultSearch(event.target.value)}
+                  placeholder="Search pole, zone, or fault"
+                />
+
+                <div className="analyticsFilterPills">
+                  {FAULT_FILTERS.map((filter) => (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      className={`analyticsFilterPill${faultFilter === filter.id ? " isActive" : ""}`}
+                      onClick={() => setFaultFilter(filter.id)}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {showInitialSkeleton ? (
+                <SkeletonBlock className="analyticsLogSkeleton" />
+              ) : !filteredFaults.length ? (
+                <EmptyState
+                  title="No matching fault events"
+                  description="Try a different filter or widen the report range to surface more maintenance history."
+                />
+              ) : (
+                <div className="analyticsFaultList" role="list">
+                  {filteredFaults.map((fault, index) => (
+                    <article
+                      key={`${fault.poleId}-${fault.timestamp}-${fault.type}-${index}`}
+                      className={`analyticsFaultItem${fault.recurring ? " isRecurring" : ""}`}
+                    >
+                      <div className="analyticsFaultTopRow">
+                        <div>
+                          <div className="analyticsFaultTitle">{fault.type}</div>
+                          <div className="analyticsFaultMeta">
+                            {fault.poleName || fault.poleId} • {fault.zone}
+                          </div>
+                        </div>
+
+                        <div className="analyticsFaultTags">
+                          <span className={`analyticsLogPill is${fault.status === "resolved" ? "Resolved" : "Active"}`}>
+                            {fault.status}
+                          </span>
+                          {fault.recurring ? (
+                            <span className="analyticsLogPill isRecurring">Recurring</span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="analyticsFaultMetaRow">
+                        <span>{formatTableTimestamp(fault.timestamp, "--")}</span>
+                        <span>{fault.health}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <div className="analyticsSplitGrid">
+            <Card className="analyticsSectionCard">
+              <SectionHeading
+                title="Motion Heatmap"
+                description="Activity intensity mapped from average motion detections by pole."
+              />
+
+              <MotionHeatmap
+                poles={report.motionMap}
+                center={report.center}
+                loading={showInitialSkeleton}
+              />
+            </Card>
+
+            <Card className="analyticsSectionCard">
+              <SectionHeading
+                title="Motion by Hour"
+                description="Average pedestrian activity across the 24-hour day."
+              />
+
+              <MotionByHourChart
+                data={report.hourlyMotion}
+                loading={showInitialSkeleton}
+              />
+            </Card>
+          </div>
+
+          <Card className="analyticsSectionCard">
+            <SectionHeading
+              title="Export"
+              description="Generate report artifacts for presentations, council packets, and analysis handoffs."
+            />
+
+            <div className="analyticsExportGrid">
+              <button
+                type="button"
+                className="analyticsExportButton"
+                onClick={exportFullPdf}
+                disabled={!report.summary.totalPoles}
+              >
+                <span className="analyticsExportIcon">
+                  <UiIcon name="save" size={18} />
+                </span>
+                <span>
+                  <strong>Full PDF report</strong>
+                  <small>Print-friendly summary with metrics, zones, faults, and hourly motion.</small>
+                </span>
               </button>
-              <button type="button" onClick={() => applyPreset("7d")}>
-                Last 7d
+
+              <button
+                type="button"
+                className="analyticsExportButton"
+                onClick={exportRawCsv}
+                disabled={!report.rawTelemetryRows.length}
+              >
+                <span className="analyticsExportIcon">
+                  <UiIcon name="analytics" size={18} />
+                </span>
+                <span>
+                  <strong>Raw CSV</strong>
+                  <small>All loaded telemetry samples with energy estimates and zone labels.</small>
+                </span>
               </button>
-              <button type="button" onClick={() => applyPreset("30d")}>
-                Last 30d
-              </button>
-              <button type="button" onClick={() => applyPreset("90d")}>
-                Last 90d
+
+              <button
+                type="button"
+                className="analyticsExportButton"
+                onClick={exportEnergyPdf}
+                disabled={!report.energySeries.length}
+              >
+                <span className="analyticsExportIcon">
+                  <UiIcon name="bolt" size={18} />
+                </span>
+                <span>
+                  <strong>Energy summary PDF</strong>
+                  <small>Compact energy-focused packet for savings and baseline comparisons.</small>
+                </span>
               </button>
             </div>
           </Card>
-        </div>
+        </>
+      )}
+    </div>
+  );
+}
 
-        <div className="analytics-stats-grid">
-          <MiniStat
-            label="Latest Light Level"
-            value={stats.latestLight}
-            sub="Most recent brightness / dimming reading"
-          />
-          <MiniStat
-            label="Average Temp"
-            value={stats.avgTemp}
-            sub="Average device temperature in selected range"
-          />
-          <MiniStat
-            label="Average Humidity"
-            value={stats.avgHumidity}
-            sub="Average humidity in selected range"
-          />
-          <MiniStat
-            label="Motion Events"
-            value={stats.motionCount}
-            sub="Number of motion detections in selected range"
-          />
-        </div>
-
-        <Card title="Telemetry Trend Graph">
-          <div className="analytics-graph-explainer">
-            This graph shows how <strong>{metricMeta.label.toLowerCase()}</strong> changes over
-            time for <strong>{selectedPoleData?.name || selectedPole || "the selected pole"}</strong>.
-            The horizontal axis shows <strong>time</strong>, and the vertical axis shows the{" "}
-            <strong>
-              {metricMeta.label}
-              {metricMeta.unit ? ` (${metricMeta.unit})` : ""}
-            </strong>{" "}
-            value.
-          </div>
-
-          {loading ? (
-            <div className="analytics-empty">Loading telemetry...</div>
-          ) : error ? (
-            <div className="analytics-error">{error}</div>
-          ) : (
-            <TelemetryChart
-              data={telemetry}
-              metric={metric}
-              poleId={selectedPole}
-              from={from}
-              to={to}
-              interval={interval}
-            />
-          )}
-        </Card>
-
-        <Card title="Recent Telemetry Samples">
-          <div className="analytics-table-explainer">
-            These are the most recent telemetry readings returned for the current filter
-            selection. Each row represents one recorded sample from the selected streetlight.
-          </div>
-
-          <div className="analytics-table-wrap">
-            <table className="analytics-table">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Lux</th>
-                  <th>Light Level</th>
-                  <th>Temp</th>
-                  <th>Humidity</th>
-                  <th>Motion</th>
-                  <th>Health</th>
-                </tr>
-              </thead>
-              <tbody>
-                {telemetry.length ? (
-                  telemetry.slice(-12).reverse().map((row, index) => {
-                    const motionOn = !!row.motion;
-                    const health = String(row.health || "OK").toUpperCase();
-
-                    return (
-                      <tr key={`${row.timestamp}-${index}`}>
-                        <td>{formatTableTimestamp(row.timestamp)}</td>
-                        <td>{row.lux ?? "--"}</td>
-                        <td>
-                          {row.light_level ?? "--"}
-                          {row.light_level !== null && row.light_level !== undefined ? "%" : ""}
-                        </td>
-                        <td>
-                          {row.temp_c ?? "--"}
-                          {row.temp_c !== null && row.temp_c !== undefined ? " °C" : ""}
-                        </td>
-                        <td>
-                          {row.humidity ?? "--"}
-                          {row.humidity !== null && row.humidity !== undefined ? "%" : ""}
-                        </td>
-                        <td>
-                          <span
-                            className={`analytics-pill ${
-                              motionOn ? "motion-on" : "motion-off"
-                            }`}
-                          >
-                            {motionOn ? "Detected" : "Clear"}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`analytics-pill ${getHealthClass(health)}`}>
-                            {health}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="analytics-no-rows">
-                      No telemetry samples available.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </div>
+export default function Analytics() {
+  return (
+    <Layout>
+      <AnalyticsSurface />
     </Layout>
   );
 }

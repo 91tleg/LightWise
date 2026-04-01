@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { loadPoleMetaMap } from "../services/poleStorage";
+import { loadPoleMetaMap, subscribeToPoleMetaChanges } from "../services/poleStorage";
 import {
   isValidCoord,
   mergeLocalMetaIntoPole,
@@ -48,7 +48,12 @@ export function useOverviewData({ streetlights = [], tenantId = "" } = {}) {
   useEffect(() => {
     const refreshLocal = () => setLocalMeta(loadPoleMetaMap());
     window.addEventListener("focus", refreshLocal);
-    return () => window.removeEventListener("focus", refreshLocal);
+    const unsubscribe = subscribeToPoleMetaChanges(refreshLocal);
+
+    return () => {
+      window.removeEventListener("focus", refreshLocal);
+      unsubscribe();
+    };
   }, []);
 
   const mergedPoles = useMemo(() => {

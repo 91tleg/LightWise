@@ -3,7 +3,7 @@ import Layout from "../components/Layout";
 import Card from "../components/Card";
 import MapEmbed from "../components/MapEmbed.js";
 import { useLightWise } from "../hooks/useLightWise";
-import { loadPoleMetaMap } from "../services/poleStorage";
+import { loadPoleMetaMap, subscribeToPoleMetaChanges } from "../services/poleStorage";
 import { readActivePoleId, writeActivePoleId } from "../services/activePoleStorage";
 import {
   DEFAULT_CENTER,
@@ -25,7 +25,12 @@ export default function MapView() {
     };
 
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    const unsubscribe = subscribeToPoleMetaChanges(onFocus);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      unsubscribe();
+    };
   }, []);
 
   const mergedPoles = useMemo(() => {

@@ -14,7 +14,7 @@ dynamo = boto3.resource(
 STREETLIGHTS = [
     {
         "tenant_id":            "tenant-001",
-        "streetlight_id":       "LW-00042",
+        "streetlight_id":       "LW-00100",
         "health":               "OK",
         "lat":                  "47.6101",
         "lng":                  "-122.2015",
@@ -109,3 +109,4 @@ for item in USERS:
     })
     users_table.put_item(Item=item)
     print(f"Seeded user: {item['user_id']}")
+

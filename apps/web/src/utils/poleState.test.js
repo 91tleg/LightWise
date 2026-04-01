@@ -52,7 +52,7 @@ describe("mergePoleSnapshot", () => {
     expect(
       mergePoleSnapshot(
         {
-          streetlight_id: "LW-00042",
+          streetlight_id: "LW-00100",
           lat: 37.77,
           lng: -122.41,
           health: "OK",
@@ -64,7 +64,7 @@ describe("mergePoleSnapshot", () => {
         }
       )
     ).toEqual({
-      streetlight_id: "LW-00042",
+      streetlight_id: "LW-00100",
       lat: 37.77,
       lng: -122.41,
       health: "CRITICAL",
@@ -89,14 +89,15 @@ describe("mergePoleSnapshot", () => {
 describe("buildPoleEvent", () => {
   test("uses active tone for motion events", () => {
     expect(
-      buildPoleEvent("LW-00042", {
+      buildPoleEvent("LW-00100", {
         timestamp: "2026-03-13T04:00:00Z",
         motion_detected: true,
       })
     ).toMatchObject({
       tone: "active",
       label: "Motion detected",
-      streetlightId: "LW-00042",
+      streetlightId: "LW-00100",
     });
   });
 });
+

@@ -1,779 +1,1209 @@
-/* =========================================================
-   ADMIN VISUAL POLISH — STRONGER LIGHTWISE LOOK
-========================================================= */
-
-.lwAdminPageClean {
+.lwAdminWorkspace {
   display: grid;
-  gap: 18px;
-}
-
-/* ---------- Top websocket / subscribe area ---------- */
-.lwAdminHeroClean {
-  background: linear-gradient(180deg, rgba(232, 241, 248, 0.92), rgba(220, 233, 243, 0.9));
-  border: 1px solid rgba(120, 154, 189, 0.18);
-  border-radius: 22px;
-  box-shadow: 0 14px 28px rgba(56, 89, 124, 0.08);
-  padding: 16px 18px;
-}
-
-/* top controls wrapper if AdminWsControls uses this */
-.lwWsControls {
-  display: flex;
-  align-items: end;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin: 0;
-}
-
-/* generic top controls buttons */
-.lwWsBtn,
-.lwAdminSimBtn,
-.lwAdminSubscribeBtn {
-  appearance: none;
-  border: 0 !important;
-  border-radius: 16px !important;
-  padding: 12px 18px !important;
-  min-height: 46px;
-  font-weight: 800 !important;
-  letter-spacing: 0.2px;
-  cursor: pointer;
-  color: #fff !important;
-  background: linear-gradient(135deg, #0c5a96, #177fbc) !important;
-  box-shadow: 0 10px 22px rgba(23, 127, 188, 0.24) !important;
-  transition: transform 0.14s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-}
-
-.lwWsBtn:hover,
-.lwAdminSimBtn:hover,
-.lwAdminSubscribeBtn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(23, 127, 188, 0.28) !important;
-}
-
-.lwWsBtn:active,
-.lwAdminSimBtn:active,
-.lwAdminSubscribeBtn:active {
-  transform: translateY(0);
-}
-
-.lwWsBtn:disabled,
-.lwAdminSimBtn:disabled,
-.lwAdminSubscribeBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* stronger simulate button */
-.lwAdminSimBtn {
-  min-width: 210px !important;
-  background: linear-gradient(135deg, #0b63a6, #1491c9) !important;
-}
-
-/* subscribe / status boxes */
-.lwAdminControlBar {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 14px;
-  align-items: end;
-}
-
-.lwAdminSubscribeBox,
-.lwAdminConnectionChip {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(245, 250, 255, 0.92));
-  border: 1px solid rgba(157, 184, 210, 0.28);
-  border-radius: 18px;
-  padding: 12px 14px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
-}
-
-.lwAdminMiniLabel {
-  display: block;
-  font-size: 12px;
-  font-weight: 900;
-  color: #60738e;
-  margin-bottom: 7px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.lwAdminSubscribeRow {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.lwAdminCompactInput {
-  width: 190px;
-  padding: 11px 13px;
-  border-radius: 14px;
-  border: 1px solid rgba(170, 192, 215, 0.65);
-  background: #fff;
-  font-size: 14px;
-  font-weight: 800;
-  color: #17324a;
-  outline: none;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
-}
-
-.lwAdminCompactInput:focus {
-  border-color: #4da3df;
-  box-shadow: 0 0 0 3px rgba(77,163,223,.14);
-}
-
-.lwAdminConnectionChip {
-  display: flex;
-  align-items: center;
+  height: 100%;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
-  min-width: 200px;
-}
-
-.lwAdminConnectionValue {
-  font-size: 14px;
-  font-weight: 900;
-  color: #16344d;
-  text-transform: capitalize;
-}
-
-/* ---------- Main layout ---------- */
-.lwAdminSplitLayout {
-  display: grid;
-  grid-template-columns: minmax(360px, 1.1fr) minmax(320px, 0.78fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.lwAdminStack {
-  display: grid;
-  gap: 18px;
-  min-width: 0;
-}
-
-/* ---------- Cards ---------- */
-.lwBubbleCard,
-.lwAdminHeroClean {
-  backdrop-filter: blur(8px);
-}
-
-.lwBubbleCard {
-  background: linear-gradient(180deg, rgba(245, 248, 251, 0.92), rgba(234, 242, 247, 0.88)) !important;
-  border: 1px solid rgba(126, 160, 192, 0.18) !important;
-  border-radius: 22px !important;
-  box-shadow: 0 16px 34px rgba(57, 86, 114, 0.08) !important;
+  min-height: 100%;
   overflow: hidden;
-  position: relative;
 }
 
-.lwBubbleCard::after {
-  content: "";
-  position: absolute;
-  right: -40px;
-  bottom: -40px;
-  width: 150px;
-  height: 150px;
-  background: radial-gradient(circle, rgba(177, 230, 206, 0.28) 0%, rgba(177, 230, 206, 0.18) 40%, rgba(177, 230, 206, 0) 72%);
-  pointer-events: none;
+.lwAdminLoadingCard {
+  padding: 24px;
+  border-radius: 20px;
+  background: var(--lw-surface);
+  border: 1px solid var(--lw-line);
+  box-shadow: var(--lw-shadow);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--lw-text);
 }
 
-.lwBubbleIcon {
-  background: linear-gradient(180deg, #ffffff, #f2f6f9) !important;
-  border: 1px solid rgba(175, 191, 205, 0.2);
-  border-radius: 16px !important;
-  box-shadow: 0 8px 16px rgba(58, 79, 98, 0.08);
+.lwAdminSectionEyebrow {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b7f94;
 }
 
-.lwBubbleTitle {
-  color: #1a2d40 !important;
-  font-weight: 900 !important;
-}
-
-.lwBubbleSub {
-  color: #4f6276 !important;
-  font-weight: 700 !important;
-}
-
-/* ---------- Pills ---------- */
-.lwRuleRowClean {
-  margin-top: 6px;
+.lwAdminPageHeader {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 2px;
 }
 
-.lwPill {
-  border-radius: 999px !important;
-  padding: 7px 12px !important;
-  font-size: 12px !important;
-  font-weight: 900 !important;
-  color: #fff !important;
-  box-shadow: 0 8px 14px rgba(0,0,0,.08);
+.lwAdminPageTitle {
+  margin: 4px 0 6px;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 1000;
+  color: #102133;
 }
 
-.lwPill.green {
-  background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+.lwAdminPageSubtitle {
+  margin: 0;
+  max-width: 680px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #617285;
 }
 
-.lwPill.orange {
-  background: linear-gradient(135deg, #f59e0b, #fbbf24) !important;
+.lwAdminThemeToggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(88px, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
-.lwPill.red {
-  background: linear-gradient(135deg, #ef4444, #f97316) !important;
+.lwAdminThemeToggleBtn,
+.lwAdminPrimaryBtn,
+.lwAdminSecondaryBtn,
+.lwAdminGhostBtn,
+.lwAdminDayPill,
+.lwAdminSectionNavItem,
+.lwAdminRecordItem {
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 
-/* ---------- Form ---------- */
-.lwAdminFormSection {
-  margin-top: 14px;
-  position: relative;
-  z-index: 1;
-}
-
-.lwAdminFormGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-top: 14px;
-  position: relative;
-  z-index: 1;
-}
-
-.lwAdminFormSection .lwLabel,
-.lwAdminFormGrid .lwLabel {
-  display: block;
-  margin-bottom: 7px;
+.lwAdminThemeToggleBtn {
+  border: 0;
+  border-radius: 999px;
+  min-height: 38px;
+  padding: 0 16px;
+  background: transparent;
+  color: #506273;
   font-size: 13px;
   font-weight: 900;
-  color: #55677d;
+  cursor: pointer;
 }
 
-.lwAdminInput {
-  border-radius: 999px !important;
-  padding: 14px 18px !important;
-  font-size: 15px !important;
-  font-weight: 800 !important;
-  border: 1px solid rgba(170, 190, 211, 0.72) !important;
-  background: linear-gradient(180deg, #fdfefe 0%, #f4f8fb 100%) !important;
-  color: #183246 !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.92);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.14s ease;
+.lwAdminThemeToggleBtn.isActive {
+  background: linear-gradient(135deg, #0b63a6, #1491c9);
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(20, 145, 201, 0.22);
 }
 
-.lwAdminInput:hover {
-  border-color: rgba(110, 158, 210, 0.7) !important;
+.lwAdminStatGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.lwAdminInput:focus {
-  border-color: #4da3df !important;
-  box-shadow: 0 0 0 4px rgba(77,163,223,.12), 0 10px 22px rgba(77,163,223,.08) !important;
+.lwAdminStatCard,
+.lwAdminCard,
+.lwAdminSectionNav {
+  background: var(--lw-surface);
+  border: 1px solid var(--lw-line);
+  border-radius: 18px;
+  box-shadow: var(--lw-shadow);
+}
+
+.lwAdminStatCard {
+  padding: 14px 16px;
+}
+
+.lwAdminStatLabel {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6f8094;
+}
+
+.lwAdminStatValue {
+  margin-top: 8px;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 1000;
+  color: #102133;
+}
+
+.lwAdminStatNote {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #617285;
+}
+
+.lwAdminShell {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 12px;
+  overflow: hidden;
+}
+
+.lwAdminSectionNav {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100%;
+  overflow: auto;
+  padding: 16px;
+}
+
+.lwAdminSectionNavTitle {
+  margin: 6px 0 0;
+  font-size: 20px;
+  font-weight: 1000;
+  color: #102133;
+}
+
+.lwAdminSectionNavList {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.lwAdminSectionNavItem {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(203, 216, 229, 0.94);
+  border-radius: 16px;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(247, 250, 253, 0.98), rgba(238, 244, 249, 0.96));
+  cursor: pointer;
+}
+
+.lwAdminSectionNavItem:hover,
+.lwAdminRecordItem:hover,
+.lwAdminSecondaryBtn:hover:not(:disabled),
+.lwAdminGhostBtn:hover:not(:disabled),
+.lwAdminDayPill:hover {
   transform: translateY(-1px);
 }
 
-.lwAdminInput.isInvalid {
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 0 4px rgba(239,68,68,.1) !important;
+.lwAdminSectionNavItem.isActive,
+.lwAdminRecordItem.isSelected {
+  border-color: rgba(11, 99, 166, 0.24);
+  background: linear-gradient(180deg, rgba(236, 245, 252, 0.99), rgba(225, 236, 246, 0.98));
+  box-shadow: inset 0 0 0 1px rgba(11, 99, 166, 0.08);
 }
 
-.lwFieldError {
-  margin-top: 7px;
-  font-size: 12px;
-  font-weight: 900;
-  color: #c62828;
-}
-
-.lwFieldHint {
-  margin-top: 7px;
-  font-size: 12px;
-  font-weight: 800;
-  color: #67788d;
-}
-
-/* ---------- Action buttons ---------- */
-.lwAdminActionRow {
+.lwAdminSectionNavItemTop {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
-  margin-top: 16px;
-  position: relative;
-  z-index: 1;
+  font-size: 14px;
+  font-weight: 900;
+  color: #122232;
+}
+
+.lwAdminSectionNavIcon {
+  width: 26px;
+  height: 26px;
+  border-radius: 10px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(11, 99, 166, 0.08);
+  color: #0b63a6;
+}
+
+.lwAdminSectionNavDesc {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: #617285;
+}
+
+.lwAdminSectionBody,
+.lwAdminStack {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.lwAdminSectionGrid {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.82fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.lwAdminSectionGridCompact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lwAdminCard {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow: auto;
+}
+
+.lwAdminCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.lwAdminCardTitleWrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.lwAdminCardIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 99, 166, 0.1);
+  color: #0b63a6;
+}
+
+.lwAdminCardTitle {
+  margin: 2px 0 4px;
+  font-size: 19px;
+  font-weight: 1000;
+  color: #102133;
+}
+
+.lwAdminCardSubtitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #617285;
+}
+
+.lwAdminCardActions,
+.lwAdminButtonRow,
+.lwAdminBulkActions,
+.lwAdminPillRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lwAdminButtonRow {
+  margin-top: 14px;
 }
 
 .lwAdminPrimaryBtn,
-.lwAdminSecondaryBtn {
-  border: 0;
-  border-radius: 16px;
-  padding: 12px 18px;
-  min-height: 46px;
+.lwAdminSecondaryBtn,
+.lwAdminGhostBtn {
+  border-radius: 14px;
+  min-height: 42px;
+  padding: 10px 16px;
+  font-size: 13px;
   font-weight: 900;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: transform 0.14s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
 
 .lwAdminPrimaryBtn {
+  border: 0;
   color: #fff;
-  background: linear-gradient(135deg, #0b63a6, #1592cb);
-  box-shadow: 0 12px 24px rgba(11,99,166,.25);
+  background: linear-gradient(135deg, #0b63a6, #1491c9);
+  box-shadow: 0 12px 24px rgba(11, 99, 166, 0.22);
 }
 
 .lwAdminPrimaryBtn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 16px 30px rgba(11,99,166,.28);
 }
 
-.lwAdminPrimaryBtn:disabled {
-  opacity: .6;
+.lwAdminPrimaryBtn.isDanger {
+  background: linear-gradient(135deg, #b91c1c, #ef4444);
+  box-shadow: 0 12px 24px rgba(239, 68, 68, 0.2);
+}
+
+.lwAdminSecondaryBtn,
+.lwAdminGhostBtn {
+  border: 1px solid rgba(190, 206, 221, 0.98);
+  color: #23425e;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 246, 251, 0.95));
+}
+
+.lwAdminSecondaryBtn.isActive {
+  border-color: rgba(11, 99, 166, 0.24);
+  color: #0b63a6;
+  box-shadow: inset 0 0 0 1px rgba(11, 99, 166, 0.08);
+}
+
+.lwAdminGhostBtn.isDanger {
+  color: #b42318;
+}
+
+.lwAdminPrimaryBtn:disabled,
+.lwAdminSecondaryBtn:disabled,
+.lwAdminGhostBtn:disabled,
+.lwAdminThemeToggleBtn:disabled {
+  opacity: 0.56;
   cursor: not-allowed;
+  transform: none;
 }
 
-.lwAdminSecondaryBtn {
-  color: #0b5c96;
-  background: linear-gradient(180deg, #ffffff, #edf5fa);
-  border: 1px solid rgba(116, 160, 199, 0.28);
-  box-shadow: 0 8px 16px rgba(40,74,107,.08);
+.lwAdminFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.lwAdminSecondaryBtn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: linear-gradient(180deg, #ffffff, #e8f2f9);
+.lwAdminField {
+  display: grid;
+  gap: 7px;
 }
 
-.lwAdminStatusMsg {
-  margin-top: 12px;
-  font-size: 13px;
+.lwAdminFieldFull {
+  grid-column: 1 / -1;
+}
+
+.lwAdminLabel {
+  font-size: 12px;
   font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64768a;
+}
+
+.lwAdminInput,
+.lwAdminTextarea,
+.lwAdminSelect {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid rgba(200, 214, 227, 0.98);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 252, 0.96));
+  color: #13273a;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 14px;
+  outline: none;
+}
+
+.lwAdminTextarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.lwAdminInput:focus,
+.lwAdminTextarea:focus,
+.lwAdminSelect:focus {
+  border-color: #4da3df;
+  box-shadow: 0 0 0 4px rgba(77, 163, 223, 0.12);
+}
+
+.lwAdminFieldError {
+  font-size: 12px;
+  font-weight: 800;
+  color: #c62828;
+}
+
+.lwAdminFieldHint {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64768a;
+}
+
+.lwAdminInlineSurface {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 15px;
+  background: linear-gradient(180deg, rgba(247, 250, 253, 0.98), rgba(238, 244, 249, 0.96));
+  border: 1px solid rgba(207, 220, 232, 0.98);
+}
+
+.lwAdminInlineSurface strong {
+  font-size: 14px;
+  color: #13273a;
+}
+
+.lwAdminInlineSurface span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #617285;
+}
+
+.lwAdminChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.12);
+  color: #475569;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.lwAdminChip.healthy {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.22);
+  color: #166534;
+}
+
+.lwAdminChip.warning {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.22);
+  color: #b45309;
+}
+
+.lwAdminChip.critical {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.22);
+  color: #b91c1c;
+}
+
+.lwAdminMapSurface {
   position: relative;
+  min-height: 420px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(11, 99, 166, 0.12), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(24, 178, 165, 0.12), transparent 36%);
+}
+
+.lwAdminMapSurface .lwMapBox,
+.lwAdminMapSurface .lwInteractiveMap {
+  min-height: 420px;
+  height: 420px;
+}
+
+.lwAdminMapBadgeRow {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  z-index: 2;
+}
+
+.lwAdminMapBadgeRow .lwAdminChip {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.lwAdminMapOverlay {
+  position: absolute;
+  inset: 0;
   z-index: 1;
 }
 
-.lwAdminStatusMsg.saved { color: #15803d; }
-.lwAdminStatusMsg.error { color: #b91c1c; }
-.lwAdminStatusMsg.saving { color: #0b63a6; }
+.lwAdminMapOverlay.isDrawing {
+  cursor: crosshair;
+}
 
-/* ---------- Live state panel ---------- */
-.lwAdminMetricList {
+.lwAdminMapSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.lwAdminMapPolygon,
+.lwAdminMapDraftFill,
+.lwAdminMapDraft {
+  fill: rgba(11, 99, 166, 0.14);
+  stroke: rgba(11, 99, 166, 0.64);
+  stroke-width: 0.6;
+}
+
+.lwAdminMapPolygon.isSelected {
+  fill: rgba(20, 145, 201, 0.18);
+  stroke: rgba(20, 145, 201, 0.94);
+}
+
+.lwAdminMapDraft {
+  fill: none;
+  stroke: rgba(34, 197, 94, 0.96);
+  stroke-width: 0.8;
+  stroke-dasharray: 1.4 1;
+}
+
+.lwAdminMapDraftFill {
+  fill: rgba(34, 197, 94, 0.12);
+  stroke: rgba(34, 197, 94, 0.4);
+}
+
+.lwAdminMapMarker {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  justify-items: center;
+}
+
+.lwAdminMapMarkerDot {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.2);
+}
+
+.lwAdminMapMarker.neutral .lwAdminMapMarkerDot {
+  background: #94a3b8;
+}
+
+.lwAdminMapMarker.healthy .lwAdminMapMarkerDot {
+  background: #22c55e;
+}
+
+.lwAdminMapMarker.warning .lwAdminMapMarkerDot {
+  background: #f59e0b;
+}
+
+.lwAdminMapMarker.critical .lwAdminMapMarkerDot {
+  background: #ef4444;
+}
+
+.lwAdminMapMarker.isActive .lwAdminMapMarkerDot,
+.lwAdminMapMarker.isBulkSelected .lwAdminMapMarkerDot {
+  transform: scale(1.16);
+  box-shadow: 0 0 0 7px rgba(11, 99, 166, 0.18), 0 10px 18px rgba(15, 23, 42, 0.24);
+}
+
+.lwAdminMapMarker.isBulkSelected .lwAdminMapMarkerDot {
+  box-shadow: 0 0 0 7px rgba(20, 145, 201, 0.14), 0 10px 18px rgba(15, 23, 42, 0.24);
+}
+
+.lwAdminMapMarkerLabel {
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #102133;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+}
+
+.lwAdminMapPreviewPin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: grid;
+  justify-items: center;
+  pointer-events: none;
+}
+
+.lwAdminMapPreviewDot {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #0b63a6;
+  border: 4px solid rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 0 0 8px rgba(11, 99, 166, 0.18),
+    0 12px 22px rgba(15, 23, 42, 0.2);
+  animation: lwAdminPreviewPulse 1.8s infinite;
+}
+
+@keyframes lwAdminPreviewPulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(11, 99, 166, 0.24),
+      0 12px 22px rgba(15, 23, 42, 0.2);
+  }
+  70% {
+    box-shadow:
+      0 0 0 16px rgba(11, 99, 166, 0),
+      0 12px 22px rgba(15, 23, 42, 0.2);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(11, 99, 166, 0),
+      0 12px 22px rgba(15, 23, 42, 0.2);
+  }
+}
+
+.lwAdminMapFooter {
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #617285;
+}
+
+.lwAdminRecordList,
+.lwAdminSliderList,
+.lwAdminPointList {
   display: grid;
   gap: 10px;
-  position: relative;
-  z-index: 1;
-  font-size: 14px;
-  font-weight: 800;
-  color: #1f2937;
+  margin-bottom: 14px;
+  min-height: 0;
+  overflow: auto;
 }
 
-.lwAdminMetricList > div {
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,.65), rgba(245,249,252,.92));
-  border: 1px solid rgba(183, 199, 212, 0.26);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.88);
-}
-
-.lwProgressTrackClean {
-  height: 14px;
-  border-radius: 999px;
-  background: rgba(212, 224, 233, 0.95);
-  margin-top: 16px;
-  overflow: hidden;
-  box-shadow: inset 0 2px 6px rgba(20, 37, 52, 0.08);
-}
-
-.lwProgressFillClean {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #18b2a5, #2fd671);
-  box-shadow: 0 6px 14px rgba(47,214,113,.22);
-}
-
-/* ---------- Sensor list ---------- */
-.lwSensorGrid {
+.lwAdminPointRow {
   display: grid;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(247, 250, 253, 0.98), rgba(238, 244, 249, 0.96));
+  border: 1px solid rgba(207, 220, 232, 0.98);
 }
 
-.lwSensorRow {
+.lwAdminPointRow strong {
+  color: #102133;
+}
+
+.lwAdminPointRow span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #617285;
+}
+
+.lwAdminRecordItem {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(207, 220, 232, 0.98);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(247, 250, 253, 0.98), rgba(238, 244, 249, 0.96));
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
+}
+
+.lwAdminRecordItem strong,
+.lwAdminSliderMeta strong {
+  display: block;
+  color: #13273a;
+  font-size: 14px;
+}
+
+.lwAdminRecordItem span,
+.lwAdminSliderMeta span {
+  display: block;
+  margin-top: 4px;
+  color: #617285;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.lwAdminSliderRow,
+.lwAdminBulkRow {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,.68), rgba(246,250,253,.92));
-  border: 1px solid rgba(189, 205, 218, 0.24);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.88);
-  font-weight: 850;
-  color: #334155;
+  background: linear-gradient(180deg, rgba(247, 250, 253, 0.98), rgba(238, 244, 249, 0.96));
+  border: 1px solid rgba(207, 220, 232, 0.98);
 }
 
-.lwSensorValue {
+.lwAdminSliderControl {
+  display: grid;
+  gap: 8px;
+}
+
+.lwAdminSliderValue {
+  font-size: 13px;
   font-weight: 900;
-  color: #10283a;
+  color: #0b63a6;
 }
 
-.lwSkeletonLine {
-  display: inline-block;
-  width: 92px;
-  height: 12px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(226,232,240,.95), rgba(203,213,225,.82), rgba(226,232,240,.95));
-  background-size: 200% 100%;
-  animation: lwShimmer 1.2s linear infinite;
+.lwAdminBulkActions {
+  justify-content: flex-start;
 }
 
-@keyframes lwShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.lwAdminTableWrap {
+  min-height: 0;
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(207, 220, 232, 0.98);
 }
 
-/* ---------- Map shell ---------- */
-.lwAdminMapShell {
+.lwAdminTable {
   width: 100%;
-  height: clamp(360px, 44vh, 520px);
-  min-width: 0;
-  border-radius: 20px;
-  overflow: hidden;
-  display: flex;
-  align-items: stretch;
-  background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(241,247,251,.94));
-  border: 1px solid rgba(166, 188, 207, 0.22);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.92);
+  border-collapse: collapse;
+  min-width: 520px;
 }
 
-/* ---------- Responsive ---------- */
+.lwAdminTable thead th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #617285;
+  background: rgba(240, 245, 250, 0.96);
+}
+
+.lwAdminTable tbody tr {
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.lwAdminTable tbody tr:hover {
+  background: rgba(237, 245, 252, 0.92);
+}
+
+.lwAdminTable tbody tr.isSelected {
+  background: rgba(226, 239, 249, 0.96);
+}
+
+.lwAdminTable td {
+  padding: 13px 14px;
+  vertical-align: top;
+  border-top: 1px solid rgba(226, 232, 240, 0.92);
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f3347;
+}
+
+.lwAdminTable td strong {
+  display: block;
+  font-size: 14px;
+  color: #102133;
+}
+
+.lwAdminTable td span {
+  display: block;
+  margin-top: 4px;
+  color: #617285;
+  font-size: 12px;
+}
+
+.lwAdminTableEmpty {
+  text-align: center;
+  color: #617285;
+}
+
+.lwAdminTimelineEditor {
+  margin: 16px 0;
+  display: grid;
+  gap: 12px;
+}
+
+.lwAdminScheduleHint {
+  margin-top: 14px;
+}
+
+.lwAdminTimelineTop {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.lwAdminTimelineSummary {
+  text-align: center;
+  display: grid;
+  gap: 4px;
+}
+
+.lwAdminTimelineSummary span,
+.lwAdminTimelineLabel {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7f94;
+}
+
+.lwAdminTimelineSummary strong,
+.lwAdminTimelineValue {
+  font-size: 14px;
+  font-weight: 900;
+  color: #102133;
+}
+
+.lwAdminTimelineTrackWrap {
+  position: relative;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, rgba(226, 234, 243, 0.96), rgba(240, 245, 250, 0.98));
+  overflow: hidden;
+}
+
+.lwAdminTimelineTrack {
+  position: absolute;
+  inset: 50% 16px auto;
+  height: 12px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: rgba(191, 203, 217, 0.96);
+}
+
+.lwAdminTimelineWindow {
+  position: absolute;
+  top: 50%;
+  height: 16px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0b63a6, #18b2a5);
+  box-shadow: 0 8px 18px rgba(11, 99, 166, 0.2);
+}
+
+.lwAdminRangeInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.lwAdminRangeInput::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.lwAdminRangeInput::-moz-range-track {
+  background: transparent;
+}
+
+.lwAdminRangeInput::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  background: #0b63a6;
+  box-shadow: 0 8px 18px rgba(11, 99, 166, 0.25);
+  cursor: ew-resize;
+  margin-top: 21px;
+}
+
+.lwAdminRangeInput::-moz-range-thumb {
+  pointer-events: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  background: #0b63a6;
+  box-shadow: 0 8px 18px rgba(11, 99, 166, 0.25);
+  cursor: ew-resize;
+}
+
+.lwAdminTimelineHours {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #6b7f94;
+}
+
+.lwAdminDayPill {
+  border: 1px solid rgba(203, 216, 229, 0.94);
+  background: rgba(247, 250, 253, 0.98);
+  color: #23425e;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.lwAdminDayPill.isActive {
+  background: rgba(11, 99, 166, 0.14);
+  border-color: rgba(11, 99, 166, 0.24);
+  color: #0b63a6;
+}
+
+.lwAdminModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(10px);
+}
+
+.lwAdminModal {
+  width: min(460px, 100%);
+  border-radius: 24px;
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(203, 216, 229, 0.98);
+  box-shadow: 0 24px 44px rgba(15, 23, 42, 0.24);
+}
+
+.lwAdminModalHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lwAdminModalTitle {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: 1000;
+  color: #102133;
+}
+
+.lwAdminModalCopy {
+  margin: 16px 0 20px;
+  line-height: 1.55;
+  font-size: 14px;
+  font-weight: 700;
+  color: #42576d;
+}
+
+.lwAdminModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+body.dark .lwAdminLoadingCard,
+body.dark .lwAdminStatCard,
+body.dark .lwAdminCard,
+body.dark .lwAdminSectionNav,
+body.dark .lwAdminModal {
+  background: var(--lw-surface-dark);
+  border-color: var(--lw-line-dark);
+  box-shadow: var(--lw-shadow-dark);
+}
+
+body.dark .lwAdminPageTitle,
+body.dark .lwAdminStatValue,
+body.dark .lwAdminSectionNavTitle,
+body.dark .lwAdminCardTitle,
+body.dark .lwAdminTimelineSummary strong,
+body.dark .lwAdminTimelineValue,
+body.dark .lwAdminTable td strong,
+body.dark .lwAdminModalTitle,
+body.dark .lwAdminInlineSurface strong,
+body.dark .lwAdminRecordItem strong,
+body.dark .lwAdminSliderMeta strong {
+  color: #eef5ff;
+}
+
+body.dark .lwAdminPageSubtitle,
+body.dark .lwAdminStatNote,
+body.dark .lwAdminSectionNavDesc,
+body.dark .lwAdminCardSubtitle,
+body.dark .lwAdminFieldHint,
+body.dark .lwAdminMapFooter,
+body.dark .lwAdminRecordItem span,
+body.dark .lwAdminSliderMeta span,
+body.dark .lwAdminTimelineHours,
+body.dark .lwAdminModalCopy,
+body.dark .lwAdminInlineSurface span,
+body.dark .lwAdminTable td span {
+  color: #95a8bc;
+}
+
+body.dark .lwAdminSectionEyebrow,
+body.dark .lwAdminStatLabel,
+body.dark .lwAdminLabel,
+body.dark .lwAdminTimelineLabel,
+body.dark .lwAdminTimelineSummary span {
+  color: #9bb0c5;
+}
+
+body.dark .lwAdminThemeToggle,
+body.dark .lwAdminInput,
+body.dark .lwAdminTextarea,
+body.dark .lwAdminSelect,
+body.dark .lwAdminInlineSurface,
+body.dark .lwAdminRecordItem,
+body.dark .lwAdminSliderRow,
+body.dark .lwAdminBulkRow,
+body.dark .lwAdminTableWrap,
+body.dark .lwAdminTable thead th,
+body.dark .lwAdminSectionNavItem,
+body.dark .lwAdminSecondaryBtn,
+body.dark .lwAdminGhostBtn,
+body.dark .lwAdminDayPill,
+body.dark .lwAdminTimelineTrackWrap {
+  background: linear-gradient(180deg, rgba(14, 26, 41, 0.98), rgba(10, 21, 35, 0.96));
+  border-color: rgba(148, 163, 184, 0.14);
+  color: #dce8f5;
+}
+
+body.dark .lwAdminThemeToggleBtn {
+  color: #c5d7e8;
+}
+
+body.dark .lwAdminThemeToggleBtn.isActive,
+body.dark .lwAdminDayPill.isActive,
+body.dark .lwAdminSectionNavItem.isActive,
+body.dark .lwAdminRecordItem.isSelected,
+body.dark .lwAdminSecondaryBtn.isActive {
+  background: rgba(26, 118, 191, 0.28);
+  border-color: rgba(91, 197, 255, 0.24);
+  color: #9fd6ff;
+}
+
+body.dark .lwAdminChip {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.16);
+  color: #d5e2f1;
+}
+
+body.dark .lwAdminChip.healthy {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.24);
+  color: #7ee2a8;
+}
+
+body.dark .lwAdminChip.warning {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.24);
+  color: #ffd082;
+}
+
+body.dark .lwAdminChip.critical,
+body.dark .lwAdminGhostBtn.isDanger {
+  color: #ff9a9a;
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+body.dark .lwAdminPrimaryBtn {
+  box-shadow: 0 14px 28px rgba(11, 99, 166, 0.28);
+}
+
+body.dark .lwAdminFieldError {
+  color: #ffabab;
+}
+
+body.dark .lwAdminTable tbody tr:hover {
+  background: rgba(24, 45, 67, 0.88);
+}
+
+body.dark .lwAdminTable tbody tr.isSelected {
+  background: rgba(21, 57, 89, 0.92);
+}
+
+body.dark .lwAdminTable td {
+  border-top-color: rgba(148, 163, 184, 0.12);
+}
+
+body.dark .lwAdminMapMarkerLabel {
+  background: rgba(8, 18, 30, 0.94);
+  color: #eef5ff;
+}
+
+body.dark .lwAdminMapPolygon {
+  fill: rgba(20, 145, 201, 0.12);
+  stroke: rgba(103, 210, 227, 0.46);
+}
+
+body.dark .lwAdminMapPolygon.isSelected {
+  fill: rgba(20, 145, 201, 0.2);
+  stroke: rgba(103, 210, 227, 0.88);
+}
+
+body.dark .lwAdminMapBadgeRow .lwAdminChip {
+  background: rgba(8, 18, 30, 0.76);
+}
+
+body.dark .lwAdminMapDraft {
+  stroke: rgba(74, 222, 128, 0.92);
+}
+
+body.dark .lwAdminMapDraftFill {
+  fill: rgba(74, 222, 128, 0.12);
+  stroke: rgba(74, 222, 128, 0.3);
+}
+
+body.dark .lwAdminMapPreviewDot {
+  border-color: rgba(8, 18, 30, 0.98);
+  box-shadow:
+    0 0 0 8px rgba(91, 197, 255, 0.18),
+    0 12px 22px rgba(0, 0, 0, 0.32);
+}
+
+body.dark .lwAdminPointRow {
+  background: linear-gradient(180deg, rgba(14, 26, 41, 0.98), rgba(10, 21, 35, 0.96));
+  border-color: rgba(148, 163, 184, 0.14);
+}
+
+body.dark .lwAdminPointRow strong {
+  color: #eef5ff;
+}
+
+body.dark .lwAdminPointRow span {
+  color: #95a8bc;
+}
+
 @media (max-width: 1180px) {
-  .lwAdminControlBar {
-    grid-template-columns: 1fr;
-    align-items: stretch;
+  .lwAdminStatGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .lwAdminSplitLayout {
+  .lwAdminShell {
+    grid-template-columns: 1fr;
+  }
+
+  .lwAdminSectionNav {
+    position: static;
+  }
+
+  .lwAdminSectionGrid,
+  .lwAdminSectionGridCompact {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 760px) {
-  .lwAdminFormGrid {
+  .lwAdminPageHeader {
+    align-items: flex-start;
+  }
+
+  .lwAdminStatGrid {
     grid-template-columns: 1fr;
   }
 
-  .lwAdminSubscribeRow {
+  .lwAdminFormGrid,
+  .lwAdminTimelineTop {
+    grid-template-columns: 1fr;
+  }
+
+  .lwAdminModalActions,
+  .lwAdminBulkActions,
+  .lwAdminButtonRow,
+  .lwAdminCardActions {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .lwAdminCompactInput {
-    width: 100%;
-  }
-
-  .lwAdminActionRow {
-    flex-direction: column;
-  }
-
   .lwAdminPrimaryBtn,
   .lwAdminSecondaryBtn,
-  .lwAdminSimBtn,
-  .lwAdminSubscribeBtn {
+  .lwAdminGhostBtn {
     width: 100%;
     justify-content: center;
   }
-}
 
-/* =========================================================
-   ADMIN DARK MODE OVERRIDES
-========================================================= */
-
-body.dark .lwAdminHeroClean {
-  background: linear-gradient(180deg, rgba(22, 31, 41, 0.96), rgba(17, 25, 34, 0.94));
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
-}
-
-body.dark .lwWsBtn,
-body.dark .lwAdminSimBtn,
-body.dark .lwAdminSubscribeBtn {
-  color: #ffffff !important;
-  background: linear-gradient(135deg, #0b63a6, #1491c9) !important;
-  box-shadow: 0 10px 22px rgba(20, 145, 201, 0.22) !important;
-}
-
-body.dark .lwWsBtn:hover,
-body.dark .lwAdminSimBtn:hover,
-body.dark .lwAdminSubscribeBtn:hover {
-  box-shadow: 0 14px 28px rgba(20, 145, 201, 0.26) !important;
-}
-
-body.dark .lwAdminSubscribeBox,
-body.dark .lwAdminConnectionChip {
-  background: linear-gradient(180deg, rgba(28, 39, 51, 0.96), rgba(21, 31, 41, 0.96));
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
-}
-
-body.dark .lwAdminMiniLabel {
-  color: #98aec1;
-}
-
-body.dark .lwAdminCompactInput {
-  background: rgba(18, 27, 36, 0.98);
-  color: #e6f0f7;
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
-}
-
-body.dark .lwAdminCompactInput:focus {
-  border-color: #4da3df;
-  box-shadow: 0 0 0 3px rgba(77,163,223,.16);
-}
-
-body.dark .lwAdminConnectionValue {
-  color: #e8f0f7;
-}
-
-body.dark .lwBubbleCard {
-  background: linear-gradient(180deg, rgba(24, 34, 45, 0.94), rgba(18, 27, 36, 0.92)) !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22) !important;
-}
-
-body.dark .lwBubbleCard::after {
-  background: radial-gradient(
-    circle,
-    rgba(58, 130, 109, 0.16) 0%,
-    rgba(58, 130, 109, 0.1) 40%,
-    rgba(58, 130, 109, 0) 72%
-  );
-}
-
-body.dark .lwBubbleIcon {
-  background: linear-gradient(180deg, rgba(31, 43, 55, 0.98), rgba(23, 33, 43, 0.98)) !important;
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
-}
-
-body.dark .lwBubbleTitle {
-  color: #eef5fa !important;
-}
-
-body.dark .lwBubbleSub {
-  color: #9eb2c2 !important;
-}
-
-body.dark .lwAdminFormSection .lwLabel,
-body.dark .lwAdminFormGrid .lwLabel {
-  color: #a9bccb;
-}
-
-body.dark .lwAdminInput {
-  background: linear-gradient(180deg, rgba(24, 34, 45, 0.98) 0%, rgba(19, 27, 36, 0.98) 100%) !important;
-  color: #e8f0f7 !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
-}
-
-body.dark .lwAdminInput:hover {
-  border-color: rgba(77, 163, 223, 0.45) !important;
-}
-
-body.dark .lwAdminInput:focus {
-  border-color: #4da3df !important;
-  box-shadow:
-    0 0 0 4px rgba(77,163,223,.14),
-    0 10px 22px rgba(77,163,223,.08) !important;
-}
-
-body.dark .lwAdminInput.isInvalid {
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 0 4px rgba(239,68,68,.12) !important;
-}
-
-body.dark .lwFieldError {
-  color: #ff9f9f;
-}
-
-body.dark .lwFieldHint {
-  color: #93a9ba;
-}
-
-body.dark .lwAdminPrimaryBtn {
-  color: #ffffff;
-  background: linear-gradient(135deg, #0b63a6, #1592cb);
-  box-shadow: 0 12px 24px rgba(11,99,166,.24);
-}
-
-body.dark .lwAdminSecondaryBtn {
-  color: #bfe4ff;
-  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
-  border: 1px solid rgba(91, 185, 255, 0.16);
-  box-shadow: 0 8px 16px rgba(0,0,0,.14);
-}
-
-body.dark .lwAdminSecondaryBtn:hover:not(:disabled) {
-  background: linear-gradient(180deg, rgba(31, 43, 55, 0.99), rgba(24, 35, 46, 0.99));
-}
-
-body.dark .lwAdminStatusMsg.saved { color: #4ade80; }
-body.dark .lwAdminStatusMsg.error { color: #ff8c8c; }
-body.dark .lwAdminStatusMsg.saving { color: #67d2e3; }
-
-body.dark .lwAdminMetricList {
-  color: #dbe8f2;
-}
-
-body.dark .lwAdminMetricList > div {
-  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
-}
-
-body.dark .lwProgressTrackClean {
-  background: rgba(44, 58, 71, 0.95);
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.22);
-}
-
-body.dark .lwProgressFillClean {
-  background: linear-gradient(90deg, #18b2a5, #2fd671);
-  box-shadow: 0 6px 14px rgba(47,214,113,.18);
-}
-
-body.dark .lwSensorRow {
-  background: linear-gradient(180deg, rgba(28, 39, 51, 0.98), rgba(21, 31, 41, 0.98));
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
-  color: #cfdde8;
-}
-
-body.dark .lwSensorValue {
-  color: #eef5fa;
-}
-
-body.dark .lwSkeletonLine {
-  background: linear-gradient(
-    90deg,
-    rgba(70, 85, 101, 0.95),
-    rgba(102, 118, 136, 0.82),
-    rgba(70, 85, 101, 0.95)
-  );
-  background-size: 200% 100%;
-}
-
-body.dark .lwAdminMapShell {
-  background: linear-gradient(180deg, rgba(24, 34, 45, 0.96), rgba(19, 27, 36, 0.98));
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
-}
-/* =========================================================
-   ADMIN HOVER SHADE FEEDBACK
-   Adds the same "cursor is here" shading feel
-   without changing layout or color system
-========================================================= */
-
-/* whole admin cards */
-.lwAdminPageClean .lwBubbleCard {
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease,
-    filter 0.18s ease;
-}
-
-.lwAdminPageClean .lwBubbleCard:hover {
-  box-shadow: 0 18px 34px rgba(57, 86, 114, 0.12) !important;
-  filter: brightness(1.01);
-}
-
-/* live state rows */
-.lwAdminMetricList > div {
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
-}
-
-.lwAdminMetricList > div:hover {
-  background: linear-gradient(180deg, rgba(250,252,255,.88), rgba(240,247,252,.96));
-  border-color: rgba(110, 158, 210, 0.22);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.90),
-    0 4px 10px rgba(40,74,107,.05);
-}
-
-/* sensor rows */
-.lwSensorRow {
-  transition:
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
-}
-
-.lwSensorRow:hover {
-  background: linear-gradient(180deg, rgba(252,254,255,.90), rgba(239,247,252,.96));
-  border-color: rgba(110, 158, 210, 0.22);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.90),
-    0 4px 10px rgba(40,74,107,.05);
-}
-
-/* live events outer feed card already handled above, but make empty box + rows stronger */
-.lwAdminPageClean .lwActivityItem:hover {
-  background: linear-gradient(180deg, rgba(241,248,253,.99), rgba(228,239,247,.98));
-}
-
-.lwAdminPageClean .lwActivityEmpty:hover {
-  background: linear-gradient(180deg, #fbfdff 0%, #eef6fc 100%);
-}
-
-/* progress bar area subtle response */
-.lwProgressTrackClean {
-  transition: box-shadow 0.18s ease, filter 0.18s ease;
-}
-
-.lwBubbleCard:hover .lwProgressTrackClean {
-  box-shadow:
-    inset 0 2px 6px rgba(20, 37, 52, 0.10),
-    0 4px 10px rgba(47,214,113,.08);
-}
-
-/* =========================================================
-   ADMIN DARK MODE HOVER SHADE
-========================================================= */
-
-body.dark .lwAdminPageClean .lwBubbleCard:hover {
-  box-shadow: 0 20px 36px rgba(0,0,0,.30) !important;
-  filter: brightness(1.03);
-}
-
-body.dark .lwAdminMetricList > div:hover {
-  background: linear-gradient(180deg, rgba(34, 48, 62, 0.99), rgba(25, 37, 49, 0.99)) !important;
-  border-color: rgba(91, 197, 255, 0.14) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.03),
-    0 8px 16px rgba(0,0,0,.18);
-}
-
-body.dark .lwSensorRow:hover {
-  background: linear-gradient(180deg, rgba(34, 48, 62, 0.99), rgba(25, 37, 49, 0.99)) !important;
-  border-color: rgba(91, 197, 255, 0.14) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.03),
-    0 8px 16px rgba(0,0,0,.18);
-}
-
-body.dark .lwAdminPageClean .lwActivityItem:hover {
-  background: linear-gradient(180deg, rgba(34, 48, 62, 0.99), rgba(25, 37, 49, 0.99)) !important;
-}
-
-body.dark .lwAdminPageClean .lwActivityEmpty:hover {
-  background: linear-gradient(180deg, rgba(31, 44, 58, 0.98), rgba(22, 33, 44, 0.98)) !important;
-  border-color: rgba(91, 197, 255, 0.10) !important;
-}
-
-body.dark .lwBubbleCard:hover .lwProgressTrackClean {
-  box-shadow:
-    inset 0 2px 6px rgba(0,0,0,.24),
-    0 4px 10px rgba(47,214,113,.08);
+  .lwAdminMapSurface,
+  .lwAdminMapSurface .lwMapBox,
+  .lwAdminMapSurface .lwInteractiveMap {
+    min-height: 360px;
+    height: 360px;
+  }
 }

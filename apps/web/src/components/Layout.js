@@ -30,7 +30,7 @@ export default function Layout({ title, subtitle, children, backgroundImage }) {
       <div className="lwMainShell">
         <main className="lwPage lwPageLocked" style={pageStyle}>
           {header}
-          {children}
+          {typeof children === "function" ? children(theme) : children}
         </main>
       </div>
     </div>

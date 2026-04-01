@@ -6,7 +6,7 @@ from domain.streetlight.models import Streetlight
 @pytest.fixture
 def streetlight():
     return Streetlight(
-        streetlight_id="LW-00042",
+        streetlight_id="LW-00100",
         tenant_id="tenant-001",
         health=HealthStatus.OK,
         lat=37.7749,
@@ -24,7 +24,7 @@ def streetlight():
 
 def test_to_dict_structure(streetlight):
     result = streetlight.to_dict()
-    assert result["streetlight_id"] == "LW-00042"
+    assert result["streetlight_id"] == "LW-00100"
     assert result["tenant_id"] == "tenant-001"
     assert result["health"] == HealthStatus.OK.value
     assert result["lat"] == 37.7749
@@ -45,7 +45,7 @@ def test_to_dict_sensor_fields(streetlight):
 
 def test_to_dict_health_is_serialized():
     streetlight = Streetlight(
-        streetlight_id="LW-00042",
+        streetlight_id="LW-00100",
         tenant_id="tenant-001",
         health=HealthStatus.DEGRADED,
     )
@@ -54,7 +54,7 @@ def test_to_dict_health_is_serialized():
 
 def test_to_dict_optional_fields_default_none():
     streetlight = Streetlight(
-        streetlight_id="LW-00042",
+        streetlight_id="LW-00100",
         tenant_id="tenant-001",
         health=HealthStatus.OK,
     )

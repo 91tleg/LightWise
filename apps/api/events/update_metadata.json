@@ -4,9 +4,9 @@
     "stage": "local"
   },
   "httpMethod": "PUT",
-  "path": "/streetlights/LW-00042/metadata",
+  "path": "/streetlights/LW-00100/metadata",
   "pathParameters": {
-    "id": "LW-00042"
+    "id": "LW-00100"
   },
   "queryStringParameters": {
     "tenant_id": "tenant-001"
@@ -16,3 +16,4 @@
   },
   "body": "{\"name\": \"Main Street 5th Ave\", \"lat\": 37.7749, \"lng\": -122.4194}"
 }
+

@@ -21,7 +21,7 @@ Returns all streetlights for a tenant. Used to render the map with pins and heal
 ```json
 [
   {
-    "streetlight_id": "LW-00042",
+    "streetlight_id": "LW-00100",
     "tenant_id": "tenant-001",
     "health": "DEGRADED",
     "lat": 37.7749,
@@ -57,7 +57,7 @@ Returns full detail for a single streetlight. Used when a user clicks a map pin.
 **Response `200`**
 ```json
 {
-  "streetlight_id": "LW-00042",
+  "streetlight_id": "LW-00100",
   "tenant_id": "tenant-001",
   "health": "DEGRADED",
   "lat": 37.7749,
@@ -99,7 +99,7 @@ Returns time-series sensor data for charts. Hits Timestream. Returns empty array
 **Response `200`**
 ```json
 {
-  "streetlight_id": "LW-00042",
+  "streetlight_id": "LW-00100",
   "data": [
     {
       "time": "2026-02-27T03:00:00Z",
@@ -149,3 +149,4 @@ At least one field is required.
 ```json
 { "error": "At least one of name, lat, lng is required" }
 ```
+

@@ -50,7 +50,7 @@ Used to resolve `tenant_id` from a `streetlight_id` alone, e.g. during raw uplin
 ```json
 {
   "tenant_id": "tenant-001",
-  "streetlight_id": "LW-00042",
+  "streetlight_id": "LW-00100",
   "firmware_version": "1.0",
   "last_seen": "2026-02-16T03:41:12Z",
   "health_status": "DEGRADED",
@@ -173,7 +173,7 @@ PK: tenant_id
   "tenant_id": "tenant-001",
   "user_id": "u-123",
   "connected_at": "2026-02-24T10:00:00Z",
-  "streetlight_ids": ["LW-00042"]
+  "streetlight_ids": ["LW-00100"]
 }
 ```
 
@@ -240,7 +240,7 @@ Why This Mapping
 ```json
 {
   "Dimensions": [
-    { "Name": "streetlight_id", "Value": "LW-00042" },
+    { "Name": "streetlight_id", "Value": "LW-00100" },
     { "Name": "site_id", "Value": "CITY#SF" }
   ],
   "MeasureName": "telemetry",
@@ -292,3 +292,4 @@ This design:
 
 **Document Version**: 1.2   
 **Last Updated**: March 5, 2026  
+
