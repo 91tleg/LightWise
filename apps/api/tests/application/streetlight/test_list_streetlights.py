@@ -89,4 +89,3 @@ class TestListStreetlights:
         result = service.execute(tenant_id="tenant-001")
 
         assert result is expected
-

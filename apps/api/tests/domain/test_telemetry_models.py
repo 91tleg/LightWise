@@ -77,4 +77,3 @@ def test_to_dict_degraded_flags():
     diagnostics = payload.to_dict()["diagnostics"]
     assert diagnostics["ambient_secondary_ok"] is False
     assert diagnostics["system_degraded"] is True
-

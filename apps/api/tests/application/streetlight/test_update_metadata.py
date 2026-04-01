@@ -130,4 +130,3 @@ class TestUpdateStreetlightMetadata:
         )
 
         assert result is None
-

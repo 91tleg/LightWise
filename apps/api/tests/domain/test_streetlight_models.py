@@ -69,4 +69,3 @@ def test_to_dict_optional_fields_default_none():
     assert result["th_ok"] is None
     assert result["motion_primary_ok"] is None
     assert result["motion_secondary_ok"] is None
-
