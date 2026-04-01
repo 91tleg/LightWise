@@ -154,7 +154,7 @@ export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } 
     throw new Error(`interval must be one of: ${Array.from(ALLOWED_INTERVALS).join(", ")}`);
   }
 
-  if (LIGHTWISE_ENV.USE_MOCK) return mockGetTelemetry(id, from, to);
+  if (LIGHTWISE_ENV.USE_MOCK) return mockGetTelemetry(id, from, to, interval);
 
   const data = await apiFetch(
     `/streetlights/${encodeURIComponent(id)}/telemetry`,

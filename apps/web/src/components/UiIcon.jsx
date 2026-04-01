@@ -157,6 +157,12 @@ const paths = {
       <circle cx="12" cy="10" r="2.5" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="4" y="5" width="16" height="15" rx="2.5" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 3v4M16 3v4M4 9h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
   save: (
     <>
       <path d="M5 21h14a1 1 0 0 0 1-1V7.5L16.5 4H5a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
