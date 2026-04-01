@@ -255,4 +255,3 @@ class TestGetStreetlight:
 
         assert result.tenant_id == "tenant-002"
         repo.get.assert_called_once_with("tenant-002", "LW-00100")
-
