@@ -1,7 +1,7 @@
 # LightWise LoRaWAN Payload Specification
 
-**Version:** 1.1
-**Last Updated:** March 19, 2026
+**Version:** 1.3
+**Last Updated:** March 28, 2026
 **Byte Order:** Big-endian (MSB first)
 
 ---
@@ -13,6 +13,7 @@
 | 1.0 | 2026-03-19 | Max Chou | Initial specification |
 | 1.1 | 2026-03-19 | Max Chou | Updated constraints to reflect API-side validation |
 | 1.2 | 2026-03-22 | — | Fixed SET_MOTION_SENSITIVITY range mismatch; added API validation notes to OVERRIDE_ON and SET_TEMP_DIM; replaced RESUME_AUTO sentinel with 0xFF in unknown-version NACK example |
+| 1.3 | 2026-04-01 | — | Removed SET_SCHEDULE (no RTC hardware); removed uplink-only tier (all devices run full tier); consolidated to single uplink version with type byte; updated flags to 3-bit health encoding across two flag bytes; added LightOk flag for AC bulb current sensing |
 
 ---
 
@@ -20,7 +21,7 @@
 
 | Firmware Version | Downlink Payload Version | Uplink Payload Version |
 |---|---|---|
-| v1.x.x | 0x01 | 0x01 (uplink-only tier) or 0x02 (full tier) |
+| v1.x.x | 0x01 | 0x01 |
 
 ---
 
@@ -65,7 +66,6 @@ The following changes require incrementing the payload version byte:
 | OVERRIDE_ON | No — clears on reboot or RESUME_AUTO |
 | OVERRIDE_OFF | No — clears on reboot or RESUME_AUTO |
 | RESUME_AUTO | No — state transition only |
-| SET_SCHEDULE | Yes |
 | REQUEST_UPLINK | No — one-time action |
 | REBOOT | No — one-time action |
 | SET_MOTION_SENSITIVITY | Yes |
@@ -84,7 +84,7 @@ Configure the max brightness and baseline dim level.
 |---|---|---|---|---|
 | 0 | version | uint8 | 0x01 | Payload version |
 | 1 | cmd | uint8 | 0x01 | Command byte |
-| 2 | max_level | uint8 | 1–100 | Max brightness % when motion triggered or scheduled ON |
+| 2 | max_level | uint8 | 1–100 | Max brightness % when motion triggered |
 | 3 | dim_level | uint8 | 0–100 | Baseline dim % when idle, no motion |
 
 **Constraints:**
@@ -124,7 +124,7 @@ Configure how long the light stays at max level after the last detected motion e
 
 ### 0x03 — OVERRIDE_ON
 
-Force the light ON at a specified level. Moves FSM to MANUAL state. Local photocell and timer logic are bypassed until RESUME_AUTO is received or the safety timeout expires.
+Force the light ON at a specified level. Moves FSM to MANUAL state. Photocell logic is bypassed until RESUME_AUTO is received or the safety timeout expires.
 
 | Byte | Field | Type | Range | Description |
 |---|---|---|---|---|
@@ -147,7 +147,7 @@ Force the light ON at a specified level. Moves FSM to MANUAL state. Local photoc
 
 ### 0x04 — OVERRIDE_OFF
 
-Force the light OFF. Moves FSM to MANUAL state. Local photocell and timer logic are bypassed until RESUME_AUTO is received or the safety timeout expires.
+Force the light OFF. Moves FSM to MANUAL state. Photocell logic is bypassed until RESUME_AUTO is received or the safety timeout expires.
 
 | Byte | Field | Type | Range | Description |
 |---|---|---|---|---|
@@ -165,7 +165,7 @@ Force the light OFF. Moves FSM to MANUAL state. Local photocell and timer logic 
 
 ### 0x05 — RESUME_AUTO
 
-Clear any active manual override and return the FSM to AUTO mode. Photocell and timer logic resume immediately.
+Clear any active manual override and return the FSM to AUTO mode. Photocell logic resumes immediately.
 
 | Byte | Field | Type | Range | Description |
 |---|---|---|---|---|
@@ -179,58 +179,34 @@ Clear any active manual override and return the FSM to AUTO mode. Photocell and 
 
 ---
 
-### 0x06 — SET_SCHEDULE
-
-Configure the daily ON and OFF schedule times in whole hours. The photocell remains active as a fallback — if ambient light is above threshold before the scheduled ON hour, the light stays off regardless of schedule.
-
-| Byte | Field | Type | Range | Description |
-|---|---|---|---|---|
-| 0 | version | uint8 | 0x01 | Payload version |
-| 1 | cmd | uint8 | 0x06 | Command byte |
-| 2 | on_hour | uint8 | 0–23 | Schedule ON hour (24h, local time) |
-| 3 | off_hour | uint8 | 0–23 | Schedule OFF hour (24h, local time) |
-
-**Constraints:**
-- Valid range: 0–23. The REST API performs pre-dispatch validation; values outside this range return 422 Unprocessable and are not transmitted. The device sends a NACK (InvalidParam) only if a malformed frame bypasses validation.
-- Minute-level precision is not supported — schedule operates in whole hours only
-- Photocell input takes precedence: light will not turn ON if ambient lux exceeds threshold even within scheduled hours
-- Persists to NVS on successful receipt; NVS failure sends NACK and does not apply the command — in-memory config is not updated
-
-**Example:** Schedule ON at 18:00 (0x12), OFF at 06:00 (0x06)
-```
-01 06 12 06
-```
-
----
-
-### 0x07 — REQUEST_UPLINK
+### 0x06 — REQUEST_UPLINK
 
 Request an immediate status uplink from the device. Device responds with current sensor readings and status. Does not affect FSM state.
 
 | Byte | Field | Type | Range | Description |
 |---|---|---|---|---|
 | 0 | version | uint8 | 0x01 | Payload version |
-| 1 | cmd | uint8 | 0x07 | Command byte |
+| 1 | cmd | uint8 | 0x06 | Command byte |
 
 **Constraints:**
 - Rate limiting is enforced by the Cloud API (1 request per 60 seconds)
-- Device processes all received 0x07 commands immediately with a telemetry uplink
+- Device processes all received 0x06 commands immediately with a telemetry uplink
 
 **Example:**
 ```
-01 07
+01 06
 ```
 
 ---
 
-### 0x08 — REBOOT
+### 0x07 — REBOOT
 
 Force a device restart. Device sends an ACK uplink before restarting.
 
 | Byte | Field | Type | Range | Description |
 |---|---|---|---|---|
 | 0 | version | uint8 | 0x01 | Payload version |
-| 1 | cmd | uint8 | 0x08 | Command byte |
+| 1 | cmd | uint8 | 0x07 | Command byte |
 
 **Behaviour:**
 1. Device receives REBOOT command
@@ -240,19 +216,19 @@ Force a device restart. Device sends an ACK uplink before restarting.
 
 **Example:**
 ```
-01 08
+01 07
 ```
 
 ---
 
-### 0x09 — SET_MOTION_SENSITIVITY
+### 0x08 — SET_MOTION_SENSITIVITY
 
 Remotely configure the mmWave motion sensor detection sensitivity.
 
 | Byte | Field | Type | Range | Description |
 |---|---|---|---|---|
 | 0 | version | uint8 | 0x01 | Payload version |
-| 1 | cmd | uint8 | 0x09 | Command byte |
+| 1 | cmd | uint8 | 0x08 | Command byte |
 | 2 | level | uint8 | 1–10 | Sensitivity level (1 = minimum, 10 = maximum) |
 
 **Constraints:**
@@ -262,19 +238,19 @@ Remotely configure the mmWave motion sensor detection sensitivity.
 
 **Example:** Set sensitivity to 7 (0x07)
 ```
-01 09 07
+01 08 07
 ```
 
 ---
 
-### 0x0A — SET_HEARTBEAT_INTERVAL
+### 0x09 — SET_HEARTBEAT_INTERVAL
 
 Configure how frequently the device sends a status uplink when idle and no events are occurring.
 
 | Byte | Field | Type | Range | Description |
 |---|---|---|---|---|
 | 0 | version | uint8 | 0x01 | Payload version |
-| 1 | cmd | uint8 | 0x0A | Command byte |
+| 1 | cmd | uint8 | 0x09 | Command byte |
 | 2 | interval_minutes | uint8 | 1–255 | Heartbeat interval in minutes |
 
 **Constraints:**
@@ -284,19 +260,19 @@ Configure how frequently the device sends a status uplink when idle and no event
 
 **Example:** Set heartbeat to every 5 minutes (0x05)
 ```
-01 0A 05
+01 09 05
 ```
 
 ---
 
-### 0x0B — SET_TEMP_DIM
+### 0x0A — SET_TEMP_DIM
 
 Apply a temporary dim level override that automatically expires after a specified duration.
 
 | Byte | Field | Type | Range | Description |
 |---|---|---|---|---|
 | 0 | version | uint8 | 0x01 | Payload version |
-| 1 | cmd | uint8 | 0x0B | Command byte |
+| 1 | cmd | uint8 | 0x0A | Command byte |
 | 2 | level | uint8 | 0–100 | Temporary dim level % |
 | 3 | duration_hours | uint8 | 1–24 | Duration in hours before auto-expiry |
 
@@ -310,7 +286,7 @@ Apply a temporary dim level override that automatically expires after a specifie
 
 **Example:** Dim to 20% (0x14) for 3 hours (0x03)
 ```
-01 0B 14 03
+01 0A 14 03
 ```
 
 ---
@@ -324,13 +300,12 @@ Apply a temporary dim level override that automatically expires after a specifie
 | 0x03 | OVERRIDE_ON | level | 3 |
 | 0x04 | OVERRIDE_OFF | — | 2 |
 | 0x05 | RESUME_AUTO | — | 2 |
-| 0x06 | SET_SCHEDULE | on_hour, off_hour | 4 |
-| 0x07 | REQUEST_UPLINK | — | 2 |
-| 0x08 | REBOOT | — | 2 |
-| 0x09 | SET_MOTION_SENSITIVITY | level (1–10) | 3 |
-| 0x0A | SET_HEARTBEAT_INTERVAL | interval_minutes uint8 | 3 |
-| 0x0B | SET_TEMP_DIM | level, duration_hours | 4 |
-| 0x0C–0xFF | Reserved | — | — |
+| 0x06 | REQUEST_UPLINK | — | 2 |
+| 0x07 | REBOOT | — | 2 |
+| 0x08 | SET_MOTION_SENSITIVITY | level (1–10) | 3 |
+| 0x09 | SET_HEARTBEAT_INTERVAL | interval_minutes uint8 | 3 |
+| 0x0A | SET_TEMP_DIM | level, duration_hours | 4 |
+| 0x0B–0xFF | Reserved | — | — |
 
 ---
 
@@ -361,48 +336,25 @@ These rules are enforced in firmware regardless of any downlink command received
 
 # LightWise Uplink Payload Specification
 
-**Version:** 1.0
-**Last Updated:** March 19, 2026
+**Version:** 1.1
+**Last Updated:** March 28, 2026
 **Byte Order:** Big-endian (MSB first)
 
 ---
 
 ## Overview
 
-The device supports two uplink payload tiers selected at firmware build time. The backend Lambda identifies the tier from `payload[0]` (version byte) and routes accordingly. Both tiers are mutually exclusive — a device runs one tier for its entire operational life unless reflashed.
+The backend Lambda identifies the frame type from `payload[1]` (type byte) and routes accordingly.
 
-| Tier | Version Byte | Capabilities |
+| Type Byte | Frame Type | Total Bytes |
 |---|---|---|
-| Uplink-only | `0x01` | Telemetry uplinks only — no downlink command processing |
-| Full | `0x02` | Telemetry uplinks + ACK/NACK command responses |
+| `0x00` | HeartBeat | 2 |
+| `0x01` | Telemetry | 9 |
+| `0x02` | ACK/NACK | 5 |
 
 ---
 
-## Version 0x01 — Uplink-Only Tier
-
-### Frame Format (7 bytes)
-
-```
-┌──────────┬──────────────┬──────────┬──────────┬──────────┬──────────┐
-│ Byte 0   │ Byte 1–2     │ Byte 3   │ Byte 4   │ Byte 5   │ Byte 6   │
-│ Version  │ lux_x10      │ tempC    │ humidity │ flags    │ level    │
-└──────────┴──────────────┴──────────┴──────────┴──────────┴──────────┘
-```
-
-| Byte | Field | Type | Description |
-|---|---|---|---|
-| 0 | version | uint8 | Always `0x01` |
-| 1–2 | lux_x10 | uint16 BE | Ambient light × 10 (e.g. 1234 = 123.4 lux) |
-| 3 | tempC | int8 | Temperature in °C (signed) |
-| 4 | humidity | uint8 | Relative humidity 0–100% |
-| 5 | flags | uint8 | Status bitmask (see Flags) |
-| 6 | lightLevel | uint8 | Current light output 0–100% |
-
----
-
-## Version 0x02 — Full Tier
-
-Version 0x02 frames include a `type` byte at position 1 to distinguish telemetry from ACK/NACK responses.
+## Uplink Frame Format
 
 ```
 ┌──────────┬──────────┬──────────────────────────┐
@@ -411,47 +363,52 @@ Version 0x02 frames include a `type` byte at position 1 to distinguish telemetry
 └──────────┴──────────┴──────────────────────────┘
 ```
 
-| Type Byte | Frame Type | Total Bytes |
-|---|---|---|
-| `0x01` | Telemetry | 8 |
-| `0x02` | ACK/NACK | 5 |
+- **Version byte:** Always `0x01`
+- **Type byte:** `0x00` = heartbeat, `0x01` = telemetry, `0x02` = ACK/NACK
 
 ---
 
-### V2 Type 0x01 — Telemetry (8 bytes)
+## Type 0x00 - Heartbeat (2 bytes)
+| Byte | Field | Type | Description |
+|---|---|---|---|
+| 0 | version | uint8 | `0x01` |
+| 1 | type | uint8 | `0x00` (Heartbeat) |
+
+## Type 0x01 — Telemetry (9 bytes)
 
 | Byte | Field | Type | Description |
 |---|---|---|---|
-| 0 | version | uint8 | Always `0x02` |
+| 0 | version | uint8 | Always `0x01` |
 | 1 | type | uint8 | Always `0x01` (telemetry) |
 | 2–3 | lux_x10 | uint16 BE | Ambient light × 10 (e.g. 1234 = 123.4 lux) |
 | 4 | tempC | int8 | Temperature in °C (signed) |
 | 5 | humidity | uint8 | Relative humidity 0–100% |
-| 6 | flags | uint8 | Status bitmask (see Flags) |
-| 7 | lightLevel | uint8 | Current light output 0–100% |
+| 6 | flags1 | uint8 | Sensor health + motion (see Flags) |
+| 7 | flags2 | uint8 | TH health + light ok (see Flags) |
+| 8 | lightLevel | uint8 | Current light output 0–100% |
 
 ---
 
-### V2 Type 0x02 — ACK/NACK (5 bytes)
+## Type 0x02 — ACK/NACK (5 bytes)
 
 Sent by the device immediately after processing a downlink command. Stored in DynamoDB command audit table only — not forwarded to InfluxDB.
 
 | Byte | Field | Type | Description |
 |---|---|---|---|
-| 0 | version | uint8 | Always `0x02` |
+| 0 | version | uint8 | Always `0x01` |
 | 1 | type | uint8 | Always `0x02` (ACK/NACK) |
 | 2 | responseCode | uint8 | `0x00` = ACK, `0x01` = NACK |
 | 3 | echoCmd | uint8 | CMD byte from the downlink being acknowledged |
 | 4 | reasonCode | uint8 | See Reason Codes below |
 
-#### Response Codes
+### Response Codes
 
 | Value | Meaning |
 |---|---|
 | `0x00` | ACK — command accepted and applied |
 | `0x01` | NACK — command rejected |
 
-#### Reason Codes
+### Reason Codes
 
 | Value | Name | Meaning |
 |---|---|---|
@@ -465,39 +422,61 @@ Sent by the device immediately after processing a downlink command. Stored in Dy
 
 **Example — ACK for SET_LEVELS:**
 ```
-02 02 00 01 00
+01 02 00 01 00
 ```
 
 **Example — NACK for SET_LEVELS (invalid parameter):**
 ```
-02 02 01 01 03
+01 02 01 01 03
 ```
 
-**Example — NACK for unknown version (no valid CMD to echo, sentinel 0xFF used):**
+**Example — NACK for unknown version (sentinel 0xFF, no valid CMD to echo):**
 ```
-02 02 01 FF 01
+01 02 01 FF 01
 ```
 
 ---
 
-## Status Flags (both versions)
+## Status Flags
 
-The `flags` byte is a bitmask present in all telemetry frames.
+### flags1 (Byte 6)
+
+| Bits | Mask | Name | Meaning |
+|---|---|---|---|
+| 0–2 | `0x07` | AmbientHealth | 3-bit ambient sensor health (see Health Encoding) |
+| 3–5 | `0x38` | MmwaveHealth | 3-bit mmWave sensor health (see Health Encoding) |
+| 6 | `0x40` | MotionPresent | Motion currently detected |
+| 7 | `0x80` | OverallOk | All sensors healthy and bulb drawing expected current |
+
+### flags2 (Byte 7)
 
 | Bit | Mask | Name | Meaning |
 |---|---|---|---|
-| 0 | `0x01` | MotionPresent | Motion currently detected |
-| 1 | `0x02` | AmbientPrimaryOk | Primary ALS sensor healthy |
-| 2 | `0x04` | AmbientSecondaryOk | Secondary ALS sensor healthy |
-| 3 | `0x08` | ThOk | Temperature/humidity sensor healthy |
-| 4 | `0x10` | MotionPrimaryOk | Primary mmWave sensor healthy |
-| 5 | `0x20` | MotionSecondaryOk | Secondary mmWave sensor healthy |
-| 6 | `0x40` | SystemDegraded | One or more sensors degraded or partial failure |
-| 7 | `0x80` | OverallOk | All sensors healthy, FSM not in Fault state |
+| 0 | `0x01` | ThOk | TH sensor healthy |
+| 1 | `0x02` | LightOk | AC bulb drawing expected current when commanded on |
+| 2–7 | `0xFC` | Reserved | — |
 
-**Healthy system with no motion:** `flags = 0xBE` (bits 1–5 + 7 set)
-**Motion detected, all healthy:** `flags = 0xBF` (bits 0–5 + 7 set)
-**Primary ALS failed:** `flags = 0x7C` (bits 2–5 + 6 set, bits 1 + 7 clear)
+### Health Encoding (3-bit)
+
+| Value | Meaning |
+|---|---|
+| `0b000` | TOTAL_FAILURE — no valid readings |
+| `0b001` | PRIMARY_FAIL — primary sensor unresponsive |
+| `0b010` | SECONDARY_FAIL — secondary sensor unresponsive |
+| `0b011` | DEGRADED — both responding but consistently disagreeing |
+| `0b100` | SYSTEM_OK — both sensors healthy and agreeing |
+
+**Example — all healthy, no motion:**
+```
+flags1 = 0b10100100 = 0xA4  (ambient=SYSTEM_OK, mmwave=SYSTEM_OK, motion=0, overallOk=1)
+flags2 = 0b00000011 = 0x03  (thOk=1, lightOk=1)
+```
+
+**Example — ambient sensor degraded:**
+```
+flags1 = 0b00100011 = 0x23  (ambient=DEGRADED, mmwave=SYSTEM_OK, motion=0, overallOk=0)
+flags2 = 0b00000011 = 0x03  (thOk=1, lightOk=1)
+```
 
 ---
 
@@ -505,6 +484,5 @@ The `flags` byte is a bitmask present in all telemetry frames.
 
 | Frame | InfluxDB | DynamoDB |
 |---|---|---|
-| V1 Telemetry | ✓ (time series) | ✓ (device state) |
-| V2 Telemetry | ✓ (time series) | ✓ (device state) |
-| V2 ACK/NACK | ✗ | ✓ (command audit trail) |
+| Telemetry | ✓ (time series) | ✓ (device state) |
+| ACK/NACK | ✗ | ✓ (command audit trail) |
