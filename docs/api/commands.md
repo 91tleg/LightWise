@@ -1,6 +1,6 @@
 # Commands API
 
-**Version:** 1.1
+**Version:** 1.1  
 **Last Updated:** March 20, 2026
 See [README.md](./README.md) for shared conventions.
 
@@ -11,6 +11,7 @@ See [README.md](./README.md) for shared conventions.
 | Version | Date | Author | Changes |
 |---|---|---|---|
 | 1.0 | 2026-03-20 | Max Chou | Initial specification |
+| 1.1 | 2026-04-01 | Max Chou | Remove SET_SCHEDULE   |
 
 ---
 
@@ -82,7 +83,7 @@ generated, and the command does not appear in GET history.
 ```json
 {
   "command_id": "cmd-uuid-001",
-  "streetlight_id": "LW-00042",
+  "streetlight_id": "LW-00001",
   "command": "SET_LEVELS",
   "status": "pending",
   "dispatched_at": "2026-03-19T14:00:00Z"
@@ -196,31 +197,6 @@ Clear any active manual override and return the FSM to AUTO mode immediately.
   "params": {}
 }
 ```
-
----
-
-#### `SET_SCHEDULE`
-
-Configure the daily ON and OFF schedule in whole hours. Photocell takes precedence —
-the light will not turn ON if ambient lux exceeds threshold even within scheduled hours.
-Persists to NVS.
-
-```json
-{
-  "command": "SET_SCHEDULE",
-  "params": {
-    "on_hour": 18,
-    "off_hour": 6
-  }
-}
-```
-
-| Field | Type | Range | Description |
-|---|---|---|---|
-| `on_hour` | uint8 | 0–23 | Schedule ON hour (24h local time) |
-| `off_hour` | uint8 | 0–23 | Schedule OFF hour (24h local time) |
-
-Note: minute-level precision is not supported.
 
 ---
 
@@ -340,7 +316,7 @@ rejected with `422` are never recorded.
 
 ```json
 {
-  "streetlight_id": "LW-00042",
+  "streetlight_id": "LW-00001",
   "commands": [
     {
       "command_id": "cmd-uuid-001",
