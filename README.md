@@ -2,7 +2,7 @@
 
 [![Firmware CI](https://github.com/91tleg/lightwise/actions/workflows/firmware-ci.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/firmware-ci.yml)
 [![Web CI](https://github.com/91tleg/lightwise/actions/workflows/web-ci.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/web-ci.yml)
-[![Web Deploy](https://github.com/91tleg/lightwise/actions/workflows/web-deploy.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/web-deploy.yml)
+<!--[![Web Deploy](https://github.com/91tleg/lightwise/actions/workflows/web-deploy.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/web-deploy.yml)-->
 [![API CI](https://github.com/91tleg/lightwise/actions/workflows/api-ci.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/api-ci.yml)
 [![API Deploy](https://github.com/91tleg/lightwise/actions/workflows/api-deploy.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/api-deploy.yml)
 
@@ -42,7 +42,7 @@ Detailed technical and planning documentation is maintained in the `/docs` direc
 
 - [System Architecture](docs/system-architecture.md): Overall platform design and data flow  
 - [Database Schema](docs/database-schema.md): Data models, access patterns, and retention strategy   
-- [API Contracts](docs/api-contract-v1.0.md): Telemetry ingestion and service interfaces  
+- [API Contracts](docs/api/): Telemetry ingestion and service interfaces  
 - [Firmware Architecture](firmware/docs/firmware-architecture.md): ESP32 and component flow  
 - [Hardware Specifications](firmware/docs/hw-spec.md): Hardware component specification  
 - [Sprint Plans & Backlog](docs/sprint/): Project planning and progress tracking  
@@ -62,10 +62,10 @@ LightWise/
 │
 ├── apps/
 │   ├── api/          # Serverless backend (AWS Lambda functions)
-│   ├── firmware/     # Embedded firmware (ESP32, device drivers, RTOS)
 │   └── web/          # Web dashboard (React frontend)
 │
 ├── docs/             # System-level documentation
+├── firmware/     # Embedded firmware (ESP32, device drivers, RTOS)
 ├── scripts/          # Build, deployment, and automation scripts
 │
 ├── .gitignore
@@ -115,37 +115,45 @@ Install the **PlatformIO IDE extension** for VSCode:
 #### React Web Application
 
 1. Install Dependencies
+
 ```bash
     cd apps/web
     npm install
 ```
+
 2. Start Development Server
+
 ```bash
-    npm run dev
+    npm start
 ```
+
 3. Production Build
+
 ```bash
     npm run build
 ```
+
 #### Lambda Backend (Python)
 
 1. Create Virtual Environment
+
 ```bash
-    #Linux / MacOS
+    # Linux / MacOS
     python3 -m venv .venv
     source .venv/bin/activate
 
-    #Windows
+    # Windows
     python -m venv .venv
     .venv\Scripts\activate
 ```
 
 2. Install dependencies
+
 ```bash
     pip install -r requirements.txt
 ```
 
 ---
 
-**Version:** 1.2  
-**Last Updated:** February 17, 2026
+**Version:** 1.3  
+**Last Updated:** April 1, 2026
