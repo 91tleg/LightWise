@@ -6,7 +6,7 @@ from boto3.dynamodb.conditions import Key
 
 from infrastructure.persistence.dynamo.client import get_dynamodb_resource
 from infrastructure.persistence.error import PersistenceError
-from domain.telemetry.models import TelemetryPayload
+from domain.streetlight.events import TelemetryReport
 from domain.streetlight.health import HealthStatus
 from domain.streetlight.models import Streetlight
 
@@ -24,7 +24,7 @@ class StreetlightsRepo:
 
     def update(
         self,
-        telemetry: TelemetryPayload,
+        telemetry: TelemetryReport,
         health: HealthStatus,
     ) -> None:
         try:
