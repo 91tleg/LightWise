@@ -7,6 +7,16 @@ from dataclasses import dataclass
 from enum import IntEnum
 
 
+class HealthStatus(IntEnum):
+    """
+    Derived operational health status written to the Streetlights DynamoDB
+    table by the telemetry pipeline.
+    """
+    OK = 1
+    DEGRADED = 2
+    CRITICAL = 3
+
+
 class SensorHealth(IntEnum):
     """
     3-bit health encoding shared by ambient and mmWave sensors.
@@ -63,12 +73,14 @@ class SensorDiagnostics:
             or self.mmwave_health.is_degraded
         )
 
+    def evaluate_status(self) -> HealthStatus:
+        """
+        Drives the business logic for determining the operational HealthStatus.
+        """
+        if not self.overall_ok or self.any_sensor_failed or not self.light_ok:
+            return HealthStatus.CRITICAL
 
-class HealthStatus(IntEnum):
-    """
-    Derived operational health status written to the Streetlights DynamoDB
-    table by the telemetry pipeline.
-    """
-    OK = 1
-    DEGRADED = 2
-    CRITICAL = 3
+        if self.any_sensor_degraded:
+            return HealthStatus.DEGRADED
+
+        return HealthStatus.OK
