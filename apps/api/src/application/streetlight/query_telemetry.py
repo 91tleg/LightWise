@@ -1,8 +1,5 @@
 from datetime import datetime, timedelta
-from functools import lru_cache
-
-from infrastructure.persistence.telemetry.base import TelemetryReader
-from infrastructure.persistence.telemetry.provider import get_reader
+from typing import Protocol
 
 
 _INTERVAL_RULES = [
@@ -19,7 +16,7 @@ def _interval_to_minutes(interval: str) -> int:
     return int(interval[:-1]) * _INTERVAL_MINUTES[interval[-1]]
 
 
-def resolve_interval(
+def _resolve_interval(
     from_dt: datetime,
     to_dt: datetime,
     interval: str
@@ -33,6 +30,16 @@ def resolve_interval(
     return interval
 
 
+class TelemetryReader(Protocol):
+    def get_telemetry(
+        self,
+        streetlight_id: str,
+        from_dt: datetime,
+        to_dt: datetime,
+        interval: str
+    ) -> list[dict]: ...
+
+
 class QueryTelemetry:
     def __init__(self, reader: TelemetryReader):
         self.reader = reader
@@ -44,7 +51,7 @@ class QueryTelemetry:
         to_dt: datetime,
         interval: str = "1h",
     ) -> list[dict]:
-        interval = resolve_interval(from_dt, to_dt, interval)
+        interval = _resolve_interval(from_dt, to_dt, interval)
         data = self.reader.get_telemetry(
             streetlight_id=streetlight_id,
             from_dt=from_dt,
@@ -52,8 +59,3 @@ class QueryTelemetry:
             interval=interval,
         )
         return data
-
-
-@lru_cache(maxsize=1)
-def get_query_telemetry() -> QueryTelemetry:
-    return QueryTelemetry(reader=get_reader())
