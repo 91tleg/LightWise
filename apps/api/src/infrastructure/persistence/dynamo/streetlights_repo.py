@@ -2,26 +2,19 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Optional
 
-import boto3
 from boto3.dynamodb.conditions import Key
 
+from infrastructure.persistence.dynamo.client import get_dynamodb_resource
 from infrastructure.persistence.error import PersistenceError
 from domain.telemetry.models import TelemetryPayload
 from domain.streetlight.health import HealthStatus
 from domain.streetlight.models import Streetlight
-from libs.config import settings
-
-
-_DYNAMODB = boto3.resource(
-    "dynamodb",
-    region_name=settings.AWS_REGION,
-    endpoint_url=settings.DYNAMO_ENDPOINT or None,
-)
 
 
 class StreetlightsRepo:
     def __init__(self, table_name: str) -> None:
-        self.table = _DYNAMODB.Table(table_name)
+        self._db = get_dynamodb_resource()
+        self._table = self._db.Table(table_name)
 
     SUMMARY_FIELDS = (
         "streetlight_id, tenant_id, health_status, last_seen, "
@@ -35,7 +28,7 @@ class StreetlightsRepo:
         health: HealthStatus,
     ) -> None:
         try:
-            self.table.update_item(
+            self._table.update_item(
                 Key={
                     "tenant_id": telemetry.tenant_id,
                     "streetlight_id": telemetry.streetlight_id,
@@ -74,7 +67,7 @@ class StreetlightsRepo:
 
     def list_by_tenant(self, tenant_id: str) -> list[Streetlight]:
         try:
-            response = self.table.query(
+            response = self._table.query(
                 KeyConditionExpression=Key("tenant_id").eq(tenant_id),
                 ProjectionExpression=self.SUMMARY_FIELDS,
             )
@@ -102,7 +95,7 @@ class StreetlightsRepo:
 
     def get_tenant_id(self, streetlight_id: str) -> str:
         try:
-            result = self.table.query(
+            result = self._table.query(
                 IndexName="StreetlightIndex",
                 KeyConditionExpression=Key("streetlight_id").eq(
                     streetlight_id
@@ -129,7 +122,7 @@ class StreetlightsRepo:
         streetlight_id: str,
     ) -> Optional[Streetlight]:
         try:
-            result = self.table.get_item(
+            result = self._table.get_item(
                 Key={
                     "tenant_id": tenant_id,
                     "streetlight_id": streetlight_id,
@@ -159,7 +152,9 @@ class StreetlightsRepo:
 
 
 @lru_cache(maxsize=1)
-def get_streetlights_repository() -> StreetlightsRepo:
+def get_streetlights_repo() -> StreetlightsRepo:
+    from libs.config import settings
+
     return StreetlightsRepo(
         table_name=settings.DDB_TABLE_STREETLIGHTS
     )

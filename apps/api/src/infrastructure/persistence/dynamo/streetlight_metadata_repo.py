@@ -2,28 +2,20 @@ from typing import Optional
 from functools import lru_cache
 from decimal import Decimal
 
-import boto3
-
+from infrastructure.persistence.dynamo.client import get_dynamodb_resource
 from infrastructure.persistence.error import PersistenceError
 from domain.streetlight.health import HealthStatus
 from domain.streetlight.models import Streetlight
-from libs.config import settings
-
-
-_DYNAMODB = boto3.resource(
-    "dynamodb",
-    region_name=settings.AWS_REGION,
-    endpoint_url=settings.DYNAMO_ENDPOINT or None,
-)
 
 
 class StreetlightMetadataRepo:
     def __init__(self, table_name: str):
-        self.table = _DYNAMODB.Table(table_name)
+        self._db = get_dynamodb_resource()
+        self._table = self._db.Table(table_name)
 
     def get(self, streetlight_id: str) -> Optional[Streetlight]:
         try:
-            resp = self.table.get_item(
+            resp = self._table.get_item(
                 Key={
                     "streetlight_id": streetlight_id,
                     "SK": "METADATA",
@@ -81,7 +73,7 @@ class StreetlightMetadataRepo:
         if expr_names:
             kwargs["ExpressionAttributeNames"] = expr_names
         try:
-            self.table.update_item(**kwargs)
+            self._table.update_item(**kwargs)
         except Exception as e:
             raise PersistenceError(
                 f"Failed to update metadata: {streetlight_id}"
@@ -90,6 +82,8 @@ class StreetlightMetadataRepo:
 
 @lru_cache(maxsize=1)
 def get_streetlight_metadata_repo() -> StreetlightMetadataRepo:
+    from libs.config import settings
+
     return StreetlightMetadataRepo(
         table_name=settings.DDB_TABLE_STREETLIGHT_METADATA
     )
