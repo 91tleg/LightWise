@@ -1,22 +1,14 @@
 """
 Streetlight application response objects and mappers.
-
-Two mappers are provided:
-
-  streetlight_to_response - builds the API response dict from
-                            StreetlightState + StreetlightMetadata.
-
-  telemetry_to_ws_message - builds the WebSocket broadcast message
-                            from TelemetryReport + HealthStatus.
 """
 
 from __future__ import annotations
-
+from typing import Any
 from dataclasses import dataclass
 
 from domain.streetlight.events import TelemetryReport
 from domain.streetlight.health import HealthStatus
-from domain.streetlight.models import StreetlightMetadata, StreetlightState
+from domain.streetlight.models import StreetlightState, StreetlightMetadata
 
 
 @dataclass(frozen=True)
@@ -86,4 +78,25 @@ def telemetry_to_ws_message(
             "th_ok": report.diagnostics.th_ok,
             "light_ok": report.diagnostics.light_ok,
         },
+    }
+
+
+def streetlight_to_list_item(
+    state: StreetlightState,
+    metadata: StreetlightMetadata
+) -> dict[str, Any]:
+    """
+    The fleet view mapping.
+    """
+    return {
+        "streetlight_id": state.streetlight_id,
+        "label": metadata.label,
+        "site_id": metadata.site_id,
+        "health": state.health.name,
+        "status": state.status.name,
+        "last_seen": state.last_seen.isoformat(),
+        "location": {
+            "lat": metadata.lat,
+            "lng": metadata.lng
+        }
     }
