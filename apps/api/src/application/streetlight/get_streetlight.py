@@ -1,15 +1,19 @@
-from functools import lru_cache
-from typing import Optional
+from typing import Optional, Protocol
 
-from domain.streetlight.models import Streetlight
-from infrastructure.persistence.dynamo.streetlights_repo import (
-    StreetlightsRepo,
-    get_streetlights_repository,
-)
-from infrastructure.persistence.dynamo.streetlight_metadata_repo import (
-    StreetlightMetadataRepo,
-    get_streetlight_metadata_repo,
-)
+from domain.streetlight.models import StreetlightState, StreetlightMetadata
+from application.streetlight.responses import StreetlightResponse
+
+
+class StreetlightsRepo(Protocol):
+    def get(
+        self, tenant_id: str, streetlight_id: str
+    ) -> Optional[StreetlightState]: ...
+
+
+class StreetlightMetadataRepo(Protocol):
+    def get(
+        self, streetlight_id: str
+    ) -> Optional[StreetlightMetadata]: ...
 
 
 class GetStreetlight:
@@ -25,31 +29,18 @@ class GetStreetlight:
         self,
         tenant_id: str,
         streetlight_id: str,
-    ) -> Optional[Streetlight]:
+    ) -> Optional[StreetlightResponse]:
+        """
+        Fetches the complete picture of a single streetlight.
+        Returns a Response DTO containing both State and Metadata.
+        """
         state = self.repo.get(tenant_id, streetlight_id)
         if not state:
             return None
+
         metadata = self.metadata_repo.get(streetlight_id)
-        return Streetlight(
-            streetlight_id=state.streetlight_id,
-            tenant_id=state.tenant_id,
-            health=state.health,
-            last_seen=state.last_seen,
-            motion_detected=state.motion_detected,
-            ambient_primary_ok=state.ambient_primary_ok,
-            ambient_secondary_ok=state.ambient_secondary_ok,
-            th_ok=state.th_ok,
-            motion_primary_ok=state.motion_primary_ok,
-            motion_secondary_ok=state.motion_secondary_ok,
-            lat=metadata.lat if metadata else None,
-            lng=metadata.lng if metadata else None,
-            name=metadata.name if metadata else None,
+
+        return StreetlightResponse(
+            state=state,
+            metadata=metadata
         )
-
-
-@lru_cache(maxsize=1)
-def get_streetlight_service() -> GetStreetlight:
-    return GetStreetlight(
-        repo=get_streetlights_repository(),
-        metadata_repo=get_streetlight_metadata_repo(),
-    )

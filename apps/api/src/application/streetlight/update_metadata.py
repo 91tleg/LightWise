@@ -1,9 +1,14 @@
-from functools import lru_cache
+from typing import Protocol
 
-from infrastructure.persistence.dynamo.streetlight_metadata_repo import (
-    StreetlightMetadataRepo,
-    get_streetlight_metadata_repo,
-)
+
+class StreetlightMetadataRepo(Protocol):
+    def update(
+        self,
+        streetlight_id: str,
+        label: str | None = None,
+        lat: float | None = None,
+        lng: float | None = None,
+    ) -> None: ...
 
 
 class UpdateStreetlightMetadata:
@@ -17,31 +22,25 @@ class UpdateStreetlightMetadata:
         lat: float | None,
         lng: float | None,
     ) -> None:
-        if all(v is None for v in [name, lat, lng]):
-            raise ValueError(
-                "At least one field (name, lat, or lng) must be provided."
-            )
+        existing = self.repo.get(streetlight_id)
+        if not existing:
+            raise ValueError(f"Streetlight {streetlight_id} not found")
 
-        if lat is not None and not (-90 <= lat <= 90):
-            raise ValueError(
-                f"Invalid latitude: {lat}. Range is -90 to 90."
-            )
+        from dataclasses import replace
 
-        if lng is not None and not (-180 <= lng <= 180):
-            raise ValueError(
-                f"Invalid longitude: {lng}. Range is -180 to 180."
-            )
+        try:
+            updates = {k: v for k, v in {
+                "name": name,
+                "lat": lat,
+                "lng": lng
+            }.items() if v is not None}
 
-        self.repo.update(
-            streetlight_id=streetlight_id,
-            name=name,
-            lat=lat,
-            lng=lng,
-        )
+            if not updates:
+                return
 
+            updated_metadata = replace(existing, **updates)
 
-@lru_cache(maxsize=1)
-def get_update_metadata_service() -> UpdateStreetlightMetadata:
-    return UpdateStreetlightMetadata(
-        repo=get_streetlight_metadata_repo()
-    )
+        except ValueError as e:
+            raise ValueError(f"Update failed: {e}")
+
+        self.repo.save(updated_metadata)
