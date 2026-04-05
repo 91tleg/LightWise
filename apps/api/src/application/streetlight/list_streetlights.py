@@ -43,4 +43,4 @@ class ListStreetlights:
                     StreetlightResponse(state=state, metadata=meta)
                 )
 
-        return sorted(results, key=lambda x: x.metadata.label)
+        return sorted(results, key=lambda x: x.metadata.name)

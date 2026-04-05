@@ -44,7 +44,7 @@ def streetlight_to_response(response: StreetlightResponse) -> dict:
         "snr": s.snr,
         "lat": m.lat,
         "lng": m.lng,
-        "label": m.label,
+        "name": m.name,
         "site_id": m.site_id,
         "model": m.model,
         "installed_at": m.installed_at.isoformat(),
@@ -90,7 +90,7 @@ def streetlight_to_list_item(
     """
     return {
         "streetlight_id": state.streetlight_id,
-        "label": metadata.label,
+        "name": metadata.name,
         "site_id": metadata.site_id,
         "health": state.health.name,
         "status": state.status.name,

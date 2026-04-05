@@ -70,7 +70,7 @@ class StreetlightMetadata:
     site_id: str
     lat: float
     lng: float
-    label: str
+    name: str
     model: str
     installed_at: datetime
 

@@ -1,13 +1,20 @@
 from typing import Protocol
+from dataclasses import replace
+
+from domain.streetlight.models import StreetlightMetadata
 
 
 class StreetlightMetadataRepo(Protocol):
-    def update(
+    def get(
         self,
+        tenant_id: str,
         streetlight_id: str,
-        label: str | None = None,
-        lat: float | None = None,
-        lng: float | None = None,
+    ) -> StreetlightMetadata | None: ...
+
+    def save(
+        self,
+        tenant_id: str,
+        metadata: StreetlightMetadata,
     ) -> None: ...
 
 
@@ -17,30 +24,24 @@ class UpdateStreetlightMetadata:
 
     def execute(
         self,
+        tenant_id: str,
         streetlight_id: str,
         name: str | None,
         lat: float | None,
         lng: float | None,
     ) -> None:
-        existing = self.repo.get(streetlight_id)
+        existing = self.repo.get(tenant_id, streetlight_id)
         if not existing:
             raise ValueError(f"Streetlight {streetlight_id} not found")
 
-        from dataclasses import replace
+        updates = {k: v for k, v in {
+            "name": name,
+            "lat": lat,
+            "lng": lng,
+        }.items() if v is not None}
 
-        try:
-            updates = {k: v for k, v in {
-                "name": name,
-                "lat": lat,
-                "lng": lng
-            }.items() if v is not None}
+        if not updates:
+            return
 
-            if not updates:
-                return
-
-            updated_metadata = replace(existing, **updates)
-
-        except ValueError as e:
-            raise ValueError(f"Update failed: {e}")
-
-        self.repo.save(updated_metadata)
+        updated_metadata = replace(existing, **updates)
+        self.repo.save(tenant_id, updated_metadata)
