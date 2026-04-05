@@ -1,26 +1,25 @@
-from .cognito import extract_bearer_token, CognitoVerifier, CognitoConfig
+from domain.error import AuthError
 from libs.config import settings
 
 
-def resolve_identity(event: dict) -> tuple[str, str]:
-    """Resolve tenant_id and user_id from the request."""
+class IdentityResolver:
+    def __call__(self, event: dict) -> tuple[str, str]:
+        if not settings.AUTH_ENABLED:
+            return "public", "anonymous"
 
-    if not settings.AUTH_ENABLED:
-        return "public", "anonymous"
-
-    headers = event.get("headers") or {}
-    auth_header = headers.get("Authorization") or headers.get("authorization")
-
-    token = extract_bearer_token(auth_header)
-
-    verifier = CognitoVerifier(
-        CognitoConfig(
-            region=settings.AWS_REGION,
-            user_pool_id=settings.COGNITO_USER_POOL_ID,
-            client_id=settings.COGNITO_CLIENT_ID,
+        claims = (
+            event
+            .get("requestContext", {})
+            .get("authorizer", {})
+            .get("claims") or {}
         )
-    )
 
-    claims = verifier.verify(token)
+        tenant_id = claims.get("custom:tenant_id")
+        sub = claims.get("sub")
 
-    return claims.tenant_id, claims.sub
+        if not tenant_id or not sub:
+            raise AuthError(
+                "Missing tenant_id or sub in authorizer claims"
+            )
+
+        return tenant_id, sub
