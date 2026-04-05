@@ -28,14 +28,14 @@ def _use_case() -> QueryTelemetry:
 
 
 def handler(event: dict, context: object) -> dict:
-    streetlight_id = (event.get("pathParameters") or {}).get("id")
-    if not streetlight_id:
-        return error(400, "streetlight_id is required")
-
     try:
         tenant_id, _ = IdentityResolver()(event)
     except AuthError:
         return error(401, "Unauthorized")
+
+    streetlight_id = (event.get("pathParameters") or {}).get("id")
+    if not streetlight_id:
+        return error(400, "streetlight_id is required")
 
     params = event.get("queryStringParameters") or {}
     from_str = params.get("from")
