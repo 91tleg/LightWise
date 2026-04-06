@@ -1,9 +1,9 @@
 from domain.error import AuthError
-from domain.tenant.models import OperatorProfile
+from domain.auth.models import OperatorProfile
 from libs.config import settings
 
 
-def _parse_groups(raw: object) -> frozenset[str]:
+def parse_groups(raw: object) -> frozenset[str]:
     if isinstance(raw, str):
         return frozenset(g.strip() for g in raw.split(",") if g.strip())
     if isinstance(raw, list):
@@ -49,7 +49,7 @@ class CognitoClaimsMapper:
         last_name = claims.get("family_name", "").strip()
         if not first_name and not last_name:
             raise AuthError("Missing given_name and family_name claims")
-        role = "admin" if "admin" in _parse_groups(
+        role = "admin" if "admin" in parse_groups(
             claims.get("cognito:groups", "")
         ) else "operator"
         return OperatorProfile(

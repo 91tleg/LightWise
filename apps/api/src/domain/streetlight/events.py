@@ -34,11 +34,11 @@ class SensorReadings:
     """
     Raw sensor measurements from a single telemetry report.
     """
-    lux: float          # Ambient light level (normalized from lux_x10)
-    temperature_c: int  # Signed degree celcius
-    humidity: int       # Relative humidity 0–100%
-    light_level: int    # Current light output 0–100%
-    motion: bool        # Motion currently detected
+    lux: float             # Ambient light level (normalized from lux_x10)
+    temperature_c: int     # Signed degree celcius
+    humidity: int          # Relative humidity 0–100%
+    light_level: int       # Current light output 0–100%
+    motion_detected: bool  # Motion currently detected
 
     def __post_init__(self) -> None:
         if not (0 <= self.lux <= 1000):
@@ -75,6 +75,8 @@ class TelemetryReport:
     timestamp: datetime
     readings: SensorReadings
     diagnostics: SensorDiagnostics
+    rssi: int | None
+    snr: float | None
 
     def __post_init__(self) -> None:
         if self.timestamp.tzinfo is None:
@@ -97,8 +99,8 @@ class TelemetryReport:
         return self.readings.light_level
 
     @property
-    def motion(self) -> bool:
-        return self.readings.motion
+    def motion_detected(self) -> bool:
+        return self.readings.motion_detected
 
 
 @dataclass(frozen=True)

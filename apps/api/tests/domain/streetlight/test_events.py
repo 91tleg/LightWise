@@ -34,7 +34,7 @@ class TestSensorReadings:
             temperature_c=25,
             humidity=50,
             light_level=100,
-            motion=True
+            motion_detected=True
         )
         assert readings.lux == 500.5
         assert readings.temperature_c == 25
@@ -55,7 +55,7 @@ class TestSensorReadings:
             "temperature_c": 20,
             "humidity": 50,
             "light_level": 50,
-            "motion": False
+            "motion_detected": False
         }
         data[field] = value
         with pytest.raises(ValueError, match=expected_msg):
@@ -69,7 +69,8 @@ class TestTelemetryReport:
             ValueError, match="timestamp must be timezone aware"
         ):
             TelemetryReport(
-                "L-1", "T-1", "S-1", NAIVE_TS, readings, valid_diagnostics
+                "L-1", "T-1", "S-1",
+                NAIVE_TS, readings, valid_diagnostics, -75, 7.0
             )
 
     def test_convenience_properties(self, valid_diagnostics):
@@ -78,15 +79,16 @@ class TestTelemetryReport:
             temperature_c=10,
             humidity=20,
             light_level=30,
-            motion=True
+            motion_detected=True
         )
         report = TelemetryReport(
-            "L-1", "T-1", "S-1", AWARE_TS, readings, valid_diagnostics
+            "L-1", "T-1", "S-1",
+            AWARE_TS, readings, valid_diagnostics, -75, 7.0
         )
 
         assert report.lux == 1.5
         assert report.temperature_c == 10
-        assert report.motion is True
+        assert report.motion_detected is True
 
 
 class TestHeartbeat:

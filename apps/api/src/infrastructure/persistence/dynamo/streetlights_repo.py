@@ -52,7 +52,7 @@ class StreetlightsRepo:
                     ":h": health.value,
                     ":a": True,
                     ":t": telemetry.timestamp.isoformat(),
-                    ":m": telemetry.motion,
+                    ":m": telemetry.motion_detected,
                     ":ap": telemetry.ambient_primary_ok,
                     ":as_": telemetry.ambient_secondary_ok,
                     ":th": telemetry.th_ok,

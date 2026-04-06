@@ -9,6 +9,7 @@ from jwt.algorithms import RSAAlgorithm
 
 from domain.error import AuthError
 from infrastructure.auth.cognito_config import CognitoConfig
+from infrastructure.auth.identity import parse_groups
 
 
 @dataclass(frozen=True)
@@ -16,21 +17,10 @@ class VerifiedClaims:
     sub: str
     tenant_id: str
     email: str | None
-    groups: list[str]
+    groups: frozenset[str]
     client_id: str
     given_name: str
     family_name: str
-
-    def to_claims_dict(self) -> dict:
-        return {
-            "sub": self.sub,
-            "custom:tenant_id": self.tenant_id,
-            "email": self.email,
-            "cognito:groups": self.groups,
-            "client_id": self.client_id,
-            "given_name": self.given_name,
-            "family_name": self.family_name,
-        }
 
 
 class CognitoVerifier:
@@ -112,13 +102,7 @@ class CognitoVerifier:
         if not tenant_id:
             raise AuthError("Token missing custom:tenant_id claim")
 
-        raw_groups = claims.get("cognito:groups", [])
-        if isinstance(raw_groups, list):
-            groups = [str(g).strip() for g in raw_groups if g]
-        elif isinstance(raw_groups, str) and raw_groups:
-            groups = [raw_groups]
-        else:
-            groups = []
+        groups = parse_groups(claims.get("cognito:groups", []))
 
         return VerifiedClaims(
             sub=claims["sub"],

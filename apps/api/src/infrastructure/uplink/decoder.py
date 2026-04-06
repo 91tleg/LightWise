@@ -18,9 +18,9 @@ from domain.streetlight.events import (
     ResponseCode,
     SensorReadings,
     TelemetryReport,
+    StreetlightEvent
 )
 from domain.streetlight.health import SensorDiagnostics, SensorHealth
-from domain.streetlight.events import StreetlightEvent
 from infrastructure.uplink.errors import DecodeError
 from infrastructure.uplink.frame_types import (
     AckNackOffset,
@@ -80,7 +80,7 @@ def _decode_telemetry(uplink: IoTUplink) -> TelemetryReport:
         temperature_c=temp_c,
         humidity=raw[TelemetryOffset.HUMIDITY],
         light_level=raw[TelemetryOffset.LIGHT_LEVEL],
-        motion=bool(flags1 & Flags1.MOTION_PRESENT),
+        motion_detected=bool(flags1 & Flags1.MOTION_PRESENT),
     )
 
     diagnostics = SensorDiagnostics(
@@ -104,7 +104,6 @@ def _decode_telemetry(uplink: IoTUplink) -> TelemetryReport:
         timestamp=uplink.received_at,
         readings=readings,
         diagnostics=diagnostics,
-        # Now passing radio metadata into the domain event
         rssi=uplink.rssi,
         snr=uplink.snr,
     )
