@@ -40,6 +40,26 @@ class SensorReadings:
     light_level: int    # Current light output 0–100%
     motion: bool        # Motion currently detected
 
+    def __post_init__(self) -> None:
+        if not (0 <= self.lux <= 1000):
+            raise ValueError(
+                f"Lux must be 0 and 1000: {self.lux}"
+            )
+        if not (-128 <= self.temperature_c <= 127):
+            raise ValueError(
+                f"Temperature must be -128 to 127: {
+                    self.temperature_c
+                }"
+            )
+        if not (0 <= self.humidity <= 100):
+            raise ValueError(
+                f"Humidity must be 0-100%: {self.humidity}"
+            )
+        if not (0 <= self.light_level <= 100):
+            raise ValueError(
+                f"Light level must be 0-100%: {self.light_level}"
+            )
+
 
 @dataclass(frozen=True)
 class TelemetryReport:
@@ -136,6 +156,9 @@ class CommandResponse:
     def __post_init__(self) -> None:
         if self.timestamp.tzinfo is None:
             raise ValueError("timestamp must be timezone aware")
+
+        if self.is_nack and self.reason is ReasonCode.OK:
+            raise ValueError("NACK requires a non-OK reason")
 
     @property
     def is_ack(self) -> bool:
