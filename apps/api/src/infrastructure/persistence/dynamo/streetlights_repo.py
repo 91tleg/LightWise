@@ -1,26 +1,22 @@
 from decimal import Decimal
 from functools import lru_cache
-from typing import Optional
+from datetime import datetime
 
 from boto3.dynamodb.conditions import Key
 
 from infrastructure.persistence.dynamo.client import get_dynamodb_resource
 from infrastructure.persistence.error import PersistenceError
 from domain.streetlight.events import TelemetryReport
-from domain.streetlight.health import HealthStatus
-from domain.streetlight.models import Streetlight
+from domain.streetlight.health import (
+    HealthStatus, SensorDiagnostics, SensorHealth
+)
+from domain.streetlight.models import StreetlightState
 
 
 class StreetlightsRepo:
     def __init__(self, table_name: str) -> None:
         self._db = get_dynamodb_resource()
         self._table = self._db.Table(table_name)
-
-    SUMMARY_FIELDS = (
-        "streetlight_id, tenant_id, health_status, last_seen, "
-        "motion_detected, ambient_primary_ok, ambient_secondary_ok, "
-        "th_ok, motion_primary_ok, motion_secondary_ok"
-    )
 
     def update(
         self,
@@ -35,29 +31,33 @@ class StreetlightsRepo:
                 },
                 UpdateExpression=(
                     "SET last_lux = :l, "
-                    "current_light_level = :lvl, "
+                    "light_level = :lvl, "
                     "health_status = :h, "
-                    "is_active = :a, "
                     "last_seen = :t, "
                     "motion_detected = :m, "
-                    "ambient_primary_ok = :ap, "
-                    "ambient_secondary_ok = :as_, "
+                    "ambient_health = :ah, "
+                    "mmwave_health = :mh, "
                     "th_ok = :th, "
-                    "motion_primary_ok = :cp, "
-                    "motion_secondary_ok = :cs_"
+                    "light_ok = :lo, "
+                    "overall_ok = :ok, "
+                    "rssi = :rssi, "
+                    "snr = :snr"
                 ),
                 ExpressionAttributeValues={
-                    ":l": Decimal(str(telemetry.lux)),
-                    ":lvl": telemetry.light_level,
-                    ":h": health.value,
-                    ":a": True,
-                    ":t": telemetry.timestamp.isoformat(),
-                    ":m": telemetry.motion_detected,
-                    ":ap": telemetry.ambient_primary_ok,
-                    ":as_": telemetry.ambient_secondary_ok,
-                    ":th": telemetry.th_ok,
-                    ":cp": telemetry.motion_primary_ok,
-                    ":cs_": telemetry.motion_secondary_ok,
+                    ":l":    Decimal(str(telemetry.lux)),
+                    ":lvl":  telemetry.light_level,
+                    ":h":    health.value,
+                    ":t":    telemetry.timestamp.isoformat(),
+                    ":m":    telemetry.motion,
+                    ":ah":   telemetry.diagnostics.ambient_health.value,
+                    ":mh":   telemetry.diagnostics.mmwave_health.value,
+                    ":th":   telemetry.diagnostics.th_ok,
+                    ":lo":   telemetry.diagnostics.light_ok,
+                    ":ok":   telemetry.diagnostics.overall_ok,
+                    ":rssi": telemetry.rssi,
+                    ":snr":  Decimal(
+                        str(telemetry.snr)
+                    ) if telemetry.snr is not None else None,
                 },
             )
         except Exception as e:
@@ -65,62 +65,24 @@ class StreetlightsRepo:
                 f"Database update failed for {telemetry.streetlight_id}"
             ) from e
 
-    def list_by_tenant(self, tenant_id: str) -> list[Streetlight]:
+    def list_by_tenant(self, tenant_id: str) -> list[StreetlightState]:
         try:
             response = self._table.query(
                 KeyConditionExpression=Key("tenant_id").eq(tenant_id),
-                ProjectionExpression=self.SUMMARY_FIELDS,
             )
-            return [
-                Streetlight(
-                    streetlight_id=item["streetlight_id"],
-                    tenant_id=item["tenant_id"],
-                    health=HealthStatus(
-                        item.get("health_status", HealthStatus.OK.value)
-                    ),
-                    last_seen=item.get("last_seen"),
-                    motion_detected=item.get("motion_detected"),
-                    ambient_primary_ok=item.get("ambient_primary_ok"),
-                    ambient_secondary_ok=item.get("ambient_secondary_ok"),
-                    th_ok=item.get("th_ok"),
-                    motion_primary_ok=item.get("motion_primary_ok"),
-                    motion_secondary_ok=item.get("motion_secondary_ok"),
-                )
-                for item in response.get("Items", [])
-            ]
+            return [self._from_item(item) for item in response.get(
+                "Items", []
+            )]
         except Exception as e:
             raise PersistenceError(
                 f"Could not retrieve streetlights for tenant {tenant_id}"
-            ) from e
-
-    def get_tenant_id(self, streetlight_id: str) -> str:
-        try:
-            result = self._table.query(
-                IndexName="StreetlightIndex",
-                KeyConditionExpression=Key("streetlight_id").eq(
-                    streetlight_id
-                ),
-                ProjectionExpression="tenant_id",
-                Limit=1,
-            )
-            items = result.get("Items", [])
-            if not items:
-                raise ValueError(
-                    f"No tenant found for streetlight {streetlight_id}"
-                )
-            return items[0]["tenant_id"]
-        except Exception as e:
-            if isinstance(e, ValueError):
-                raise e
-            raise PersistenceError(
-                f"Failed to query tenant for streetlight {streetlight_id}"
             ) from e
 
     def get(
         self,
         tenant_id: str,
         streetlight_id: str,
-    ) -> Optional[Streetlight]:
+    ) -> StreetlightState | None:
         try:
             result = self._table.get_item(
                 Key={
@@ -131,24 +93,60 @@ class StreetlightsRepo:
             item = result.get("Item")
             if not item:
                 return None
-            return Streetlight(
-                streetlight_id=item["streetlight_id"],
-                tenant_id=item["tenant_id"],
-                health=HealthStatus(
-                    item.get("health_status", HealthStatus.OK.value)
-                ),
-                last_seen=item.get("last_seen"),
-                motion_detected=item.get("motion_detected"),
-                ambient_primary_ok=item.get("ambient_primary_ok"),
-                ambient_secondary_ok=item.get("ambient_secondary_ok"),
-                th_ok=item.get("th_ok"),
-                motion_primary_ok=item.get("motion_primary_ok"),
-                motion_secondary_ok=item.get("motion_secondary_ok"),
-            )
+            return self._from_item(item)
         except Exception as e:
             raise PersistenceError(
                 f"Error retrieving streetlight {streetlight_id}"
             ) from e
+
+    def get_tenant_id(self, streetlight_id: str) -> str:
+        try:
+            result = self._table.query(
+                IndexName="StreetlightIndex",
+                KeyConditionExpression=Key(
+                    "streetlight_id"
+                ).eq(streetlight_id),
+                ProjectionExpression="tenant_id",
+                Limit=1,
+            )
+            items = result.get("Items", [])
+            if not items:
+                raise ValueError(
+                    f"No tenant found for streetlight {streetlight_id}"
+                )
+            return items[0]["tenant_id"]
+        except ValueError:
+            raise
+        except Exception as e:
+            raise PersistenceError(
+                f"Failed to query tenant for streetlight {streetlight_id}"
+            ) from e
+
+    @staticmethod
+    def _from_item(item: dict) -> StreetlightState:
+        return StreetlightState(
+            streetlight_id=item["streetlight_id"],
+            tenant_id=item["tenant_id"],
+            health=HealthStatus(
+                item.get("health_status", HealthStatus.OK.value)
+            ),
+            last_seen=datetime.fromisoformat(item["last_seen"]),
+            motion_detected=item.get("motion_detected", False),
+            light_level=int(item.get("light_level", 0)),
+            diagnostics=SensorDiagnostics(
+                ambient_health=SensorHealth(
+                    item.get("ambient_health", SensorHealth.SYSTEM_OK.value)
+                ),
+                mmwave_health=SensorHealth(
+                    item.get("mmwave_health", SensorHealth.SYSTEM_OK.value)
+                ),
+                th_ok=item.get("th_ok", False),
+                light_ok=item.get("light_ok", False),
+                overall_ok=item.get("overall_ok", False),
+            ),
+            rssi=int(item["rssi"]) if item.get("rssi") is not None else None,
+            snr=float(item["snr"]) if item.get("snr") is not None else None,
+        )
 
 
 @lru_cache(maxsize=1)

@@ -1,4 +1,4 @@
-from typing import Optional, Protocol
+from typing import Protocol
 
 from domain.streetlight.models import StreetlightState, StreetlightMetadata
 from application.streetlight.responses import StreetlightResponse
@@ -7,13 +7,13 @@ from application.streetlight.responses import StreetlightResponse
 class StreetlightsRepo(Protocol):
     def get(
         self, tenant_id: str, streetlight_id: str
-    ) -> Optional[StreetlightState]: ...
+    ) -> StreetlightState | None: ...
 
 
 class StreetlightMetadataRepo(Protocol):
     def get(
-        self, streetlight_id: str
-    ) -> Optional[StreetlightMetadata]: ...
+        self, tenant_id: str, streetlight_id: str
+    ) -> StreetlightMetadata | None: ...
 
 
 class GetStreetlight:
@@ -29,18 +29,9 @@ class GetStreetlight:
         self,
         tenant_id: str,
         streetlight_id: str,
-    ) -> Optional[StreetlightResponse]:
-        """
-        Fetches the complete picture of a single streetlight.
-        Returns a Response DTO containing both State and Metadata.
-        """
+    ) -> StreetlightResponse | None:
         state = self.repo.get(tenant_id, streetlight_id)
         if not state:
             return None
-
-        metadata = self.metadata_repo.get(streetlight_id)
-
-        return StreetlightResponse(
-            state=state,
-            metadata=metadata
-        )
+        metadata = self.metadata_repo.get(tenant_id, streetlight_id)
+        return StreetlightResponse(state=state, metadata=metadata)

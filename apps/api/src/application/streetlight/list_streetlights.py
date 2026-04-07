@@ -38,9 +38,10 @@ class ListStreetlights:
         results = []
         for state in states:
             meta = meta_map.get(state.streetlight_id)
-            if meta:
-                results.append(
-                    StreetlightResponse(state=state, metadata=meta)
-                )
+            results.append(
+                StreetlightResponse(state=state, metadata=meta)
+            )
 
-        return sorted(results, key=lambda x: x.metadata.name)
+        return sorted(
+            results, key=lambda x: x.metadata.name or "" if x.metadata else ""
+        )

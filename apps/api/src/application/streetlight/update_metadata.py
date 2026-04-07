@@ -32,7 +32,7 @@ class UpdateStreetlightMetadata:
     ) -> None:
         existing = self.repo.get(tenant_id, streetlight_id)
         if not existing:
-            raise ValueError(f"Streetlight {streetlight_id} not found")
+            raise ValueError("Streetlight not found")
 
         updates = {k: v for k, v in {
             "name": name,

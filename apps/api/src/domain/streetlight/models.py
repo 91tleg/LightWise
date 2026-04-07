@@ -32,8 +32,8 @@ class StreetlightState:
     motion_detected: bool
     light_level: int
     diagnostics: SensorDiagnostics
-    rssi: int
-    snr: float
+    rssi: int | None
+    snr: float | None
 
     def __post_init__(self) -> None:
         if self.last_seen.tzinfo is None:
@@ -68,16 +68,16 @@ class StreetlightMetadata:
     streetlight_id: str
     wireless_device_id: str
     site_id: str
-    lat: float
-    lng: float
-    name: str
+    lat: float | None
+    lng: float | None
+    name: str | None
     model: str
     installed_at: datetime
 
     def __post_init__(self) -> None:
-        if not (-90.0 <= self.lat <= 90.0):
+        if self.lat is not None and not (-90.0 <= self.lat <= 90.0):
             raise ValueError(f"Invalid latitude: {self.lat}")
-        if not (-180.0 <= self.lng <= 180.0):
+        if self.lng is not None and not (-180.0 <= self.lng <= 180.0):
             raise ValueError(f"Invalid longitude: {self.lng}")
         if self.installed_at.tzinfo is None:
             raise ValueError("installed_at must be timezone aware")
