@@ -17,14 +17,10 @@ class StreetlightResponse:
     Read model for the frontend dashboard.
     """
     state: StreetlightState
-    metadata: StreetlightMetadata
+    metadata: StreetlightMetadata | None
 
 
 def streetlight_to_response(response: StreetlightResponse) -> dict:
-    """
-    Serialise a StreetlightResponse to a dict for the API handler.
-    Called at the handler boundary only.
-    """
     s = response.state
     m = response.metadata
     return {
@@ -42,22 +38,18 @@ def streetlight_to_response(response: StreetlightResponse) -> dict:
         },
         "rssi": s.rssi,
         "snr": s.snr,
-        "lat": m.lat,
-        "lng": m.lng,
-        "name": m.name,
-        "site_id": m.site_id,
-        "model": m.model,
-        "installed_at": m.installed_at.isoformat(),
+        "lat": m.lat if m else None,
+        "lng": m.lng if m else None,
+        "name": m.name if m else None,
+        "site_id": m.site_id if m else None,
+        "model": m.model if m else None,
+        "installed_at": m.installed_at.isoformat() if m else None,
     }
 
 
 def telemetry_to_ws_message(
     report: TelemetryReport, health: HealthStatus
 ) -> dict:
-    """
-    Serialise a TelemetryReport to a WebSocket broadcast message.
-    Called by ProcessUplink after health evaluation.
-    """
     return {
         "streetlight_id": report.streetlight_id,
         "tenant_id": report.tenant_id,
@@ -83,20 +75,16 @@ def telemetry_to_ws_message(
 
 def streetlight_to_list_item(
     state: StreetlightState,
-    metadata: StreetlightMetadata
+    metadata: StreetlightMetadata | None,
 ) -> dict[str, Any]:
-    """
-    The fleet view mapping.
-    """
     return {
         "streetlight_id": state.streetlight_id,
-        "name": metadata.name,
-        "site_id": metadata.site_id,
+        "name": metadata.name if metadata else None,
+        "site_id": metadata.site_id if metadata else None,
         "health": state.health.name,
-        "status": state.status.name,
         "last_seen": state.last_seen.isoformat(),
         "location": {
-            "lat": metadata.lat,
-            "lng": metadata.lng
-        }
+            "lat": metadata.lat if metadata else None,
+            "lng": metadata.lng if metadata else None,
+        },
     }

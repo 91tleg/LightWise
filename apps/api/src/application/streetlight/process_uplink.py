@@ -22,7 +22,7 @@ class TelemetryWriter(Protocol):
     def write(self, report: TelemetryReport) -> None: ...
 
 
-class StreetlightRepository(Protocol):
+class StreetlightRepo(Protocol):
     def update_state(
         self, report: TelemetryReport, health: HealthStatus
     ) -> None: ...
@@ -36,7 +36,7 @@ class WebSocketPublisher(Protocol):
     def broadcast(self, connections: list, message: dict) -> None: ...
 
 
-class WebSocketConnectionRepository(Protocol):
+class WebSocketConnectionRepo(Protocol):
     def get_connections_for_streetlight(
         self,
         tenant_id: str,
@@ -44,7 +44,7 @@ class WebSocketConnectionRepository(Protocol):
     ) -> list: ...
 
 
-class CommandRepository(Protocol):
+class CommandRepo(Protocol):
     def update_status(
         self,
         streetlight_id: str,
@@ -67,10 +67,10 @@ class ProcessUplink:
     def __init__(
         self,
         telemetry_writer: TelemetryWriter,
-        streetlight_repo: StreetlightRepository,
+        streetlight_repo: StreetlightRepo,
         ws_publisher: WebSocketPublisher,
-        ws_repo: WebSocketConnectionRepository,
-        command_repo: CommandRepository,
+        ws_repo: WebSocketConnectionRepo,
+        command_repo: CommandRepo,
     ) -> None:
         self._telemetry_writer = telemetry_writer
         self._streetlight_repo = streetlight_repo
