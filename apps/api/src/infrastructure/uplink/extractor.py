@@ -7,17 +7,13 @@ Translates a raw IoT Core rule event into an IoTUplink object.
 from __future__ import annotations
 import base64
 from binascii import Error as Base64Error
-from typing import Protocol
 from datetime import datetime, timezone
 
 from infrastructure.uplink.models import IoTUplink
 from infrastructure.uplink.errors import InvalidUplinkEvent
-
-
-class DeviceMetadataRepository(Protocol):
-    def get_by_wireless_device_id(
-        self, wireless_device_id: str
-    ) -> object | None: ...
+from infrastructure.persistence.dynamo.streetlight_metadata_repo import (
+    StreetlightMetadataRepo,
+)
 
 
 class UplinkExtractor:
@@ -25,7 +21,7 @@ class UplinkExtractor:
     Parses an IoT Core rule event and resolves device identity.
     """
 
-    def __init__(self, metadata_repo: DeviceMetadataRepository) -> None:
+    def __init__(self, metadata_repo: StreetlightMetadataRepo) -> None:
         self._metadata_repo = metadata_repo
 
     def extract(self, event: dict) -> IoTUplink:

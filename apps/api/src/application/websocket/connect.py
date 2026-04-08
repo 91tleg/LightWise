@@ -16,7 +16,7 @@ class IdentityResolver(Protocol):
     def resolve(self, event: dict) -> tuple[str, str]: ...
 
 
-class WebSocketConnectionRepository(Protocol):
+class WebSocketConnectionRepo(Protocol):
     def save(self, connection: WebSocketConnection) -> None: ...
 
 
@@ -24,7 +24,7 @@ class ConnectWebSocket:
     def __init__(
         self,
         identity_resolver: IdentityResolver,
-        repo: WebSocketConnectionRepository,
+        repo: WebSocketConnectionRepo,
     ) -> None:
         self._identity_resolver = identity_resolver
         self._repo = repo
