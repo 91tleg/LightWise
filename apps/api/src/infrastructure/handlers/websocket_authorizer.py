@@ -21,6 +21,7 @@ from functools import lru_cache
 
 from infrastructure.auth.cognito_config import CognitoConfig
 from infrastructure.auth.cognito_verifier import CognitoVerifier
+from infrastructure.auth.iam import allow_policy
 from infrastructure.auth.token import extract_bearer_token
 from libs.config import settings
 from libs.logging import logger
@@ -42,7 +43,7 @@ def handler(event: dict, context: object) -> dict:
 
     if not token:
         logger.warning(
-            "WebSocket auth rejected -- no token in query string",
+            "WebSocket auth rejected - no token in query string",
             extra={"method_arn": event.get("methodArn")},
         )
         raise Exception("Unauthorized")
@@ -52,7 +53,7 @@ def handler(event: dict, context: object) -> dict:
         claims = _verifier().verify(bearer)
     except Exception:
         logger.warning(
-            "WebSocket auth rejected -- token verification failed",
+            "WebSocket auth rejected - token verification failed",
             extra={"method_arn": event.get("methodArn")},
         )
         raise Exception("Unauthorized")
@@ -65,7 +66,7 @@ def handler(event: dict, context: object) -> dict:
         },
     )
 
-    return _allow_policy(
+    return allow_policy(
         principal_id=claims.sub,
         method_arn=event["methodArn"],
         context={
@@ -73,24 +74,3 @@ def handler(event: dict, context: object) -> dict:
             "user_id": claims.sub,
         },
     )
-
-
-def _allow_policy(
-    principal_id: str,
-    method_arn: str,
-    context: dict,
-) -> dict:
-    return {
-        "principalId": principal_id,
-        "policyDocument": {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Action": "execute-api:Invoke",
-                    "Effect": "Allow",
-                    "Resource": method_arn,
-                }
-            ],
-        },
-        "context": context,
-    }
