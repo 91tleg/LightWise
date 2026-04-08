@@ -20,14 +20,17 @@ Parameters:
     Default: ""
   AuthEnabled:
     Type: String
-    Default: "false"
+    Default: "true"
+  AllowedOrigin:
+    Type: String
+    Default: "'*'"
 
 Globals:
   Api:
     Cors:
       AllowMethods: "'GET,PUT,POST,OPTIONS'"
       AllowHeaders: "'Content-Type,Authorization'"
-      AllowOrigin: "'*'"
+      AllowOrigin: !Ref AllowedOrigin
     Auth:
       DefaultAuthorizer: CognitoAuthorizer
       AddDefaultAuthorizerToCorsPreflight: false
@@ -128,7 +131,7 @@ Resources:
   CognitoOperatorGroup:
     Type: AWS::Cognito::UserPoolGroup
     Properties:
-      GroupName: operators
+      GroupName: operator
       UserPoolId: !Ref CognitoUserPool
       Description: "Read and control access — municipal operators"
       Precedence: 1
@@ -150,8 +153,7 @@ Resources:
       AllowedOAuthFlows:
         - code
       AllowedOAuthFlowsUserPoolClient: true
-      SupportedIdentityProviders:
-        - COGNITO
+
       AllowedOAuthScopes:
         - email
         - openid
@@ -211,7 +213,8 @@ Resources:
     Properties:
       ApiId: !Ref WebSocketApi
       RouteKey: $connect
-      AuthorizationType: NONE
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref WebSocketAuthorizer
       Target: !Sub "integrations/${WebSocketConnectIntegration}"
 
   WebSocketConnectIntegration:
@@ -253,7 +256,9 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
 
-  # Subscribe
+  # Subscribe - AuthorizationType intentionally NONE at API Gateway layer.
+  # Tenant isolation is enforced in the handler by validating the connection_id
+  # exists in WebSocketConnections and belongs to the requesting tenant.
   WebSocketSubscribeRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
@@ -277,10 +282,12 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
 
+  # IAM permission for IoT Core to invoke this function is managed
+  # in the IoT Core rule action configuration.
   TelemetryIngestFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.telemetry_ingest.handler.handler
+      Handler: infrastructure.handlers.telemetry_ingest
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref Streetlights
@@ -293,10 +300,34 @@ Resources:
             Action: execute-api:ManageConnections
             Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
 
+  WebSocketAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.websocket_authorizer
+
+  WebSocketAuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketAuthorizerFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  WebSocketAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref WebSocketApi
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketAuthorizerFunction.Arn}/invocations"
+      IdentitySource:
+        - route.request.querystring.token
+      Name: CognitoWebSocketAuthorizer
+      AuthorizerResultTtlInSeconds: 300
+
   WebSocketConnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.websocket.connect.handler
+      Handler: infrastructure.handlers.websocket_connect
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref WebSocketConnections
@@ -304,7 +335,7 @@ Resources:
   WebSocketDisconnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.websocket.disconnect.handler
+      Handler: infrastructure.handlers.websocket_disconnect
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref WebSocketConnections
@@ -312,7 +343,7 @@ Resources:
   WebSocketSubscribeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.websocket.subscribe.handler
+      Handler: infrastructure.handlers.websocket_subscribe
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref WebSocketConnections
@@ -322,7 +353,7 @@ Resources:
   AuthMeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.auth.handler.handler
+      Handler: infrastructure.handlers.auth
       Events:
         AuthMe:
           Type: Api
@@ -335,7 +366,7 @@ Resources:
   ListStreetlightsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.api.streetlights.list.handler
+      Handler: infrastructure.handlers.streetlights_list
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref Streetlights
@@ -351,7 +382,7 @@ Resources:
   GetStreetlightFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.api.streetlights.get.handler
+      Handler: infrastructure.handlers.streetlights_get
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref Streetlights
@@ -367,10 +398,7 @@ Resources:
   GetStreetlightTelemetryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.api.streetlights.telemetry.handler
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref Streetlights
+      Handler: infrastructure.handlers.streetlights_telemetry
       Events:
         GetStreetlightTelemetry:
           Type: Api
@@ -381,7 +409,7 @@ Resources:
   UpdateStreetlightMetadataFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: services.api.streetlights.update_metadata.handler
+      Handler: infrastructure.handlers.streetlights_update_metadata
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref StreetlightMetadata
@@ -421,16 +449,16 @@ Resources:
     Properties:
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: streetlight_id
+        - AttributeName: tenant_id
           AttributeType: S
-        - AttributeName: SK
+        - AttributeName: streetlight_id
           AttributeType: S
         - AttributeName: wireless_device_id
           AttributeType: S
       KeySchema:
-        - AttributeName: streetlight_id
+        - AttributeName: tenant_id
           KeyType: HASH
-        - AttributeName: SK
+        - AttributeName: streetlight_id
           KeyType: RANGE
       GlobalSecondaryIndexes:
         - IndexName: WirelessDeviceIndex
@@ -473,6 +501,9 @@ Resources:
       KeySchema:
         - AttributeName: connection_id
           KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
       GlobalSecondaryIndexes:
         - IndexName: StreetlightIndex
           KeySchema:
