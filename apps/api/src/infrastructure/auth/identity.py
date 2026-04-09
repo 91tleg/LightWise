@@ -1,4 +1,4 @@
-from domain.error import AuthError
+from domain.errors import AuthError
 from domain.auth.models import OperatorProfile
 from libs.config import settings
 

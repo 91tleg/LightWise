@@ -1,7 +1,7 @@
 from __future__ import annotations
 from functools import lru_cache
 
-from domain.error import AuthError
+from domain.errors import AuthError
 from application.streetlight.get_streetlight import GetStreetlight
 from application.streetlight.responses import streetlight_to_response
 from infrastructure.persistence.dynamo.streetlights_repo import (

@@ -14,7 +14,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from application.websocket.subscribe import SubscribeWebSocket
-from domain.error import AuthError
+from domain.errors import AuthError
 from infrastructure.auth.identity import IdentityResolver
 from infrastructure.persistence.dynamo.websocket_connection_repo import (
     get_websocket_connection_repo,

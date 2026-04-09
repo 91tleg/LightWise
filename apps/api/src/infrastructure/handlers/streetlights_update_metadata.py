@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 
-from domain.error import AuthError
+from domain.errors import AuthError
 from application.streetlight.update_metadata import (
     UpdateStreetlightMetadata
 )

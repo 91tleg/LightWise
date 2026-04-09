@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from domain.error import AuthError
+from domain.errors import AuthError
 
 
 def extract_bearer_token(authorization_header: str | None) -> str:

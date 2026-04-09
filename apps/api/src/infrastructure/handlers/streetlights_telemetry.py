@@ -15,7 +15,7 @@ from functools import lru_cache
 
 from application.streetlight.query_telemetry import QueryTelemetry
 from domain.streetlight.interval import TelemetryInterval
-from domain.error import AuthError
+from domain.errors import AuthError
 from infrastructure.auth.identity import IdentityResolver
 from infrastructure.persistence.telemetry.provider import get_reader
 from libs.logging import logger

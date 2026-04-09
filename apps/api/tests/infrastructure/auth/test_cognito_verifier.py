@@ -4,7 +4,7 @@ import time
 from unittest.mock import MagicMock, patch
 import pytest
 
-from domain.error import AuthError
+from domain.errors import AuthError
 from infrastructure.auth.cognito_verifier import CognitoVerifier
 
 

@@ -13,7 +13,7 @@ OperatorProfile
 
 from __future__ import annotations
 
-from domain.error import AuthError
+from domain.errors import AuthError
 from application.auth.responses import operator_to_response
 from infrastructure.auth.identity import CognitoClaimsMapper
 from libs.response import error, success

@@ -1,6 +1,6 @@
 import pytest
 
-from domain.error import AuthError
+from domain.errors import AuthError
 from infrastructure.auth.token import extract_bearer_token
 
 

@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timezone
 from typing import Protocol
 
-from domain.error import AuthError
+from domain.errors import AuthError
 from domain.websocket.models import WebSocketConnection
 
 

@@ -7,7 +7,7 @@ from functools import cached_property
 import jwt
 from jwt.algorithms import RSAAlgorithm
 
-from domain.error import AuthError
+from domain.errors import AuthError
 from infrastructure.auth.cognito_config import CognitoConfig
 from infrastructure.auth.identity import parse_groups
 

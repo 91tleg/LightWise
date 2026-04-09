@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch
 
-from domain.error import AuthError
+from domain.errors import AuthError
 from domain.auth.models import OperatorProfile
 from infrastructure.auth.identity import (
     parse_groups, IdentityResolver, CognitoClaimsMapper
