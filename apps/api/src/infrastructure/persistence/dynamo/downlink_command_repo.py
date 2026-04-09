@@ -195,9 +195,7 @@ class DownlinkCommandRepo:
 
         except ClientError as e:
             raise PersistenceError(
-                f"Failed to list commands for streetlight: {
-                    streetlight_id
-                }"
+                "Failed to list commands"
             ) from e
 
     def list_for_tenant(
@@ -246,9 +244,7 @@ class DownlinkCommandRepo:
 
         except ClientError as e:
             raise PersistenceError(
-                f"Failed to query commands for streetlight: {
-                    streetlight_id
-                }"
+                "Failed to query commands"
             ) from e
 
 
