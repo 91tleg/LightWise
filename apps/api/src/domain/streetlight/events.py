@@ -47,9 +47,7 @@ class SensorReadings:
             )
         if not (-128 <= self.temperature_c <= 127):
             raise ValueError(
-                f"Temperature must be -128 to 127: {
-                    self.temperature_c
-                }"
+                f"Temperature must be -128 to 127: {self.temperature_c}"
             )
         if not (0 <= self.humidity <= 100):
             raise ValueError(

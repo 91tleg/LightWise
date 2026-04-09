@@ -153,9 +153,7 @@ class DownlinkCommandRepo:
             ).get("Code") == "ConditionalCheckFailedException":
                 return
             raise PersistenceError(
-                f"Failed to update command status for streetlight: {
-                    streetlight_id
-                }"
+                "Failed to update command status for streetlight"
             ) from e
 
     def get(self, streetlight_id: str, command_id: str) -> dict | None:

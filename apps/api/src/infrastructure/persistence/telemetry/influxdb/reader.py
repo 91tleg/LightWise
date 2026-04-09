@@ -39,12 +39,10 @@ class InfluxTelemetryReader:
         )
         try:
             return self._execute(query)
-        except InfluxDBError as exc:
+        except InfluxDBError as e:
             raise PersistenceError(
-                f"InfluxDB query failed for streetlight {
-                    streetlight_id
-                }: {exc}"
-            ) from exc
+                f"InfluxDB query failed: {e}"
+            ) from e
 
     def _build_query(
         self,

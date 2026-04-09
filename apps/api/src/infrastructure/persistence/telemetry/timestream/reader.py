@@ -42,12 +42,10 @@ class TimestreamReader:
         query = self._build_query(streetlight_id, from_dt, to_dt, interval)
         try:
             return self._paginate(query)
-        except (BotoCoreError, ClientError) as exc:
+        except (BotoCoreError, ClientError) as e:
             raise PersistenceError(
-                f"Timestream query failed for streetlight {
-                    streetlight_id
-                }: {exc}"
-            ) from exc
+                f"Timestream query failed: {e}"
+            ) from e
 
     def _build_query(
         self,
