@@ -16,7 +16,7 @@ from functools import lru_cache
 from application.streetlight.query_telemetry import QueryTelemetry
 from domain.streetlight.interval import TelemetryInterval
 from domain.errors import AuthError
-from infrastructure.auth.identity import IdentityResolver
+from infrastructure.auth.identity import resolve_identity
 from infrastructure.persistence.telemetry.provider import get_reader
 from libs.logging import logger
 from libs.response import error, success
@@ -29,7 +29,7 @@ def _use_case() -> QueryTelemetry:
 
 def handler(event: dict, context: object) -> dict:
     try:
-        tenant_id, _ = IdentityResolver()(event)
+        tenant_id, _ = resolve_identity(event)
     except AuthError:
         return error(401, "Unauthorized")
 

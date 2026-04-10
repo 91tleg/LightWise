@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from domain.errors import AuthError
 from application.auth.responses import operator_to_response
-from infrastructure.auth.identity import CognitoClaimsMapper
+from infrastructure.auth.identity import map_cognito_claims
 from libs.response import error, success
 
 
@@ -28,7 +28,7 @@ def handler(event: dict, context: object) -> dict:
     )
 
     try:
-        profile = CognitoClaimsMapper().to_operator_profile(claims)
+        profile = map_cognito_claims(claims)
     except AuthError:
         return error(401, "Unauthorized")
 

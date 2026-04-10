@@ -10,7 +10,7 @@ from infrastructure.persistence.dynamo.streetlights_repo import (
 from infrastructure.persistence.dynamo.streetlight_metadata_repo import (
     get_streetlight_metadata_repo
 )
-from infrastructure.auth.identity import IdentityResolver
+from infrastructure.auth.identity import resolve_identity
 from libs.logging import logger
 from libs.response import success, error
 
@@ -25,7 +25,7 @@ def _use_case():
 
 def handler(event: dict, context: object):
     try:
-        tenant_id, _ = IdentityResolver()(event)
+        tenant_id, _ = resolve_identity(event)
     except AuthError:
         logger.warning("Missing tenant_id or sub in claims")
         return error(401, "Unauthorized")

@@ -17,7 +17,7 @@ from functools import lru_cache
 
 from application.websocket.connect import ConnectWebSocket
 from domain.errors import AuthError
-from infrastructure.auth.identity import IdentityResolver
+from infrastructure.auth.identity import extract_websocket_identity
 from infrastructure.persistence.dynamo.websocket_connection_repo import (
     get_websocket_connection_repo
 )
@@ -27,7 +27,6 @@ from libs.logging import logger
 @lru_cache(maxsize=1)
 def _use_case() -> ConnectWebSocket:
     return ConnectWebSocket(
-        identity_resolver=IdentityResolver(),
         repo=get_websocket_connection_repo()
     )
 
@@ -36,7 +35,12 @@ def handler(event: dict, context: object) -> dict:
     connection_id = event["requestContext"]["connectionId"]
 
     try:
-        connection = _use_case().execute(event)
+        tenant_id, user_id = extract_websocket_identity(event)
+        connection = _use_case().execute(
+            connection_id=connection_id,
+            tenant_id=tenant_id,
+            user_id=user_id,
+        )
     except AuthError as exc:
         logger.warning(
             "WebSocket connect rejected - auth failed",
@@ -61,4 +65,16 @@ def handler(event: dict, context: object) -> dict:
             "user_id": connection.user_id,
         },
     )
-    return {"statusCode": 200}
+
+    selected_protocol = (
+        event.get("requestContext", {})
+        .get("authorizer", {})
+        .get("selected_protocol", "Bearer")
+    )
+
+    return {
+        "statusCode": 200,
+        "headers": {
+            "Sec-WebSocket-Protocol": selected_protocol,
+        },
+    }

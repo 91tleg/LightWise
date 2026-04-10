@@ -1,40 +1,43 @@
-import pytest
-
-from domain.errors import AuthError
-from infrastructure.auth.token import extract_bearer_token
+from infrastructure.auth.token import extract_websocket_token
 
 
-class TestExtractBearerToken:
-    def test_extract_valid_token(self):
-        header = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-        token = extract_bearer_token(header)
-        assert token == "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+def _event(header_value: str | None) -> dict:
+    if header_value is None:
+        return {}
+    return {"headers": {"Sec-WebSocket-Protocol": header_value}}
 
-    def test_extract_is_case_insensitive(self):
-        header = "bearer some-token-123"
-        assert extract_bearer_token(header) == "some-token-123"
 
-    def test_raises_on_none_header(self):
-        with pytest.raises(AuthError, match="Missing Authorization header"):
-            extract_bearer_token(None)
+class TestExtractWebsocketToken:
+    def test_valid_bearer_token(self):
+        token = extract_websocket_token(_event("Bearer, abc123"))
+        assert token == "abc123"
 
-    def test_raises_on_empty_string(self):
-        with pytest.raises(AuthError, match="Missing Authorization header"):
-            extract_bearer_token("")
+    def test_strips_whitespace(self):
+        token = extract_websocket_token(_event("Bearer,   abc123  "))
+        assert token == "abc123"
 
-    @pytest.mark.parametrize("malformed_header", [
-        "Basic dXNlcjpwYXNz",          # Wrong scheme
-        "Bearer",                      # Missing token part
-        "Bearer token extra-stuff",    # Too many parts
-        "NotBearer token",             # Invalid prefix
-        "token-without-prefix"         # Missing prefix
-    ])
-    def test_raises_on_malformed_header(self, malformed_header):
-        with pytest.raises(
-            AuthError, match="Authorization header must be 'Bearer <token>'"
-        ):
-            extract_bearer_token(malformed_header)
+    def test_missing_headers(self):
+        assert extract_websocket_token({}) is None
 
-    def test_handles_multiple_whitespace(self):
-        header = "Bearer    spaced-out-token"
-        assert extract_bearer_token(header) == "spaced-out-token"
+    def test_none_headers(self):
+        assert extract_websocket_token({"headers": None}) is None
+
+    def test_missing_protocol_header(self):
+        assert extract_websocket_token({"headers": {}}) is None
+
+    def test_wrong_scheme(self):
+        assert extract_websocket_token(_event("Basic, abc123")) is None
+
+    def test_token_only_no_scheme(self):
+        assert extract_websocket_token(_event("abc123")) is None
+
+    def test_empty_header(self):
+        assert extract_websocket_token(_event("")) is None
+
+    def test_too_many_parts(self):
+        assert extract_websocket_token(
+            _event("Bearer, abc123, extra")
+        ) is None
+
+    def test_bearer_no_token(self):
+        assert extract_websocket_token(_event("Bearer,")) is None
