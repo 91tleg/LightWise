@@ -2,25 +2,27 @@ import logging
 import sys
 import json
 
+from libs.config import settings
+
 
 class JsonFormatter(logging.Formatter):
-    """Formats logs as JSON"""
     def format(self, record):
         log_record = {
             "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S.%fZ"),
             "level": record.levelname,
             "message": record.getMessage(),
         }
-
-        if hasattr(record, "extra") and isinstance(record.extra, dict):
-            log_record.update(record.extra)
+        for key in ("tenant_id", "streetlight_id", "user_id", "request_id"):
+            if hasattr(record, key):
+                log_record[key] = getattr(record, key)
         return json.dumps(log_record)
 
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(JsonFormatter())
 logger = logging.getLogger("streetlight")
-logger.setLevel(logging.INFO)
+log_level_name = getattr(settings, "LOG_LEVEL", "INFO").upper()
+logger.setLevel(getattr(logging, log_level_name, logging.INFO))
 logger.addHandler(handler)
 logger.propagate = False
 
@@ -31,12 +33,10 @@ def bind_context(
     user_id=None,
     request_id=None
 ):
-    """Helper to bind contextual info."""
     extra = {k: v for k, v in {
         "tenant_id": tenant_id,
         "streetlight_id": streetlight_id,
         "user_id": user_id,
         "request_id": request_id
     }.items() if v is not None}
-
-    return logging.LoggerAdapter(logger, {"extra": extra})
+    return logging.LoggerAdapter(logger, extra)
