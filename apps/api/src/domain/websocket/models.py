@@ -9,11 +9,10 @@ class WebSocketConnection:
     connection_id: str
     connected_at: datetime
 
+    def __post_init__(self) -> None:
+        if self.connected_at.tzinfo is None:
+            raise ValueError("connected_at must be timezone aware")
+
     def is_active(self, timeout_minutes: int = 120) -> bool:
-        """
-        Check if the connection is still valid based on the connected time.
-        Using UTC to avoid server-local time issues.
-        """
-        # Ensure we compare UTC to UTC
         now = datetime.now(timezone.utc)
         return now - self.connected_at < timedelta(minutes=timeout_minutes)
