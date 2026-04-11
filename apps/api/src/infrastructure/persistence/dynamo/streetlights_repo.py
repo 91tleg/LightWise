@@ -1,6 +1,6 @@
 from decimal import Decimal
 from functools import lru_cache
-from datetime import datetime
+from datetime import datetime, timezone
 
 from boto3.dynamodb.conditions import Key
 
@@ -18,7 +18,7 @@ class StreetlightsRepo:
         self._db = get_dynamodb_resource()
         self._table = self._db.Table(table_name)
 
-    def update(
+    def update_state(
         self,
         telemetry: TelemetryReport,
         health: HealthStatus,
@@ -63,6 +63,23 @@ class StreetlightsRepo:
         except Exception as e:
             raise PersistenceError(
                 f"Database update failed for {telemetry.streetlight_id}"
+            ) from e
+
+    def update_last_seen(self, tenant_id: str, streetlight_id: str) -> None:
+        try:
+            self._table.update_item(
+                Key={
+                    "tenant_id": tenant_id,
+                    "streetlight_id": streetlight_id,
+                },
+                UpdateExpression="SET last_seen = :t",
+                ExpressionAttributeValues={
+                    ":t": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+        except Exception as e:
+            raise PersistenceError(
+                f"Database update failed for {streetlight_id}"
             ) from e
 
     def list_by_tenant(self, tenant_id: str) -> list[StreetlightState]:
