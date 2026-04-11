@@ -11,11 +11,12 @@ Responsibilities:
 """
 
 from __future__ import annotations
+import json
 from functools import lru_cache
 
 from application.websocket.subscribe import SubscribeWebSocket
 from domain.errors import AuthError
-from infrastructure.auth.identity import IdentityResolver
+from infrastructure.auth.identity import extract_websocket_identity
 from infrastructure.persistence.dynamo.websocket_connection_repo import (
     get_websocket_connection_repo,
 )
@@ -24,33 +25,42 @@ from libs.logging import logger
 
 @lru_cache(maxsize=1)
 def _use_case() -> SubscribeWebSocket:
-    return SubscribeWebSocket(
-        identity_resolver=IdentityResolver(),
-        repo=get_websocket_connection_repo()
-    )
+    return SubscribeWebSocket(repo=get_websocket_connection_repo())
+
+
+def _parse_streetlight_id(event: dict) -> str:
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError as exc:
+        raise ValueError("Request body is not valid JSON") from exc
+    streetlight_id = body.get("streetlight_id")
+    if not streetlight_id:
+        raise ValueError("streetlight_id is required")
+    return streetlight_id
 
 
 def handler(event: dict, context: object) -> dict:
     connection_id = event["requestContext"]["connectionId"]
 
     try:
-        connection = _use_case().execute(event)
+        tenant_id, user_id = extract_websocket_identity(event)
+        streetlight_id = _parse_streetlight_id(event)
+        connection = _use_case().execute(
+            connection_id=connection_id,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            streetlight_id=streetlight_id,
+        )
     except ValueError as exc:
         logger.warning(
             "WebSocket subscribe rejected - invalid request",
-            extra={
-                "connection_id": connection_id,
-                "error": str(exc),
-            },
+            extra={"connection_id": connection_id, "error": str(exc)},
         )
         return {"statusCode": 400, "body": str(exc)}
     except AuthError as exc:
         logger.warning(
             "WebSocket subscribe rejected - auth failed",
-            extra={
-                "connection_id": connection_id,
-                "error": str(exc),
-            },
+            extra={"connection_id": connection_id, "error": str(exc)},
         )
         return {"statusCode": 401}
     except Exception:
