@@ -2,19 +2,11 @@ from typing import List
 from functools import lru_cache
 from datetime import datetime
 
-import boto3
 from boto3.dynamodb.conditions import Key
 
 from infrastructure.persistence.error import PersistenceError
+from infrastructure.persistence.dynamo.client import get_dynamodb_resource
 from domain.websocket.models import WebSocketConnection
-from libs.config import settings
-
-
-_DYNAMODB = boto3.resource(
-    "dynamodb",
-    region_name=settings.AWS_REGION,
-    endpoint_url=settings.DYNAMO_ENDPOINT or None,
-)
 
 
 class WebSocketConnectionRepo:
@@ -30,7 +22,8 @@ class WebSocketConnectionRepo:
     """
 
     def __init__(self, table_name: str):
-        self._table = _DYNAMODB.Table(table_name)
+        self._db = get_dynamodb_resource()
+        self._table = self._db.Table(table_name)
 
     def get_connections_for_streetlight(
         self,
@@ -127,7 +120,9 @@ class WebSocketConnectionRepo:
 
 
 @lru_cache(maxsize=1)
-def get_websocket_connection_repository() -> WebSocketConnectionRepo:
+def get_websocket_connection_repo() -> WebSocketConnectionRepo:
+    from libs.config import settings
+
     return WebSocketConnectionRepo(
         table_name=settings.DDB_TABLE_WS_CONNECTIONS
     )

@@ -1,7 +1,7 @@
 from botocore.exceptions import BotoCoreError, ClientError
 
 from .client import TimestreamClientManager
-from domain.telemetry.models import TelemetryPayload
+from domain.streetlight.events import TelemetryReport
 from infrastructure.persistence.error import PersistenceError
 from libs.config import settings
 
@@ -18,7 +18,7 @@ class TimestreamWriter:
         self.table = table
         self.client = TimestreamClientManager.get_write_client()
 
-    def write(self, event: TelemetryPayload) -> None:
+    def write(self, event: TelemetryReport) -> None:
         if not self.database or not self.table:
             return
         """Write a single telemetry event."""

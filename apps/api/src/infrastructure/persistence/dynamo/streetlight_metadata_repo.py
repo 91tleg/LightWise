@@ -1,95 +1,97 @@
-from typing import Optional
 from functools import lru_cache
 from decimal import Decimal
+from datetime import datetime
 
-import boto3
+from boto3.dynamodb.conditions import Key
 
+from domain.streetlight.models import StreetlightMetadata
+from infrastructure.persistence.dynamo.client import get_dynamodb_resource
 from infrastructure.persistence.error import PersistenceError
-from domain.streetlight.health import HealthStatus
-from domain.streetlight.models import Streetlight
-from libs.config import settings
 
 
-_DYNAMODB = boto3.resource(
-    "dynamodb",
-    region_name=settings.AWS_REGION,
-    endpoint_url=settings.DYNAMO_ENDPOINT or None,
-)
+def _optional(key: str, value, transform=None):
+    if value is None:
+        return {}
+    return {key: transform(value) if transform else value}
 
 
 class StreetlightMetadataRepo:
     def __init__(self, table_name: str):
-        self.table = _DYNAMODB.Table(table_name)
+        self._db = get_dynamodb_resource()
+        self._table = self._db.Table(table_name)
 
-    def get(self, streetlight_id: str) -> Optional[Streetlight]:
+    def get(
+        self, tenant_id: str, streetlight_id: str
+    ) -> StreetlightMetadata | None:
         try:
-            resp = self.table.get_item(
-                Key={
-                    "streetlight_id": streetlight_id,
-                    "SK": "METADATA",
-                }
-            )
+            resp = self._table.get_item(Key={
+                "tenant_id": tenant_id,
+                "streetlight_id": streetlight_id,
+            })
             item = resp.get("Item")
             if not item:
                 return None
-            return Streetlight(
-                tenant_id="",
-                streetlight_id=item["streetlight_id"],
-                health=HealthStatus.UNKNOWN,
-                lat=float(item["lat"]),
-                lng=float(item["lng"]),
-                name=item.get("name"),
-            )
+            return self._from_item(item)
         except Exception as e:
             raise PersistenceError(
                 f"Failed to retrieve metadata: {streetlight_id}"
             ) from e
 
-    def update(
-        self,
-        streetlight_id: str,
-        name: str | None = None,
-        lat: float | None = None,
-        lng: float | None = None,
-    ) -> None:
-        updates = {}
-        if name is not None:
-            updates["#n"] = (":n", name, "name")
-        if lat is not None:
-            updates["lat"] = (":lat", Decimal(str(lat)), "lat")
-        if lng is not None:
-            updates["lng"] = (":lng", Decimal(str(lng)), "lng")
-
-        if not updates:
-            return
-
-        set_expr = "SET " + ", ".join(
-            f"{'#n' if k == '#n' else k} = {v[0]}"
-            for k, v in updates.items()
-        )
-        expr_values = {v[0]: v[1] for v in updates.values()}
-        expr_names = {"#n": "name"} if "#n" in updates else {}
-
-        kwargs = {
-            "Key": {
-                "streetlight_id": streetlight_id,
-                "SK": "METADATA",
-            },
-            "UpdateExpression": set_expr,
-            "ExpressionAttributeValues": expr_values,
-        }
-        if expr_names:
-            kwargs["ExpressionAttributeNames"] = expr_names
+    def save(self, tenant_id: str, metadata: StreetlightMetadata) -> None:
         try:
-            self.table.update_item(**kwargs)
+            self._table.put_item(Item={
+                "tenant_id": tenant_id,
+                "streetlight_id": metadata.streetlight_id,
+                "wireless_device_id": metadata.wireless_device_id,
+                "site_id": metadata.site_id,
+                "model": metadata.model,
+                "installed_at": metadata.installed_at.isoformat(),
+                **_optional("name", metadata.name),
+                **_optional("lat", metadata.lat, lambda v: Decimal(str(v))),
+                **_optional("lng", metadata.lng, lambda v: Decimal(str(v))),
+            })
         except Exception as e:
             raise PersistenceError(
-                f"Failed to update metadata: {streetlight_id}"
+                f"Failed to save metadata: {metadata.streetlight_id}"
             ) from e
+
+    def list_by_tenant(self, tenant_id: str) -> list[StreetlightMetadata]:
+        try:
+            items = []
+            kwargs = {"KeyConditionExpression": Key("tenant_id").eq(tenant_id)}
+            while True:
+                response = self._table.query(**kwargs)
+                items.extend(response.get("Items", []))
+                last = response.get("LastEvaluatedKey")
+                if not last:
+                    break
+                kwargs["ExclusiveStartKey"] = last
+            return [self._from_item(item) for item in items]
+        except Exception as e:
+            raise PersistenceError(
+                f"Could not retrieve metadata for tenant {tenant_id}"
+            ) from e
+
+    @staticmethod
+    def _from_item(item: dict) -> StreetlightMetadata:
+        raw_lat = item.get("lat")
+        raw_lng = item.get("lng")
+        return StreetlightMetadata(
+            streetlight_id=item["streetlight_id"],
+            wireless_device_id=item["wireless_device_id"],
+            site_id=item["site_id"],
+            name=item.get("name"),
+            lat=float(raw_lat) if raw_lat is not None else None,
+            lng=float(raw_lng) if raw_lng is not None else None,
+            model=item["model"],
+            installed_at=datetime.fromisoformat(item["installed_at"]),
+        )
 
 
 @lru_cache(maxsize=1)
 def get_streetlight_metadata_repo() -> StreetlightMetadataRepo:
+    from libs.config import settings
+
     return StreetlightMetadataRepo(
         table_name=settings.DDB_TABLE_STREETLIGHT_METADATA
     )

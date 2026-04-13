@@ -17,15 +17,4 @@ class OperatorProfile:
 
     @property
     def full_name(self) -> str:
-        return f"{self.first_name} {self.last_name}".strip()
-
-    def to_dict(self) -> dict:
-        return {
-            "sub":        self.sub,
-            "tenant_id":  self.tenant_id,
-            "first_name": self.first_name,
-            "last_name":  self.last_name,
-            "name":       self.full_name,
-            "email":      self.email,
-            "role":       self.role,
-        }
+        return f"{self.first_name.strip()} {self.last_name.strip()}".strip()

@@ -8,10 +8,8 @@ from botocore.exceptions import ClientError
 
 from domain.websocket.models import WebSocketConnection
 from infrastructure.persistence.dynamo.websocket_connection_repo import (
-    get_websocket_connection_repository,
-    WebSocketConnectionRepo
+    get_websocket_connection_repo, WebSocketConnectionRepo
 )
-from libs.config import settings
 from libs.logging import logger
 
 
@@ -21,6 +19,8 @@ def get_apigateway_client() -> boto3.client:
     Return a cached API Gateway Management client.
     Reused for warm Lambda invocations.
     """
+    from libs.config import settings
+
     endpoint = settings.WS_MANAGEMENT_URL
     return boto3.client(
         "apigatewaymanagementapi",
@@ -29,11 +29,9 @@ def get_apigateway_client() -> boto3.client:
     )
 
 
-class SensorEventPublisher:
+class WebSocketPublisher:
     """
     Sends telemetry updates to active WebSocket clients.
-    Optimized for Lambda warm start by reusing both
-    the API Gateway client and the WebSocket repository.
     """
 
     def __init__(
@@ -41,10 +39,10 @@ class SensorEventPublisher:
         repo: Optional[WebSocketConnectionRepo] = None,
         client: Optional[BaseClient] = None,
     ):
-        self.repo = repo or get_websocket_connection_repository()
+        self.repo = repo or get_websocket_connection_repo()
         self.client = client or get_apigateway_client()
 
-    def push(self, connection_id: str, data: dict) -> None:
+    def _push(self, connection_id: str, data: dict) -> None:
         """Sends a single JSON payload to a specific connection."""
         try:
             self.client.post_to_connection(
@@ -80,4 +78,9 @@ class SensorEventPublisher:
         logger.info(f"Broadcasting to {len(connections)} connections")
         for conn in connections:
             logger.info(f"Pushing to {conn.connection_id}")
-            self.push(conn.connection_id, data)
+            self._push(conn.connection_id, data)
+
+
+@lru_cache(maxsize=1)
+def get_websocket_publisher() -> WebSocketPublisher:
+    return WebSocketPublisher()

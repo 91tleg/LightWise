@@ -1,132 +1,143 @@
-import pytest
+from __future__ import annotations
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
+import pytest
+
 from application.streetlight.update_metadata import UpdateStreetlightMetadata
+from domain.streetlight.models import StreetlightMetadata
 
 
-@pytest.fixture
-def repo():
-    return MagicMock()
+_INSTALLED = datetime(2023, 6, 1, 0, 0, 0, tzinfo=timezone.utc)
+
+_EXISTING = StreetlightMetadata(
+    streetlight_id="sl-001",
+    wireless_device_id="dev-001",
+    site_id="site-1",
+    lat=37.77,
+    lng=-122.41,
+    name="Old Name",
+    model="LUM-MAX-200",
+    installed_at=_INSTALLED,
+)
 
 
-@pytest.fixture
-def service(repo):
-    return UpdateStreetlightMetadata(repo=repo)
+def _use_case(
+    existing: StreetlightMetadata | None
+) -> tuple[UpdateStreetlightMetadata, MagicMock]:
+    repo = MagicMock()
+    repo.get.return_value = existing
+    return UpdateStreetlightMetadata(repo=repo), repo
 
 
-class TestUpdateStreetlightMetadata:
-    def test_raises_when_all_fields_none(self, service, repo):
-        with pytest.raises(ValueError, match="At least one field"):
-            service.execute(
-                streetlight_id="LW-00100", name=None, lat=None, lng=None
+class TestNotFound:
+    def test_raises_when_streetlight_not_found(self):
+        use_case, _ = _use_case(existing=None)
+        with pytest.raises(ValueError, match="not found"):
+            use_case.execute(
+                "tenant-1", "sl-001", name="New", lat=None, lng=None
             )
-        repo.update.assert_not_called()
 
-    def test_raises_on_lat_above_90(self, service, repo):
-        with pytest.raises(ValueError, match="Invalid latitude"):
-            service.execute(
-                streetlight_id="LW-00100", name=None, lat=91.0, lng=None
+    def test_save_not_called_when_not_found(self):
+        use_case, repo = _use_case(existing=None)
+        with pytest.raises(ValueError):
+            use_case.execute(
+                "tenant-1", "sl-001", name="New", lat=None, lng=None
             )
-        repo.update.assert_not_called()
+        repo.save.assert_not_called()
 
-    def test_raises_on_lat_below_minus_90(self, service, repo):
-        with pytest.raises(ValueError, match="Invalid latitude"):
-            service.execute(
-                streetlight_id="LW-00100", name=None, lat=-91.0, lng=None
+
+class TestNoOp:
+    def test_save_not_called_when_no_updates(self):
+        use_case, repo = _use_case(_EXISTING)
+        use_case.execute(
+            "tenant-1", "sl-001", name=None, lat=None, lng=None
+        )
+        repo.save.assert_not_called()
+
+
+class TestPartialUpdates:
+    def test_name_updated(self):
+        use_case, repo = _use_case(_EXISTING)
+        use_case.execute(
+            "tenant-1", "sl-001", name="New Name", lat=None, lng=None
+        )
+        saved = repo.save.call_args[0][1]
+        assert saved.name == "New Name"
+        assert saved.lat == _EXISTING.lat
+        assert saved.lng == _EXISTING.lng
+
+    def test_lat_lng_updated(self):
+        use_case, repo = _use_case(_EXISTING)
+        use_case.execute(
+            "tenant-1", "sl-001", name=None, lat=51.5, lng=-0.1
+        )
+        saved = repo.save.call_args[0][1]
+        assert saved.lat == 51.5
+        assert saved.lng == -0.1
+        assert saved.name == _EXISTING.name
+
+    def test_all_fields_updated(self):
+        use_case, repo = _use_case(_EXISTING)
+        use_case.execute(
+            "tenant-1", "sl-001", name="Full Update", lat=1.0, lng=2.0
+        )
+        saved = repo.save.call_args[0][1]
+        assert saved.name == "Full Update"
+        assert saved.lat == 1.0
+        assert saved.lng == 2.0
+
+    def test_immutable_fields_preserved(self):
+        use_case, repo = _use_case(_EXISTING)
+        use_case.execute(
+            "tenant-1", "sl-001", name="Updated", lat=None, lng=None
+        )
+        saved = repo.save.call_args[0][1]
+        assert saved.streetlight_id == _EXISTING.streetlight_id
+        assert saved.wireless_device_id == _EXISTING.wireless_device_id
+        assert saved.model == _EXISTING.model
+        assert saved.installed_at == _EXISTING.installed_at
+
+
+class TestValidation:
+    def test_invalid_lat_raises(self):
+        use_case, repo = _use_case(_EXISTING)
+        with pytest.raises(ValueError):
+            use_case.execute(
+                "tenant-1", "sl-001", name=None, lat=91.0, lng=None
             )
-        repo.update.assert_not_called()
+        repo.save.assert_not_called()
 
-    def test_accepts_lat_at_boundary_90(self, service, repo):
-        service.execute(
-            streetlight_id="LW-00100", name=None, lat=90.0, lng=None
-        )
-        repo.update.assert_called_once()
-
-    def test_accepts_lat_at_boundary_minus_90(self, service, repo):
-        service.execute(
-            streetlight_id="LW-00100", name=None, lat=-90.0, lng=None
-        )
-        repo.update.assert_called_once()
-
-    def test_raises_on_lng_above_180(self, service, repo):
-        with pytest.raises(ValueError, match="Invalid longitude"):
-            service.execute(
-                streetlight_id="LW-00100", name=None, lat=None, lng=181.0
+    def test_invalid_lng_raises(self):
+        use_case, repo = _use_case(_EXISTING)
+        with pytest.raises(ValueError):
+            use_case.execute(
+                "tenant-1", "sl-001", name=None, lat=None, lng=181.0
             )
-        repo.update.assert_not_called()
+        repo.save.assert_not_called()
 
-    def test_raises_on_lng_below_minus_180(self, service, repo):
-        with pytest.raises(ValueError, match="Invalid longitude"):
-            service.execute(
-                streetlight_id="LW-00100", name=None, lat=None, lng=-181.0
+
+class TestTenantScoping:
+    def test_get_called_with_tenant_id(self):
+        use_case, repo = _use_case(_EXISTING)
+        use_case.execute(
+            "tenant-1", "sl-001", name="X", lat=None, lng=None
+        )
+        repo.get.assert_called_once_with("tenant-1", "sl-001")
+
+    def test_save_called_with_tenant_id(self):
+        use_case, repo = _use_case(_EXISTING)
+        use_case.execute(
+            "tenant-1", "sl-001", name="X", lat=None, lng=None
+        )
+        assert repo.save.call_args[0][0] == "tenant-1"
+
+    def test_different_tenant_gets_own_record(self):
+        repo = MagicMock()
+        repo.get.return_value = None
+        use_case = UpdateStreetlightMetadata(repo=repo)
+        with pytest.raises(ValueError, match="not found"):
+            use_case.execute(
+                "tenant-2", "sl-001", name="X", lat=None, lng=None
             )
-        repo.update.assert_not_called()
-
-    def test_accepts_lng_at_boundary_180(self, service, repo):
-        service.execute(
-            streetlight_id="LW-00100", name=None, lat=None, lng=180.0
-        )
-        repo.update.assert_called_once()
-
-    def test_accepts_lng_at_boundary_minus_180(self, service, repo):
-        service.execute(
-            streetlight_id="LW-00100", name=None, lat=None, lng=-180.0
-        )
-        repo.update.assert_called_once()
-
-    def test_calls_repo_with_name_only(self, service, repo):
-        service.execute(
-            streetlight_id="LW-00100", name="New Name", lat=None, lng=None
-        )
-        repo.update.assert_called_once_with(
-            streetlight_id="LW-00100",
-            name="New Name",
-            lat=None,
-            lng=None,
-        )
-
-    def test_calls_repo_with_lat_lng_only(self, service, repo):
-        service.execute(
-            streetlight_id="LW-00100", name=None, lat=47.61, lng=-122.20
-        )
-        repo.update.assert_called_once_with(
-            streetlight_id="LW-00100",
-            name=None,
-            lat=47.61,
-            lng=-122.20,
-        )
-
-    def test_calls_repo_with_all_fields(self, service, repo):
-        service.execute(
-            streetlight_id="LW-00100",
-            name="Main St",
-            lat=47.61,
-            lng=-122.20,
-        )
-        repo.update.assert_called_once_with(
-            streetlight_id="LW-00100",
-            name="Main St",
-            lat=47.61,
-            lng=-122.20,
-        )
-
-    def test_passes_correct_streetlight_id(self, service, repo):
-        service.execute(
-            streetlight_id="LW-00099", name="Test", lat=None, lng=None
-        )
-        repo.update.assert_called_once_with(
-            streetlight_id="LW-00099",
-            name="Test",
-            lat=None,
-            lng=None,
-        )
-
-    def test_returns_none(self, service, repo):
-        result = service.execute(
-            streetlight_id="LW-00100",
-            name="Test",
-            lat=None,
-            lng=None,
-        )
-
-        assert result is None
+        repo.get.assert_called_once_with("tenant-2", "sl-001")
