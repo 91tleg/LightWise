@@ -18,7 +18,7 @@ pycparser==3.0
 pyflakes==3.4.0
 Pygments==2.19.2
 PyJWT==2.4.0
-pytest==9.0.2
+pytest==9.0.3
 python-dateutil==2.9.0.post0
 reactivex==4.1.0
 s3transfer==0.16.0
