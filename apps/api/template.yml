@@ -320,9 +320,8 @@ Resources:
       AuthorizerType: REQUEST
       AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketAuthorizerFunction.Arn}/invocations"
       IdentitySource:
-        - route.request.querystring.token
+        - route.request.header.Sec-WebSocket-Protocol
       Name: CognitoWebSocketAuthorizer
-      AuthorizerResultTtlInSeconds: 300
 
   WebSocketConnectFunction:
     Type: AWS::Serverless::Function
