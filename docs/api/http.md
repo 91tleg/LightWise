@@ -1,7 +1,6 @@
 # HTTP API
-**Version:** 1.0  
-**Last Updated:** March 13, 2026  
-
+**Version:** 1.1  
+**Last Updated:** April 9, 2026  
 See [README.md](./README.md) for shared conventions.
 
 ---
@@ -12,28 +11,19 @@ See [README.md](./README.md) for shared conventions.
 
 Returns all streetlights for a tenant. Used to render the map with pins and health indicators.
 
-**Query Parameters**
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `tenant_id` | string | demo only | Tenant identifier — replaced by Cognito claims in production |
-
 **Response `200`**
 ```json
 [
   {
     "streetlight_id": "LW-00100",
-    "tenant_id": "tenant-001",
-    "health": "DEGRADED",
-    "lat": 37.7749,
-    "lng": -122.4194,
     "name": "Main Street 5th Ave",
-    "last_seen": "2026-02-27T03:41:12+00:00",
-    "motion_detected": true,
-    "ambient_primary_ok": true,
-    "ambient_secondary_ok": false,
-    "th_ok": true,
-    "motion_primary_ok": true,
-    "motion_secondary_ok": true
+    "site_id": "north-parking-lot",
+    "health": "DEGRADED",
+    "last_seen": "2026-02-27T03:41:12Z",
+    "location": {
+      "lat": 37.7749,
+      "lng": -122.4194
+    }
   }
 ]
 ```
@@ -45,14 +35,10 @@ Returns all streetlights for a tenant. Used to render the map with pins and heal
 Returns full detail for a single streetlight. Used when a user clicks a map pin.
 
 **Path Parameters**
+
 | Parameter | Type | Description |
 |---|---|---|
 | `id` | string | Streetlight identifier |
-
-**Query Parameters**
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `tenant_id` | string | demo only | Tenant identifier — replaced by Cognito claims in production |
 
 **Response `200`**
 ```json
@@ -60,16 +46,23 @@ Returns full detail for a single streetlight. Used when a user clicks a map pin.
   "streetlight_id": "LW-00100",
   "tenant_id": "tenant-001",
   "health": "DEGRADED",
+  "last_seen": "2026-02-27T03:41:12Z",
+  "motion_detected": true,
+  "rssi": -65,
+  "snr": 8.0,
+  "diagnostics": {
+    "overall_ok": false,
+    "ambient_health": "DEGRADED",
+    "mmwave_health": "SYSTEM_OK",
+    "th_ok": true,
+    "light_ok": true
+  },
   "lat": 37.7749,
   "lng": -122.4194,
   "name": "Main Street 5th Ave",
-  "last_seen": "2026-02-27T03:41:12+00:00",
-  "motion_detected": true,
-  "ambient_primary_ok": true,
-  "ambient_secondary_ok": false,
-  "th_ok": true,
-  "motion_primary_ok": true,
-  "motion_secondary_ok": true
+  "site_id": "north-parking-lot",
+  "model": "LUM-MAX-200",
+  "installed_at": "2025-10-15T10:00:00Z"
 }
 ```
 
@@ -82,19 +75,34 @@ Returns full detail for a single streetlight. Used when a user clicks a map pin.
 
 ### `GET /streetlights/{id}/telemetry`
 
-Returns time-series sensor data for charts. Hits Timestream. Returns empty array when Timestream is not configured (local/demo).
+Returns time-series sensor data for charts. Hits the configured telemetry backend
+(InfluxDB or Timestream). Returns empty array when no backend is configured (local/demo).
 
 **Path Parameters**
+
 | Parameter | Type | Description |
 |---|---|---|
 | `id` | string | Streetlight identifier |
 
 **Query Parameters**
+
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `from` | ISO 8601 | yes | Start of time range |
 | `to` | ISO 8601 | yes | End of time range |
-| `interval` | string | no | Aggregation interval. Default `5m`. One of `1m`, `5m`, `15m`, `1h`, `1d` |
+| `interval` | string | no | Aggregation interval. Default `5m`. See allowed values below. |
+
+**Allowed intervals**
+
+| Interval | Use case |
+|---|---|
+| `1m`, `5m`, `10m`, `15m`, `30m` | Short-term (last few hours) |
+| `1h`, `6h`, `12h` | Medium-term (last few days) |
+| `1d`, `7d`, `30d` | Energy trend analysis |
+
+Note: the server enforces a minimum interval based on the query window. Requesting
+`1m` over a 30-day window will be silently coerced to `1d`. The response reflects
+the resolved interval.
 
 **Response `200`**
 ```json
@@ -116,7 +124,7 @@ Returns time-series sensor data for charts. Hits Timestream. Returns empty array
 ```json
 { "error": "from and to are required" }
 { "error": "from must be before to" }
-{ "error": "interval must be one of {'1m', '5m', '15m', '1h', '1d'}" }
+{ "error": "interval must be one of {'1d', '10m', '12h', '15m', '1h', '1m', '30d', '30m', '5m', '6h', '7d'}" }
 ```
 
 ---
@@ -126,12 +134,15 @@ Returns time-series sensor data for charts. Hits Timestream. Returns empty array
 Updates the display name and/or coordinates of a streetlight.
 
 **Path Parameters**
+
 | Parameter | Type | Description |
 |---|---|---|
 | `id` | string | Streetlight identifier |
 
 **Request Body**
+
 At least one field is required.
+
 ```json
 {
   "name": "Main Street 5th Ave",
@@ -148,5 +159,11 @@ At least one field is required.
 **Response `400`**
 ```json
 { "error": "At least one of name, lat, lng is required" }
+{ "error": "Streetlight not found" }
+{ "error": "Invalid latitude: 91.0" }
 ```
 
+**Response `404`**
+```json
+{ "error": "Streetlight not found" }
+```
