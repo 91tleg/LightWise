@@ -287,7 +287,7 @@ Resources:
   TelemetryIngestFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.telemetry_ingest
+      Handler: infrastructure.handlers.telemetry_ingest.handler
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref Streetlights
@@ -303,7 +303,7 @@ Resources:
   WebSocketAuthorizerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.websocket_authorizer
+      Handler: infrastructure.handlers.websocket_authorizer.handler
 
   WebSocketAuthorizerPermission:
     Type: AWS::Lambda::Permission
@@ -326,7 +326,7 @@ Resources:
   WebSocketConnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.websocket_connect
+      Handler: infrastructure.handlers.websocket_connect.handler
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref WebSocketConnections
@@ -334,7 +334,7 @@ Resources:
   WebSocketDisconnectFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.websocket_disconnect
+      Handler: infrastructure.handlers.websocket_disconnect.handler
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref WebSocketConnections
@@ -342,7 +342,7 @@ Resources:
   WebSocketSubscribeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.websocket_subscribe
+      Handler: infrastructure.handlers.websocket_subscribe.handler
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref WebSocketConnections
@@ -352,7 +352,7 @@ Resources:
   AuthMeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.auth
+      Handler: infrastructure.handlers.auth.handler
       Events:
         AuthMe:
           Type: Api
@@ -365,7 +365,7 @@ Resources:
   ListStreetlightsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.streetlights_list
+      Handler: infrastructure.handlers.streetlights_list.handler
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref Streetlights
@@ -381,7 +381,7 @@ Resources:
   GetStreetlightFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.streetlights_get
+      Handler: infrastructure.handlers.streetlights_get.handler
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref Streetlights
@@ -397,7 +397,7 @@ Resources:
   GetStreetlightTelemetryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.streetlights_telemetry
+      Handler: infrastructure.handlers.streetlights_telemetry.handler
       Events:
         GetStreetlightTelemetry:
           Type: Api
@@ -408,7 +408,7 @@ Resources:
   UpdateStreetlightMetadataFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.streetlights_update_metadata
+      Handler: infrastructure.handlers.streetlights_update_metadata.handler
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref StreetlightMetadata
