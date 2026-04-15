@@ -118,7 +118,7 @@ Sent to all subscribed connections on each uplink received from a streetlight.
     "lux": 123.4,
     "temp_c": 25,
     "humidity": 60,
-    "motion": true,
+    "motion_detected": true,
     "light_level": 80
   },
   "diagnostics": {
