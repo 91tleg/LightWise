@@ -125,14 +125,15 @@ const MOCK_POLE_BLUEPRINTS = [
 
 function makeStreetlight(overrides = {}) {
   return {
-    health:                "OK",
-    last_seen:             new Date().toISOString(),
-    motion_detected:       false,
-    ambient_primary_ok:    true,
-    ambient_secondary_ok:  true,
-    th_ok:                 true,
-    motion_primary_ok:     true,
-    motion_secondary_ok:   true,
+    health: "OK",
+    last_seen: new Date().toISOString(),
+    diagnostics: {
+      overall_ok: true,
+      ambient_health: "SYSTEM_OK",
+      mmwave_health: "SYSTEM_OK",
+      th_ok: true,
+      light_ok: true,
+    },
     ...overrides,
   };
 }
@@ -179,14 +180,29 @@ function formatLastSeen(offsetMinutes) {
 export function mockListStreetlights(tenantId) {
   return MOCK_POLE_BLUEPRINTS.map((pole, index) =>
     makeStreetlight({
-      ...pole,
+      streetlight_id: pole.streetlight_id,
+      name: pole.name,
+      site_id: "CITY#SEA",
+      location: {
+        lat: pole.lat,
+        lng: pole.lng,
+      },
       tenant_id: tenantId,
+      health: pole.health === "WARNING" ? "DEGRADED" : pole.health,
       last_seen: formatLastSeen(index * 7 + 3),
-      ambient_primary_ok: pole.health !== "CRITICAL",
-      ambient_secondary_ok: pole.streetlight_id !== "LW-00049",
-      th_ok: pole.streetlight_id !== "LW-00046",
-      motion_primary_ok: pole.streetlight_id !== "LW-00044",
-      motion_secondary_ok: pole.health === "OK",
+      diagnostics: {
+        overall_ok: pole.health !== "CRITICAL",
+        ambient_health:
+          pole.health === "CRITICAL"
+            ? "TOTAL_FAILURE"
+            : pole.streetlight_id === "LW-00049"
+            ? "DEGRADED"
+            : "SYSTEM_OK",
+        mmwave_health:
+          pole.streetlight_id === "LW-00044" ? "PRIMARY_FAIL" : "SYSTEM_OK",
+        th_ok: pole.streetlight_id !== "LW-00046",
+        light_ok: pole.health !== "CRITICAL",
+      },
     })
   );
 }
@@ -195,10 +211,30 @@ export function mockGetStreetlight(id, tenantId) {
   const pole = getBlueprintById(id);
 
   return makeStreetlight({
-    ...pole,
     streetlight_id: id,
     tenant_id: tenantId,
+    name: pole.name,
+    site_id: "CITY#SEA",
+    model: "LW-2025",
+    installed_at: "2026-02-01T18:22:00+00:00",
+    lat: pole.lat,
+    lng: pole.lng,
+    health: pole.health === "WARNING" ? "DEGRADED" : pole.health,
     last_seen: formatLastSeen(4),
+    motion_detected: pole.motion_detected,
+    diagnostics: {
+      overall_ok: pole.health !== "CRITICAL",
+      ambient_health:
+        pole.health === "CRITICAL"
+          ? "TOTAL_FAILURE"
+          : pole.streetlight_id === "LW-00049"
+          ? "DEGRADED"
+          : "SYSTEM_OK",
+      mmwave_health:
+        pole.streetlight_id === "LW-00044" ? "PRIMARY_FAIL" : "SYSTEM_OK",
+      th_ok: pole.streetlight_id !== "LW-00046",
+      light_ok: pole.health !== "CRITICAL",
+    },
   });
 }
 

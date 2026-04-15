@@ -2,6 +2,7 @@ import {
   buildPoleEvent,
   mergePoleSnapshot,
   mergeTelemetrySnapshot,
+  snapshotFromWsMessage,
   toneForPole,
 } from "./poleState";
 
@@ -69,6 +70,17 @@ describe("mergePoleSnapshot", () => {
       lng: -122.41,
       health: "CRITICAL",
       last_seen: "2026-03-13T04:00:00Z",
+      diagnostics: {
+        overall_ok: null,
+        ambient_health: null,
+        mmwave_health: null,
+        th_ok: null,
+        light_ok: null,
+      },
+      overall_ok: null,
+      ambient_health: null,
+      mmwave_health: null,
+      light_ok: null,
       motion_detected: null,
       light_level: null,
       ambient_primary_ok: null,
@@ -79,6 +91,58 @@ describe("mergePoleSnapshot", () => {
       temp_c: null,
       humidity: null,
       lux: null,
+      motion_focus_lat: null,
+      motion_focus_lng: null,
+      motion_focus_radius_m: null,
+    });
+  });
+});
+
+describe("snapshotFromWsMessage", () => {
+  test("reads the updated websocket telemetry shape", () => {
+    expect(
+      snapshotFromWsMessage({
+        timestamp: "2026-03-13T04:05:00Z",
+        health: "DEGRADED",
+        data: {
+          motion_detected: true,
+          light_level: 71,
+          temp_c: 19.4,
+          humidity: 57.2,
+          lux: 18.6,
+        },
+        diagnostics: {
+          overall_ok: true,
+          ambient_health: "DEGRADED",
+          mmwave_health: "SYSTEM_OK",
+          th_ok: true,
+          light_ok: true,
+        },
+      })
+    ).toEqual({
+      timestamp: "2026-03-13T04:05:00Z",
+      health: "DEGRADED",
+      motion_detected: true,
+      light_level: 71,
+      diagnostics: {
+        overall_ok: true,
+        ambient_health: "DEGRADED",
+        mmwave_health: "SYSTEM_OK",
+        th_ok: true,
+        light_ok: true,
+      },
+      overall_ok: true,
+      ambient_health: "DEGRADED",
+      mmwave_health: "SYSTEM_OK",
+      th_ok: true,
+      light_ok: true,
+      ambient_primary_ok: null,
+      ambient_secondary_ok: null,
+      motion_primary_ok: null,
+      motion_secondary_ok: null,
+      temp_c: 19.4,
+      humidity: 57.2,
+      lux: 18.6,
       motion_focus_lat: null,
       motion_focus_lng: null,
       motion_focus_radius_m: null,

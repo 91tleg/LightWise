@@ -16,6 +16,18 @@ export function toBoolOrNull(value) {
   return null;
 }
 
+function toTextOrNull(value) {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  return text || null;
+}
+
+function compactObject(obj = {}) {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== null && value !== undefined)
+  );
+}
+
 export function validateCoordinate(value, type) {
   if (!String(value || "").trim()) return "";
 
@@ -57,15 +69,33 @@ export function toneForPole(snapshot) {
 export function snapshotFromPole(pole) {
   if (!pole || typeof pole !== "object") return null;
 
+  const diagnostics = pole?.diagnostics || {};
+
   return {
     timestamp: pole?.last_seen ?? null,
     health: pole?.health ?? null,
     motion_detected:
       typeof pole?.motion_detected === "boolean" ? pole.motion_detected : null,
     light_level: pole?.light_level ?? null,
+    diagnostics: {
+      overall_ok:
+        diagnostics?.overall_ok ?? pole?.overall_ok ?? null,
+      ambient_health:
+        diagnostics?.ambient_health ?? pole?.ambient_health ?? null,
+      mmwave_health:
+        diagnostics?.mmwave_health ?? pole?.mmwave_health ?? null,
+      th_ok: diagnostics?.th_ok ?? pole?.th_ok ?? null,
+      light_ok: diagnostics?.light_ok ?? pole?.light_ok ?? null,
+    },
+    overall_ok: diagnostics?.overall_ok ?? pole?.overall_ok ?? null,
+    ambient_health:
+      diagnostics?.ambient_health ?? pole?.ambient_health ?? null,
+    mmwave_health:
+      diagnostics?.mmwave_health ?? pole?.mmwave_health ?? null,
+    light_ok: diagnostics?.light_ok ?? pole?.light_ok ?? null,
+    th_ok: diagnostics?.th_ok ?? pole?.th_ok ?? null,
     ambient_primary_ok: pole?.ambient_primary_ok ?? null,
     ambient_secondary_ok: pole?.ambient_secondary_ok ?? null,
-    th_ok: pole?.th_ok ?? null,
     motion_primary_ok: pole?.motion_primary_ok ?? null,
     motion_secondary_ok: pole?.motion_secondary_ok ?? null,
     temp_c: pole?.temp_c ?? null,
@@ -83,7 +113,12 @@ export function snapshotFromTelemetryRow(row) {
   return {
     timestamp: row?.timestamp ?? null,
     health: row?.health ?? null,
-    motion_detected: typeof row?.motion === "boolean" ? row.motion : null,
+    motion_detected:
+      typeof row?.motion === "boolean"
+        ? row.motion
+        : typeof row?.motion_detected === "boolean"
+        ? row.motion_detected
+        : null,
     light_level: clampPct(row?.light_level),
     temp_c: row?.temp_c ?? null,
     humidity: row?.humidity ?? null,
@@ -100,15 +135,31 @@ export function snapshotFromWsMessage(message) {
   return {
     timestamp: message?.timestamp ?? null,
     health: message?.health ?? null,
-    motion_detected: toBoolOrNull(data?.motion),
-    light_level: clampPct(data?.light_level),
+    motion_detected: toBoolOrNull(data?.motion_detected ?? data?.motion),
+    light_level: clampPct(data?.light_level ?? data?.light_level_pct),
+    diagnostics: {
+      overall_ok: toBoolOrNull(diagnostics?.overall_ok),
+      ambient_health: toTextOrNull(diagnostics?.ambient_health),
+      mmwave_health: toTextOrNull(diagnostics?.mmwave_health),
+      th_ok: toBoolOrNull(diagnostics?.th_ok),
+      light_ok: toBoolOrNull(diagnostics?.light_ok),
+    },
+    overall_ok: toBoolOrNull(diagnostics?.overall_ok),
+    ambient_health: toTextOrNull(diagnostics?.ambient_health),
+    mmwave_health: toTextOrNull(diagnostics?.mmwave_health),
+    th_ok: toBoolOrNull(diagnostics?.th_ok),
+    light_ok: toBoolOrNull(diagnostics?.light_ok),
     ambient_primary_ok: toBoolOrNull(diagnostics?.ambient_primary_ok),
     ambient_secondary_ok: toBoolOrNull(diagnostics?.ambient_secondary_ok),
-    th_ok: toBoolOrNull(diagnostics?.th_ok),
     motion_primary_ok: toBoolOrNull(diagnostics?.motion_primary_ok),
     motion_secondary_ok: toBoolOrNull(diagnostics?.motion_secondary_ok),
     temp_c: typeof data?.temp_c === "number" ? data.temp_c : undefined,
-    humidity: typeof data?.humidity === "number" ? data.humidity : undefined,
+    humidity:
+      typeof data?.humidity === "number"
+        ? data.humidity
+        : typeof data?.humidity_pct === "number"
+        ? data.humidity_pct
+        : undefined,
     lux: typeof data?.lux === "number" ? data.lux : undefined,
     motion_focus_lat: asNumberOrNull(message?.motion_focus_lat),
     motion_focus_lng: asNumberOrNull(message?.motion_focus_lng),
@@ -127,6 +178,22 @@ export function mergeTelemetrySnapshot(existing = {}, snapshot = {}) {
       ? { motion_detected: snapshot.motion_detected }
       : {}),
     ...(snapshot.light_level != null ? { light_level: snapshot.light_level } : {}),
+    ...(snapshot.diagnostics
+      ? {
+          diagnostics: {
+            ...((existing || {}).diagnostics || {}),
+            ...compactObject(snapshot.diagnostics),
+          },
+        }
+      : {}),
+    ...(snapshot.overall_ok != null ? { overall_ok: snapshot.overall_ok } : {}),
+    ...(snapshot.ambient_health != null
+      ? { ambient_health: snapshot.ambient_health }
+      : {}),
+    ...(snapshot.mmwave_health != null
+      ? { mmwave_health: snapshot.mmwave_health }
+      : {}),
+    ...(snapshot.light_ok != null ? { light_ok: snapshot.light_ok } : {}),
     ...(snapshot.ambient_primary_ok != null
       ? { ambient_primary_ok: snapshot.ambient_primary_ok }
       : {}),
@@ -171,6 +238,26 @@ export function mergePoleSnapshot(pole = {}, snapshot = {}) {
         ? mergedSnapshot.light_level
         : pole?.light_level ?? null,
     last_seen: mergedSnapshot.timestamp ?? pole?.last_seen ?? null,
+    diagnostics: {
+      ...((pole && typeof pole === "object" ? pole.diagnostics : {}) || {}),
+      ...(mergedSnapshot.diagnostics || {}),
+    },
+    overall_ok:
+      mergedSnapshot.overall_ok != null
+        ? mergedSnapshot.overall_ok
+        : pole?.overall_ok ?? pole?.diagnostics?.overall_ok ?? null,
+    ambient_health:
+      mergedSnapshot.ambient_health != null
+        ? mergedSnapshot.ambient_health
+        : pole?.ambient_health ?? pole?.diagnostics?.ambient_health ?? null,
+    mmwave_health:
+      mergedSnapshot.mmwave_health != null
+        ? mergedSnapshot.mmwave_health
+        : pole?.mmwave_health ?? pole?.diagnostics?.mmwave_health ?? null,
+    light_ok:
+      mergedSnapshot.light_ok != null
+        ? mergedSnapshot.light_ok
+        : pole?.light_ok ?? pole?.diagnostics?.light_ok ?? null,
     ambient_primary_ok:
       mergedSnapshot.ambient_primary_ok != null
         ? mergedSnapshot.ambient_primary_ok

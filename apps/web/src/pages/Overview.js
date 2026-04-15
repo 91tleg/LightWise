@@ -85,7 +85,7 @@ export default function Overview() {
       .filter((value) => Number.isFinite(Number(value)))
       .map(Number);
 
-    if (!values.length) return 0;
+    if (!values.length) return null;
     return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
   }, [availablePoles]);
 
@@ -111,9 +111,12 @@ export default function Overview() {
       {
         icon: "bolt",
         label: "Brightness Level",
-        value: `${brightnessAvg}%`,
-        note: "Average across available poles",
-        tone: "healthy",
+        value: brightnessAvg != null ? `${brightnessAvg}%` : "Waiting",
+        note:
+          brightnessAvg != null
+            ? "Live average across reporting poles"
+            : "No live brightness telemetry yet",
+        tone: brightnessAvg != null ? "healthy" : "neutral",
       },
       {
         icon: "radio",

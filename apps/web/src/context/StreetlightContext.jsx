@@ -31,6 +31,8 @@ export function StreetlightProvider({ children }) {
       const raw = await listStreetlights();
       const rows = (Array.isArray(raw) ? raw : []).map(normalizeStreetlightFromApi);
       setStreetlights(rows);
+    } catch (error) {
+      console.error("Failed to load streetlights", error);
     } finally {
       hasLoadedOnceRef.current = true;
     }

@@ -20,6 +20,39 @@ const ALLOWED_INTERVALS = new Set([
   "1h", "6h", "12h", "1d", "7d", "30d",
 ]);
 
+function isLocalDevelopmentRuntime() {
+  if (typeof window === "undefined") return false;
+  const host = String(window.location?.hostname || "").toLowerCase();
+  return host === "localhost" || host === "127.0.0.1";
+}
+
+function canUseOfflineMockFallback(error) {
+  if (LIGHTWISE_ENV.USE_MOCK) return true;
+  if (!isLocalDevelopmentRuntime()) return false;
+
+  const status = Number(error?.status);
+  if (status === 401 || status === 403 || status === 404) return false;
+
+  return !status || status >= 500;
+}
+
+function logOfflineFallback(kind, error) {
+  console.warn(
+    `[LightWise] Falling back to offline mock ${kind}.`,
+    error?.message || error
+  );
+}
+
+async function withOfflineMockFallback(kind, request, fallback) {
+  try {
+    return await request();
+  } catch (error) {
+    if (!canUseOfflineMockFallback(error)) throw error;
+    logOfflineFallback(kind, error);
+    return fallback();
+  }
+}
+
 /**
  * Authenticated fetch against the LightWise REST API.
  * - Injects idToken into Authorization header (no Bearer prefix — API GW Cognito authorizer)
@@ -121,7 +154,11 @@ function mergeLocalMeta(streetlights) {
 
 export async function getOperatorProfile(token) {
   if (LIGHTWISE_ENV.USE_MOCK) return normalizeOperatorProfile(MOCK_PROFILE);
-  const data = await apiFetch("/auth/me", { method: "GET" }, { token });
+  const data = await withOfflineMockFallback(
+    "operator profile",
+    () => apiFetch("/auth/me", { method: "GET" }, { token }),
+    () => MOCK_PROFILE
+  );
   return normalizeOperatorProfile(data);
 }
 
@@ -133,7 +170,11 @@ export async function listStreetlights() {
     pruneStoredPoleState(rows.map((row) => row?.streetlight_id));
     return mergeLocalMeta(rows);
   }
-  const data = await apiFetch("/streetlights", { method: "GET" });
+  const data = await withOfflineMockFallback(
+    "streetlight inventory",
+    () => apiFetch("/streetlights", { method: "GET" }),
+    () => mockListStreetlights(TENANT_ID)
+  );
   const rows = normalizeStreetlightListResponse(data);
   pruneStoredPoleState(rows.map((row) => row?.streetlight_id));
   return mergeLocalMeta(rows);
@@ -143,7 +184,11 @@ export async function getStreetlight(id) {
   if (!id) throw new Error("streetlight id is required");
   const { USE_MOCK, TENANT_ID } = LIGHTWISE_ENV;
   if (USE_MOCK) return mergeLocalMeta([mockGetStreetlight(id, TENANT_ID)])[0];
-  const data = await apiFetch(`/streetlights/${encodeURIComponent(id)}`, { method: "GET" });
+  const data = await withOfflineMockFallback(
+    `streetlight ${id}`,
+    () => apiFetch(`/streetlights/${encodeURIComponent(id)}`, { method: "GET" }),
+    () => mockGetStreetlight(id, TENANT_ID)
+  );
   return mergeLocalMeta([data])[0];
 }
 
@@ -156,16 +201,21 @@ export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } 
 
   if (LIGHTWISE_ENV.USE_MOCK) return mockGetTelemetry(id, from, to, interval);
 
-  const data = await apiFetch(
-    `/streetlights/${encodeURIComponent(id)}/telemetry`,
-    {
-      method: "GET",
-      query: {
-        from:     new Date(from).toISOString(),
-        to:       new Date(to).toISOString(),
-        interval,
-      },
-    }
+  const data = await withOfflineMockFallback(
+    `telemetry for ${id}`,
+    () =>
+      apiFetch(
+        `/streetlights/${encodeURIComponent(id)}/telemetry`,
+        {
+          method: "GET",
+          query: {
+            from:     new Date(from).toISOString(),
+            to:       new Date(to).toISOString(),
+            interval,
+          },
+        }
+      ),
+    () => mockGetTelemetry(id, from, to, interval)
   );
 
   return { streetlight_id: id, data: normalizeTelemetryResponse(data) };

@@ -38,10 +38,21 @@ export function normalizeEvent(raw) {
 
   // Telemetry push: { tenant_id, streetlight_id, timestamp, health, data, diagnostics }
   if (raw.streetlight_id && (raw.data || raw.diagnostics || raw.health)) {
-    const { motion, light_level: lightLevel, lux } = raw.data || {};
+    const {
+      motion,
+      motion_detected: motionDetected,
+      light_level: lightLevel,
+      lux,
+    } = raw.data || {};
+    const motionValue =
+      typeof motionDetected === "boolean"
+        ? motionDetected
+        : typeof motion === "boolean"
+        ? motion
+        : null;
 
     const parts = [
-      typeof motion     === "boolean" ? (motion ? "motion" : "no motion") : null,
+      typeof motionValue === "boolean" ? (motionValue ? "motion" : "no motion") : null,
       typeof lightLevel === "number"  ? `light ${lightLevel}`             : null,
       typeof lux        === "number"  ? `${lux} lux`                      : null,
     ].filter(Boolean);

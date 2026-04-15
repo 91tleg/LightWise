@@ -215,8 +215,12 @@ function buildFaultTimelineForPole(pole, rows = []) {
   let openFault = null;
 
   rows.forEach((row) => {
-    const health = normalizeHealth(row?.health || pole?.health);
+    const health = row?.health ? normalizeHealth(row.health) : null;
     const timestamp = row?.timestamp || pole?.last_seen || new Date().toISOString();
+
+    if (!health || health === "UNKNOWN") {
+      return;
+    }
 
     if (isFaultHealth(health)) {
       if (openFault !== health) {
@@ -308,13 +312,14 @@ function markRecurringFaults(events = []) {
 function buildPoleSummary(pole, rows, intervalHours, zone) {
   const enrichedRows = rows.map((row) => {
     const energy = estimateEnergyForRow(row, intervalHours);
+    const rowHealth = row?.health ? normalizeHealth(row.health) : null;
 
     return {
       ...row,
       zone,
       poleId: pole?.streetlight_id || "",
       poleName: pole?.name || pole?.streetlight_id || "Unnamed pole",
-      health: normalizeHealth(row?.health || pole?.health),
+      health: rowHealth,
       actualKwh: energy.actualKwh,
       baselineKwh: energy.baselineKwh,
       savedKwh: energy.savedKwh,
@@ -581,19 +586,29 @@ export function normalizeTelemetryRows(payload) {
       item?.time ||
       item?.ts ||
       item?.measure_time ||
+      item?._time ||
       item?.created_at ||
       `row-${idx}`;
 
     const data = item?.data || item;
+    const rawMotion = data?.motion_detected ?? data?.motion;
+    const rawHealth = item?.health ?? data?.health ?? null;
 
     return {
       timestamp,
       lux: roundWhole(data?.lux),
-      temp_c: roundOneDecimal(data?.temp_c ?? data?.temperature_c),
-      humidity: roundOneDecimal(data?.humidity ?? data?.humidity_pct),
-      motion: toBoolean(data?.motion),
-      light_level: roundWhole(data?.light_level ?? data?.light_level_pct),
-      health: item?.health || data?.health || "OK",
+      temp_c: roundOneDecimal(
+        data?.temp_c ?? data?.temperature_c ?? data?.temperature
+      ),
+      humidity: roundOneDecimal(
+        data?.humidity ?? data?.humidity_pct ?? data?.hum_pct
+      ),
+      motion: toBoolean(rawMotion),
+      motion_detected: toBoolean(rawMotion),
+      light_level: roundWhole(
+        data?.light_level ?? data?.light_level_pct ?? data?.light_pct
+      ),
+      health: rawHealth ? normalizeHealth(rawHealth) : null,
     };
   });
 }

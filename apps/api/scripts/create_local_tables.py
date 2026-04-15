@@ -43,12 +43,36 @@ TABLES = [
     {
         "TableName": "StreetlightMetadata",
         "AttributeDefinitions": [
+            {"AttributeName": "tenant_id", "AttributeType": "S"},
             {"AttributeName": "streetlight_id", "AttributeType": "S"},
-            {"AttributeName": "SK",             "AttributeType": "S"},
+            {"AttributeName": "wireless_device_id", "AttributeType": "S"},
         ],
         "KeySchema": [
-            {"AttributeName": "streetlight_id", "KeyType": "HASH"},
-            {"AttributeName": "SK",             "KeyType": "RANGE"},
+            {"AttributeName": "tenant_id", "KeyType": "HASH"},
+            {"AttributeName": "streetlight_id", "KeyType": "RANGE"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "WirelessDeviceIndex",
+                "KeySchema": [
+                    {
+                        "AttributeName": "wireless_device_id",
+                        "KeyType": "HASH",
+                    },
+                ],
+                "Projection": {
+                    "ProjectionType": "INCLUDE",
+                    "NonKeyAttributes": [
+                        "streetlight_id",
+                        "tenant_id",
+                        "site_id",
+                    ],
+                },
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
+                },
+            }
         ],
         "BillingMode": "PAY_PER_REQUEST",
     },
@@ -108,8 +132,13 @@ def create_table(definition):
     waiter.wait(TableName=definition["TableName"])
 
 
-for table in TABLES:
-    name = table["TableName"]
-    delete_table(name)
-    create_table(table)
-    print(f"Created: {name}")
+def main():
+    for table in TABLES:
+        name = table["TableName"]
+        delete_table(name)
+        create_table(table)
+        print(f"Created: {name}")
+
+
+if __name__ == "__main__":
+    main()
