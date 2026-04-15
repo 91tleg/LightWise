@@ -29,6 +29,7 @@ describe("normalizeTelemetryRows", () => {
         temp_c: 22.3,
         humidity: 60.7,
         motion: true,
+        motion_detected: true,
         light_level: 79,
         health: "OK",
       },
@@ -58,8 +59,38 @@ describe("normalizeTelemetryRows", () => {
         temp_c: 20,
         humidity: 50,
         motion: true,
+        motion_detected: true,
         light_level: 44,
-        health: "OK",
+        health: null,
+      },
+    ]);
+  });
+
+  test("handles the updated backend timeseries field names", () => {
+    const payload = {
+      data: [
+        {
+          time: "2026-03-09T21:40:00Z",
+          lux: "91.2",
+          temp_c: "18.6",
+          hum_pct: "61.1",
+          light_pct: "52.4",
+        },
+      ],
+    };
+
+    const result = normalizeTelemetryRows(payload);
+
+    expect(result).toEqual([
+      {
+        timestamp: "2026-03-09T21:40:00Z",
+        lux: 91,
+        temp_c: 18.6,
+        humidity: 61.1,
+        motion: null,
+        motion_detected: null,
+        light_level: 52,
+        health: null,
       },
     ]);
   });

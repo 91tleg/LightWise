@@ -44,7 +44,7 @@ export function useLivePoleData(selectedId) {
         const payload = await getStreetlightTelemetry(selectedId, {
           from,
           to,
-          interval: "1h",
+          interval: "5m",
         });
 
         if (cancelled) return;

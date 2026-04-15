@@ -18,26 +18,58 @@ export function isValidCoord(value) {
  */
 export function normalizeStreetlightFromApi(pole, index = 0) {
   const id = pole?.streetlight_id || `LW-${String(index + 1).padStart(5, "0")}`;
+  const location = pole?.location || {};
+  const diagnostics = pole?.diagnostics || {};
 
   return {
     streetlight_id: id,
     tenant_id: pole?.tenant_id ?? null,
     name: pole?.name ?? null,
+    site_id: pole?.site_id ?? null,
+    model: pole?.model ?? null,
+    installed_at: pole?.installed_at ?? null,
     health: pole?.health ?? null,
-    lat: pole?.lat ?? null,
-    lng: pole?.lng ?? null,
+    lat: pole?.lat ?? location?.lat ?? null,
+    lng: pole?.lng ?? location?.lng ?? null,
     motion_detected:
       typeof pole?.motion_detected === "boolean" ? pole.motion_detected : null,
     light_level:
       typeof pole?.light_level === "number" ? pole.light_level : null,
     last_seen: pole?.last_seen ?? null,
+    diagnostics: {
+      overall_ok:
+        typeof diagnostics?.overall_ok === "boolean" ? diagnostics.overall_ok : null,
+      ambient_health:
+        typeof diagnostics?.ambient_health === "string"
+          ? diagnostics.ambient_health
+          : null,
+      mmwave_health:
+        typeof diagnostics?.mmwave_health === "string"
+          ? diagnostics.mmwave_health
+          : null,
+      th_ok: typeof diagnostics?.th_ok === "boolean" ? diagnostics.th_ok : null,
+      light_ok:
+        typeof diagnostics?.light_ok === "boolean" ? diagnostics.light_ok : null,
+    },
+    overall_ok:
+      typeof diagnostics?.overall_ok === "boolean" ? diagnostics.overall_ok : null,
+    ambient_health:
+      typeof diagnostics?.ambient_health === "string" ? diagnostics.ambient_health : null,
+    mmwave_health:
+      typeof diagnostics?.mmwave_health === "string" ? diagnostics.mmwave_health : null,
+    light_ok: typeof diagnostics?.light_ok === "boolean" ? diagnostics.light_ok : null,
+    th_ok:
+      typeof diagnostics?.th_ok === "boolean"
+        ? diagnostics.th_ok
+        : typeof pole?.th_ok === "boolean"
+        ? pole.th_ok
+        : null,
     ambient_primary_ok:
       typeof pole?.ambient_primary_ok === "boolean" ? pole.ambient_primary_ok : null,
     ambient_secondary_ok:
       typeof pole?.ambient_secondary_ok === "boolean"
         ? pole.ambient_secondary_ok
         : null,
-    th_ok: typeof pole?.th_ok === "boolean" ? pole.th_ok : null,
     motion_primary_ok:
       typeof pole?.motion_primary_ok === "boolean" ? pole.motion_primary_ok : null,
     motion_secondary_ok:
@@ -71,11 +103,26 @@ export function buildFallbackPole(id, localMeta = {}) {
     streetlight_id: id || "",
     name: hasOwn(local, "name") ? local.name : null,
     health: null,
+    site_id: null,
+    model: null,
+    installed_at: null,
     lat: hasOwn(local, "lat") ? local.lat : null,
     lng: hasOwn(local, "lng") ? local.lng : null,
     motion_detected: null,
     light_level: null,
     last_seen: null,
+    diagnostics: {
+      overall_ok: null,
+      ambient_health: null,
+      mmwave_health: null,
+      th_ok: null,
+      light_ok: null,
+    },
+    overall_ok: null,
+    ambient_health: null,
+    mmwave_health: null,
+    light_ok: null,
+    th_ok: null,
     temp_c: null,
     humidity: null,
     lux: null,
@@ -112,11 +159,26 @@ export function buildLocalOnlyPoles(localMeta = {}) {
       streetlight_id: id,
       name: hasOwn(local, "name") ? local.name : "Unnamed pole",
       health: null,
+      site_id: null,
+      model: null,
+      installed_at: null,
       lat: hasOwn(local, "lat") ? local.lat : null,
       lng: hasOwn(local, "lng") ? local.lng : null,
       light_level: null,
       motion_detected: null,
       last_seen: null,
+      diagnostics: {
+        overall_ok: null,
+        ambient_health: null,
+        mmwave_health: null,
+        th_ok: null,
+        light_ok: null,
+      },
+      overall_ok: null,
+      ambient_health: null,
+      mmwave_health: null,
+      light_ok: null,
+      th_ok: null,
       temp_c: null,
       humidity: null,
       lux: null,

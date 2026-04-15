@@ -32,7 +32,7 @@ export function useTelemetryLoader(selectedPoleId, setSnapshotMap) {
         const points = await getStreetlightTelemetry(selectedPoleId, {
           from,
           to,
-          interval: "1h",
+          interval: "5m",
         });
 
         if (cancelled) return;
