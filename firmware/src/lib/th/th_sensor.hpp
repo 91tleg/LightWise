@@ -19,15 +19,15 @@ namespace th
          * @return true  if the read succeeded and values are valid.
          * @return false if the sensor is unavailable or returned an error.
          */
-        [[nodiscard]] virtual bool read( uint8_t & temperature,
+        [[nodiscard]] virtual bool read( int8_t & temperature,
                                          uint8_t & humidity ) const noexcept = 0;
 
         protected:
-            THSensor()                              = default;
-            THSensor( const THSensor & )            = default;
-            THSensor &operator=( const THSensor & ) = default;
-            THSensor( THSensor && )                 = default;
-            THSensor &operator=( THSensor && )      = default;
+            THSensor()                               = default;
+            THSensor( const THSensor & )             = default;
+            THSensor & operator=( const THSensor & ) = default;
+            THSensor( THSensor && )                  = default;
+            THSensor & operator=( THSensor && )      = default;
     };
 
 } /* namespace th */

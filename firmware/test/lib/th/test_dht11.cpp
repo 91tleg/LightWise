@@ -5,11 +5,15 @@
 #include "hal/dht11.h"
 #include "lib/th/dht11.hpp"
 
-static std::array< uint8_t, 5 > g_mockData {};
+namespace
+{
 
-static int g_phase { 0 };    /* 0 = handshake LOW, 1 = handshake HIGH, 2+ = data bits */
-static int g_bitCount { 0 }; /* total data bits read */
-static int g_subPhase { 0 }; /* 0 = LOW pulse, 1 = HIGH pulse */
+    std::array< uint8_t, 5U > g_mockData {};
+    int g_phase { 0 };    /* 0 = handshake LOW, 1 = handshake HIGH, 2+ = data bits */
+    int g_bitCount { 0 }; /* total data bits read */
+    int g_subPhase { 0 }; /* 0 = LOW pulse, 1 = HIGH pulse */
+
+} /* anonymous namespace */
 
 extern "C"
 {
@@ -126,7 +130,7 @@ TEST_F( Dht11Test, ReadSuccess )
     g_mockData = { 55, 0, 22, 0, 77 }; /* 55 + 22 = 77 */
     th::Dht11 dev { hw };
 
-    uint8_t temp { 0U };
+    int8_t temp { 0 };
     uint8_t hum  { 0U };
     EXPECT_TRUE( dev.read( temp, hum ) );
     EXPECT_EQ( temp, 22 );
@@ -138,7 +142,7 @@ TEST_F( Dht11Test, ReadFailsOnBadChecksum )
     g_mockData = { 55, 0, 22, 0, 99 }; /* Wrong checksum */
     th::Dht11 dev { hw };
 
-    uint8_t temp { 0U };
+    int8_t temp { 0 };
     uint8_t hum  { 0U };
     EXPECT_FALSE( dev.read( temp, hum ) );
 }
@@ -149,7 +153,7 @@ TEST_F( Dht11Test, ReadFailsOnProtocolTimeout )
 
     g_phase = 99;
 
-    uint8_t temp { 0U };
+    int8_t temp { 0 };
     uint8_t hum  { 0U };
     EXPECT_FALSE( dev.read( temp, hum ) );
 }
