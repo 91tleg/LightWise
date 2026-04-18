@@ -29,26 +29,26 @@ namespace mgr
 
         constinit filter::EMA< float > sAmbientFilterA { 0.1f };
         constinit filter::EMA< float > sAmbientFilterB { 0.1f };
-        constinit filter::EMA< uint8_t > sTempFilter   { 0.1f };
+        constinit filter::EMA< int8_t  > sTempFilter   { 0.1f };
         constinit filter::EMA< uint8_t > sHumFilter    { 0.1f };
 
         constinit config::SystemConfig sSystemConfig {};
 
-        ambient::Manager sAmbientManager { device::xAlsPt19Primary,
-                                           device::xAlsPt19Secondary,
+        ambient::Manager sAmbientManager { device::alsPt19Primary,
+                                           device::alsPt19Secondary,
                                            sAmbientFilterA,
                                            sAmbientFilterB };
 
-        th::Manager sThManager { device::xDht11Primary,
+        th::Manager sThManager { device::dht11Primary,
                                  sTempFilter,
                                  sHumFilter };
 
-        mmwave::Manager sMmwaveManager { device::xC4001Primary,
-                                         device::xC001Secondary };
+        mmwave::Manager sMmwaveManager { device::c4001Primary,
+                                         device::c001Secondary };
 
-        light::Manager sLightManager { device::xLed };
+        light::Manager sLightManager { device::led };
 
-        lorawan::Manager sLorawanManager { device::xLwnodePrimary };
+        lorawan::Manager sLorawanManager { device::lwnodePrimary };
 
         fsm::Manager sFsmManager {};
 
