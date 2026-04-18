@@ -20,7 +20,7 @@ namespace th
 
     } /* anonymous namespace */
 
-    bool Dht11::read( uint8_t & temperature, uint8_t & humidity ) const noexcept
+    bool Dht11::read( int8_t & temperature, uint8_t & humidity ) const noexcept
     {
         bool result { false };
         std::array< uint8_t, 5U > data {};
@@ -28,8 +28,16 @@ namespace th
         if( readRaw( data ) )
         {
             humidity = data[ 0U ];
-            temperature = data[ 2U ];
-            result = true;
+
+            if( data[ 2U ] <= 127U )
+            {
+                temperature = static_cast< int8_t >( data[ 2U ] );
+                result = true;
+            }
+            else
+            {
+                /* Sensor error/invalid data */
+            }
         }
 
         return result;

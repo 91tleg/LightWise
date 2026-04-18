@@ -2,14 +2,13 @@
 #define SRC_MODULES_TH_TH_MANAGER_HPP
 
 #include <cstdint>
-#include <functional>
 
 #include "utils/math/ema.hpp"
-#include "types/th_data.hpp"
 
 namespace th
 {
 
+    struct Data;
     class THSensor;
 
     /**
@@ -31,14 +30,14 @@ namespace th
          * @param  humFilter    EMA filter for humidity channel.
          */
         explicit Manager( THSensor & sensor,
-                          filter::EMA< uint8_t > & tempFilter,
+                          filter::EMA< int8_t  > & tempFilter,
                           filter::EMA< uint8_t > & humFilter ) noexcept;
 
-        ~Manager()                            = default;
-        Manager( const Manager & )            = delete;
-        Manager &operator=( const Manager & ) = delete;
-        Manager( Manager && )                 = delete;
-        Manager &operator=( Manager && )      = delete;
+        ~Manager()                             = default;
+        Manager( const Manager & )             = delete;
+        Manager & operator=( const Manager & ) = delete;
+        Manager( Manager && )                  = delete;
+        Manager & operator=( Manager && )      = delete;
 
         /**
          * @brief  Read sensor, apply EMA filters, validate range, populate data.
@@ -47,15 +46,17 @@ namespace th
          * @return true  if read and filtering succeeded and values are in range.
          * @return false if the sensor read failed or values were out of range.
          */
-        [[nodiscard]] bool update( Data &data ) noexcept;
+        [[nodiscard]] bool update( Data & data ) noexcept;
 
     private:
-        std::reference_wrapper< THSensor > sensor_;
-        std::reference_wrapper< filter::EMA< uint8_t > > tempFilter_;
-        std::reference_wrapper< filter::EMA< uint8_t > > humFilter_;
+        THSensor & sensor_;
+        filter::EMA< int8_t  > & tempFilter_;
+        filter::EMA< uint8_t > & humFilter_;
 
-        static constexpr uint8_t kReadingMinValue { 0U    };
-        static constexpr uint8_t kReadingMaxValue { 0XFFU };
+        static constexpr int8_t kTempReadingMinValue { -128  };
+        static constexpr int8_t kTempReadingMaxValue { 127   };
+        static constexpr uint8_t kHumReadingMinValue { 0U    };
+        static constexpr uint8_t kHumReadingMaxValue { 0XFFU };
     };
 
 } /* namespace th */

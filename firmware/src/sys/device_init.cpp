@@ -18,12 +18,12 @@ namespace device
 
     } /* anonymous namespace */
 
-    constinit ambient::Alspt19 xAlsPt19Primary { hal::xAlspt19Primary };
-    constinit ambient::Alspt19 xAlsPt19Secondary { hal::xAlspt19Secondary };
-    constinit light::Led xLed { hal::xLed };
-    constinit mmwave::C4001 xC4001Primary { hal::xC4001Primary };
-    constinit mmwave::C4001 xC001Secondary { hal::xC4001Secondary };
-    constinit th::Dht11 xDht11Primary { hal::xDht11Primary };
-    constinit lorawan::Lwnode xLwnodePrimary { hal::xLwnodePrimary };
+    constinit ambient::Alspt19 alsPt19Primary { hal::alspt19Primary };
+    constinit ambient::Alspt19 alsPt19Secondary { hal::alspt19Secondary };
+    constinit light::Led led { hal::led };
+    constinit mmwave::C4001 c4001Primary { hal::c4001Primary };
+    constinit mmwave::C4001 c001Secondary { hal::c4001Secondary };
+    constinit th::Dht11 dht11Primary { hal::dht11Primary };
+    constinit lorawan::Lwnode lwnodePrimary { hal::lwnodePrimary };
 
 } /* namespace device */

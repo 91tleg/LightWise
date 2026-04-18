@@ -43,6 +43,7 @@ namespace filter
         return alpha_;
     }
 
+    template class EMA< int8_t >;
     template class EMA< uint8_t >;
     template class EMA< float   >;
 

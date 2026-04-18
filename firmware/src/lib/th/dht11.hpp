@@ -40,7 +40,7 @@ namespace th
          * @param[out] humidity The relative humidity value in percentage.
          * @return true if read successful, false otherwise.
          */
-        [[nodiscard]] bool read( uint8_t & temperature, 
+        [[nodiscard]] bool read( int8_t & temperature, 
                                  uint8_t & humidity ) const noexcept override;
 
     private:

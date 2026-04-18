@@ -10,13 +10,13 @@
 namespace device
 {
 
-    extern ambient::Alspt19 xAlsPt19Primary;
-    extern ambient::Alspt19 xAlsPt19Secondary;
-    extern light::Led xLed;
-    extern mmwave::C4001 xC4001Primary;
-    extern mmwave::C4001 xC001Secondary;
-    extern th::Dht11 xDht11Primary;
-    extern lorawan::Lwnode xLwnodePrimary;
+    extern ambient::Alspt19 alsPt19Primary;
+    extern ambient::Alspt19 alsPt19Secondary;
+    extern light::Led led;
+    extern mmwave::C4001 c4001Primary;
+    extern mmwave::C4001 c001Secondary;
+    extern th::Dht11 dht11Primary;
+    extern lorawan::Lwnode lwnodePrimary;
 
 } /* namespace device */
 

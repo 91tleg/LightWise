@@ -41,9 +41,10 @@ namespace board
         size_t c4001SecondaryRxBufSize;
         size_t c4001SecondaryTxBufSize;
 
-        i2c_port_t lwnodeI2cPort;
-        gpio_num_t lwnodeI2cSda;
-        gpio_num_t lwnodeI2cScl;
+        i2c_port_t i2cPort;
+        gpio_num_t i2cSda;
+        gpio_num_t i2cScl;
+
         uint16_t lwnodeI2cAddr;
 
         gpio_num_t dimmerOutPin;
@@ -84,10 +85,12 @@ namespace board
         .c4001SecondaryRxBufSize = 1024U,
         .c4001SecondaryTxBufSize = 1024U,
 
-        /* LwNode (I2C Bus) */
-        .lwnodeI2cPort = I2C_NUM_0,
-        .lwnodeI2cSda  = GPIO_NUM_8,
-        .lwnodeI2cScl  = GPIO_NUM_9,
+        /* I2C Bus */
+        .i2cPort = I2C_NUM_0,
+        .i2cSda  = GPIO_NUM_8,
+        .i2cScl  = GPIO_NUM_9,
+
+        /* LwNode */
         .lwnodeI2cAddr = 0x20U,
 
         /* AC Light Dimmer */

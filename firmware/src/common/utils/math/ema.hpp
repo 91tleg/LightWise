@@ -37,11 +37,11 @@ namespace filter
          */
         constexpr explicit EMA( float alpha = kAlphaDefault ) noexcept;
 
-        ~EMA()                             = default;
-        EMA( const EMA & )                 = default;
-        EMA &operator=( const EMA & )      = default;
-        EMA( EMA && )          noexcept    = default;
-        EMA &operator=( EMA && ) noexcept  = default;
+        ~EMA()                              = default;
+        EMA( const EMA & )                  = default;
+        EMA & operator=( const EMA & )      = default;
+        EMA( EMA && )          noexcept     = default;
+        EMA & operator=( EMA && ) noexcept  = default;
 
         /**
          * @brief  Feed one sample and obtain the current filtered value.
@@ -84,6 +84,7 @@ namespace filter
         [[nodiscard]] static constexpr float resolveAlpha( float alpha ) noexcept;
     };
 
+    extern template class EMA< int8_t  >;
     extern template class EMA< uint8_t >;
     extern template class EMA< float   >;
 

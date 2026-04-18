@@ -17,9 +17,6 @@ bool dht11_hal_set_output( const Dht11Hw * sensor );
 bool dht11_hal_set_input( const Dht11Hw * sensor );
 bool dht11_hal_write( const Dht11Hw * sensor, uint32_t level );
 bool dht11_hal_read( const Dht11Hw * sensor, uint32_t * level );
-void dht11_hal_delay_ms( uint32_t delayMs );
-void dht11_hal_delay_us( uint32_t delayUs );
-uint64_t dht11_hal_get_time_us( void );
 
 #ifdef __cplusplus
 }

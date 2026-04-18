@@ -12,13 +12,13 @@ namespace hal
 
     void init();
 
-    extern AlsPt19Hw xAlspt19Primary;
-    extern AlsPt19Hw xAlspt19Secondary;
-    extern C4001Hw xC4001Primary;
-    extern C4001Hw xC4001Secondary;
-    extern Dht11Hw xDht11Primary;
-    extern LedHw xLed;
-    extern LwnodeHw xLwnodePrimary;
+    extern AlsPt19Hw alspt19Primary;
+    extern AlsPt19Hw alspt19Secondary;
+    extern C4001Hw c4001Primary;
+    extern C4001Hw c4001Secondary;
+    extern Dht11Hw dht11Primary;
+    extern LedHw led;
+    extern LwnodeHw lwnodePrimary;
 
 } /* namespace hal */
 
