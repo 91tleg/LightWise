@@ -1,6 +1,9 @@
 #include "ambient_manager.hpp"
 
 #include "lib/ambient/ambient_sensor.hpp"
+#include "types/ambient_data.hpp"
+#include "utils/math/ema.hpp"
+#include "utils/log/log.h"
 
 namespace ambient
 {
@@ -13,6 +16,8 @@ namespace ambient
         , secondary_ { secondary }
         , primaryFilter_ { primaryFilter }
         , secondaryFilter_ { secondaryFilter }
+        , filteredPrimary_  { 0.0f }
+        , filteredSecondary_ { 0.0f }
     {
 
     }
@@ -22,21 +27,22 @@ namespace ambient
         float luxPrimary { 0.0f };
         float luxSecondary { 0.0f };
 
-        const bool primaryOk { primary_.get().read( luxPrimary ) };
-        const bool secondaryOk { secondary_.get().read( luxSecondary ) };
-
-        float filteredPrimary { 0.0f };
-        float filteredSecondary { 0.0f };
+        const bool primaryOk { primary_.read( luxPrimary ) };
+        const bool secondaryOk { secondary_.read( luxSecondary ) };
 
         if( primaryOk )
         {
-            static_cast< void >( primaryFilter_.get().update( luxPrimary, filteredPrimary ) );
+            static_cast< void >( primaryFilter_.update( luxPrimary, filteredPrimary_ ) );
         }
 
         if( secondaryOk )
         {
-            static_cast< void >( secondaryFilter_.get().update( luxSecondary, filteredSecondary ) );
+            static_cast< void >( secondaryFilter_.update( luxSecondary, filteredSecondary_ ) );
         }
+        LOGI( "ambient_manager", "fP: %f, fS: %f, diff: %f",
+                filteredPrimary_,
+                filteredSecondary_,
+                filteredPrimary_ - filteredSecondary_ );
 
         bool result { false };
         float lux { data.lux };  /* preserve last known */
@@ -44,25 +50,25 @@ namespace ambient
 
         if( primaryOk && secondaryOk )
         {
-            const float diff { filteredPrimary - filteredSecondary };
+            const float diff { filteredPrimary_ - filteredSecondary_ };
             const float absDiff { ( diff >= 0.0f ) ? diff : -diff };
 
             health = ( absDiff > kDegradedThreshold )
                      ? SensorHealth::DEGRADED
                      : SensorHealth::SYSTEM_OK;
-            lux = ( filteredPrimary + filteredSecondary ) * 0.5f;
+            lux = ( filteredPrimary_ + filteredSecondary_ ) * 0.5f;
             result = true;
         }
         else if( primaryOk )
         {
             health = SensorHealth::SECONDARY_FAIL;
-            lux    = filteredPrimary;
+            lux    = filteredPrimary_;
             result = true;
         }
         else if( secondaryOk )
         {
             health = SensorHealth::PRIMARY_FAIL;
-            lux    = filteredSecondary;
+            lux    = filteredSecondary_;
             result = true;
         }
         else
