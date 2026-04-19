@@ -3,6 +3,7 @@
 #include <freertos/task.h>
 
 #include "ambient_manager.hpp"
+#include "types/ambient_data.hpp"
 #include "utils/log/log.h"
 
 namespace ambient
@@ -12,14 +13,14 @@ namespace ambient
     {
 
         constexpr char kTag[] { "AmbientTask" };
-        constexpr TickType_t kSamplePeriodMs { 30U * 1000U }; /* 30 seconds */
+        constexpr TickType_t kSamplePeriodMs { 15U * 1000U }; /* 15 seconds */
 
     } /* anonymous namespace */
 
     void task( void * pvParameters )
     {
         configASSERT( pvParameters != nullptr );
-        TaskParams &params { *static_cast< TaskParams * >( pvParameters ) };
+        TaskParams & params { *static_cast< TaskParams * >( pvParameters ) };
         configASSERT( params.queue != nullptr );
 
         Data data {};
