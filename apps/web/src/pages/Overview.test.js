@@ -1,4 +1,22 @@
-import { getCombinedSensorHealth } from "./overview.helpers";
+import { getCombinedSensorHealth, getOverviewPoleList } from "./overview.helpers";
+
+describe("getOverviewPoleList", () => {
+  test("keeps only the working overview pole when it is present", () => {
+    const poles = [
+      { streetlight_id: "LW-00043" },
+      { streetlight_id: "LW-00100" },
+      { streetlight_id: "LW-00044" },
+    ];
+
+    expect(getOverviewPoleList(poles)).toEqual([{ streetlight_id: "LW-00100" }]);
+  });
+
+  test("falls back to one pole when the working pole is unavailable", () => {
+    const poles = [{ streetlight_id: "LW-00043" }, { streetlight_id: "LW-00044" }];
+
+    expect(getOverviewPoleList(poles)).toEqual([{ streetlight_id: "LW-00043" }]);
+  });
+});
 
 describe("getCombinedSensorHealth", () => {
   test("returns neutral when no sensor values exist", () => {

@@ -14,6 +14,28 @@ function isSensorWarning(value) {
   return normalizeSensorHealth(value) === "DEGRADED";
 }
 
+export const OVERVIEW_WORKING_POLE_ID = "LW-00100";
+
+export function getOverviewPoleList(
+  poles,
+  preferredId = OVERVIEW_WORKING_POLE_ID
+) {
+  const rows = Array.isArray(poles) ? poles : [];
+  const targetId = String(preferredId || "").trim();
+
+  if (!rows.length) return [];
+
+  if (targetId) {
+    const preferredPole = rows.find(
+      (pole) => String(pole?.streetlight_id || "").trim() === targetId
+    );
+
+    if (preferredPole) return [preferredPole];
+  }
+
+  return rows.slice(0, 1);
+}
+
 export function getCombinedSensorHealth(pole) {
   const diagnostics = pole?.diagnostics || {};
   const overallOk =
