@@ -1,8 +1,8 @@
 #ifndef SRC_MODULES_FSM_HANDLERS_HANDLER_HPP
 #define SRC_MODULES_FSM_HANDLERS_HANDLER_HPP
 
-#include "fsm_types.hpp"
-#include "common/types/fsm_event.hpp"
+#include "modules/fsm/fsm_types.hpp"
+#include "types/fsm_event.hpp"
 
 namespace fsm
 {
