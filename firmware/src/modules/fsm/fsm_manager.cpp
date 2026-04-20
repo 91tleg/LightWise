@@ -118,7 +118,7 @@ namespace fsm
 
         /* Telemetry */
         out.uplinkData.lux_x10    = static_cast< uint16_t >( data.lux * 10.0f );
-        out.uplinkData.tempC      = static_cast< int8_t >( data.temperature );
+        out.uplinkData.tempC      = data.temperature;
         out.uplinkData.humidity   = data.humidity;
         out.uplinkData.lightLevel = out.lightLevel;
 
