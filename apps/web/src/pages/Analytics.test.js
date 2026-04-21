@@ -1,6 +1,7 @@
 import {
   buildAnalyticsReport,
   buildRawTelemetryCsv,
+  getPresetRange,
   normalizeTelemetryRows,
 } from "./analytics.helpers";
 
@@ -74,6 +75,7 @@ describe("normalizeTelemetryRows", () => {
           lux: "91.2",
           temp_c: "18.6",
           hum_pct: "61.1",
+          motion: "1",
           light_pct: "52.4",
         },
       ],
@@ -87,8 +89,8 @@ describe("normalizeTelemetryRows", () => {
         lux: 91,
         temp_c: 18.6,
         humidity: 61.1,
-        motion: null,
-        motion_detected: null,
+        motion: true,
+        motion_detected: true,
         light_level: 52,
         health: null,
       },
@@ -116,6 +118,16 @@ describe("normalizeTelemetryRows", () => {
   test("returns empty array for unsupported payload", () => {
     expect(normalizeTelemetryRows(null)).toEqual([]);
     expect(normalizeTelemetryRows({})).toEqual([]);
+  });
+});
+
+describe("getPresetRange", () => {
+  test("live preset covers the last hour", () => {
+    const range = getPresetRange("live", new Date("2026-04-21T20:00:00Z"));
+
+    expect(new Date(range.to).getTime() - new Date(range.from).getTime()).toBe(
+      60 * 60 * 1000
+    );
   });
 });
 
@@ -236,6 +248,26 @@ describe("buildAnalyticsReport", () => {
       timestamp: "2026-03-10T00:00:00",
       value: 50,
     });
+  });
+
+  test("does not fabricate analytics when telemetry is missing", () => {
+    const report = buildAnalyticsReport([streetlights[0]], {}, {
+      from: "2026-03-10T00:00:00",
+      to: "2026-03-10T04:00:00",
+      interval: "1h",
+    });
+
+    expect(report.summary.totalPoles).toBe(1);
+    expect(report.summary.reportingPoles).toBe(0);
+    expect(report.summary.telemetryRows).toBe(0);
+    expect(report.headline.energySavedKwh).toBeNull();
+    expect(report.headline.uptimePct).toBeNull();
+    expect(report.headline.faultsResolved).toBeNull();
+    expect(report.zones).toEqual([]);
+    expect(report.energySeries).toEqual([]);
+    expect(report.faults).toEqual([]);
+    expect(report.motionMap).toEqual([]);
+    expect(report.hourlyMotion.some((bucket) => bucket.samples > 0)).toBe(false);
   });
 
   test("exports raw telemetry csv with analytics columns", () => {

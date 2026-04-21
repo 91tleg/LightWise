@@ -192,14 +192,37 @@ export async function getStreetlight(id) {
   return mergeLocalMeta([data])[0];
 }
 
-export async function getStreetlightTelemetry(id, { from, to, interval = "5m" } = {}) {
+export async function getStreetlightTelemetry(
+  id,
+  { from, to, interval = "5m", allowMockFallback = true } = {}
+) {
   if (!id)          throw new Error("streetlight id is required");
   if (!from || !to) throw new Error("from and to are required");
   if (!ALLOWED_INTERVALS.has(interval)) {
     throw new Error(`interval must be one of: ${Array.from(ALLOWED_INTERVALS).join(", ")}`);
   }
 
-  if (LIGHTWISE_ENV.USE_MOCK) return mockGetTelemetry(id, from, to, interval);
+  if (LIGHTWISE_ENV.USE_MOCK) {
+    return allowMockFallback
+      ? mockGetTelemetry(id, from, to, interval)
+      : { streetlight_id: id, data: [] };
+  }
+
+  if (!allowMockFallback) {
+    const data = await apiFetch(
+      `/streetlights/${encodeURIComponent(id)}/telemetry`,
+      {
+        method: "GET",
+        query: {
+          from:     new Date(from).toISOString(),
+          to:       new Date(to).toISOString(),
+          interval,
+        },
+      }
+    );
+
+    return { streetlight_id: id, data: normalizeTelemetryResponse(data) };
+  }
 
   const data = await withOfflineMockFallback(
     `telemetry for ${id}`,
