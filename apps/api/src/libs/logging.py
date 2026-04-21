@@ -12,7 +12,15 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "message": record.getMessage(),
         }
-        for key in ("tenant_id", "streetlight_id", "user_id", "request_id"):
+        for key in (
+            "tenant_id",
+            "streetlight_id",
+            "user_id",
+            "request_id",
+            "method_arn",
+            "auth_error",
+            "token_use",
+        ):
             if hasattr(record, key):
                 log_record[key] = getattr(record, key)
         return json.dumps(log_record)

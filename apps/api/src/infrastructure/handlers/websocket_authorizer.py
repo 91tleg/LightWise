@@ -3,6 +3,7 @@ from functools import lru_cache
 
 from infrastructure.auth.cognito_config import CognitoConfig
 from infrastructure.auth.cognito_verifier import CognitoVerifier
+from domain.errors import AuthError
 from infrastructure.auth.iam import allow_policy
 from infrastructure.auth.token import extract_websocket_auth
 from libs.config import settings
@@ -31,10 +32,22 @@ def handler(event: dict, context: object) -> dict:
 
     try:
         claims = _verifier().verify(auth.token)
-    except Exception:
+    except AuthError as exc:
         logger.warning(
             "WebSocket auth rejected - token verification failed",
-            extra={"method_arn": event.get("methodArn")},
+            extra={
+                "method_arn": event.get("methodArn"),
+                "auth_error": str(exc),
+            },
+        )
+        raise Exception("Unauthorized")
+    except Exception as exc:
+        logger.exception(
+            "WebSocket auth rejected - verifier failure",
+            extra={
+                "method_arn": event.get("methodArn"),
+                "auth_error": str(exc),
+            },
         )
         raise Exception("Unauthorized")
 

@@ -49,7 +49,7 @@ class TimestreamWriter:
                 },
                 {
                     "Name": "motion",
-                    "Value": str(int(event.motion)),
+                    "Value": str(int(event.motion_detected)),
                     "Type": "BIGINT",
                 },
                 {

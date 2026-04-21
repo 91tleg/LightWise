@@ -30,6 +30,9 @@ def streetlight_to_response(response: StreetlightResponse) -> dict:
         "last_seen": s.last_seen.isoformat(),
         "motion_detected": s.motion_detected,
         "light_level": s.light_level,
+        "temp_c": s.temp_c,
+        "humidity": s.humidity,
+        "lux": s.lux,
         "diagnostics": {
             "overall_ok": s.diagnostics.overall_ok,
             "ambient_health": s.diagnostics.ambient_health.name,
@@ -98,6 +101,9 @@ def streetlight_to_list_item(
         "last_seen": state.last_seen.isoformat(),
         "motion_detected": state.motion_detected,
         "light_level": state.light_level,
+        "temp_c": state.temp_c,
+        "humidity": state.humidity,
+        "lux": state.lux,
         "diagnostics": {
             "overall_ok": state.diagnostics.overall_ok,
             "ambient_health": state.diagnostics.ambient_health.name,

@@ -31,6 +31,9 @@ class StreetlightsRepo:
                 },
                 UpdateExpression=(
                     "SET last_lux = :l, "
+                    "lux = :l, "
+                    "temp_c = :tc, "
+                    "humidity = :hum, "
                     "light_level = :lvl, "
                     "health_status = :h, "
                     "last_seen = :t, "
@@ -48,7 +51,9 @@ class StreetlightsRepo:
                     ":lvl":  telemetry.light_level,
                     ":h":    health.value,
                     ":t":    telemetry.timestamp.isoformat(),
-                    ":m":    telemetry.motion,
+                    ":m":    telemetry.motion_detected,
+                    ":tc":   telemetry.temperature_c,
+                    ":hum":  telemetry.humidity,
                     ":ah":   telemetry.diagnostics.ambient_health.value,
                     ":mh":   telemetry.diagnostics.mmwave_health.value,
                     ":th":   telemetry.diagnostics.th_ok,
@@ -141,6 +146,14 @@ class StreetlightsRepo:
 
     @staticmethod
     def _from_item(item: dict) -> StreetlightState:
+        def number_or_none(value: object) -> float | None:
+            if value is None:
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
         return StreetlightState(
             streetlight_id=item["streetlight_id"],
             tenant_id=item["tenant_id"],
@@ -163,6 +176,11 @@ class StreetlightsRepo:
             ),
             rssi=int(item["rssi"]) if item.get("rssi") is not None else None,
             snr=float(item["snr"]) if item.get("snr") is not None else None,
+            temp_c=int(item["temp_c"])
+            if item.get("temp_c") is not None else None,
+            humidity=int(item["humidity"])
+            if item.get("humidity") is not None else None,
+            lux=number_or_none(item.get("lux", item.get("last_lux"))),
         )
 
 

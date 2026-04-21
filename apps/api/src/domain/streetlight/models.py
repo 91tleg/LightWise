@@ -34,6 +34,9 @@ class StreetlightState:
     diagnostics: SensorDiagnostics
     rssi: int | None
     snr: float | None
+    temp_c: int | None = None
+    humidity: int | None = None
+    lux: float | None = None
 
     def __post_init__(self) -> None:
         if self.last_seen.tzinfo is None:
