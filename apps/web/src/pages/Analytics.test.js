@@ -3,6 +3,7 @@ import {
   buildRawTelemetryCsv,
   getPresetRange,
   normalizeTelemetryRows,
+  resolveTelemetryInterval,
 } from "./analytics.helpers";
 
 describe("normalizeTelemetryRows", () => {
@@ -128,6 +129,28 @@ describe("getPresetRange", () => {
     expect(new Date(range.to).getTime() - new Date(range.from).getTime()).toBe(
       60 * 60 * 1000
     );
+  });
+});
+
+describe("resolveTelemetryInterval", () => {
+  test("keeps seconds buckets for live-sized ranges", () => {
+    expect(
+      resolveTelemetryInterval(
+        "30s",
+        "2026-04-21T12:00:00",
+        "2026-04-21T13:00:00"
+      )
+    ).toBe("30s");
+  });
+
+  test("coerces seconds buckets for longer ranges", () => {
+    expect(
+      resolveTelemetryInterval(
+        "30s",
+        "2026-04-21T00:00:00",
+        "2026-04-21T06:00:00"
+      )
+    ).toBe("1m");
   });
 });
 

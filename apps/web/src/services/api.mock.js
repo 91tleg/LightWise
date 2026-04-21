@@ -167,6 +167,7 @@ function parseIntervalMs(interval) {
   const number = Number.parseFloat(text);
   if (!Number.isFinite(number) || number <= 0) return 60 * 60 * 1000;
 
+  if (text.endsWith("s")) return number * 1000;
   if (text.endsWith("m")) return number * 60 * 1000;
   if (text.endsWith("h")) return number * 60 * 60 * 1000;
   if (text.endsWith("d")) return number * 24 * 60 * 60 * 1000;

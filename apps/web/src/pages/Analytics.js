@@ -2,7 +2,10 @@ import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "r
 import Layout from "../components/Layout";
 import Card from "../components/Card";
 import UiIcon from "../components/UiIcon";
+import { useOverviewData } from "../hooks/useOverviewData";
+import { useTelemetryLoader } from "../hooks/useTelemetryLoader";
 import { useLightWise } from "../hooks/useLightWise";
+import { useWebSocketSync } from "../hooks/useWebSocketSync";
 import { getStreetlightTelemetry } from "../services/api";
 import { formatTableTimestamp } from "../utils/formatters";
 import { toneForHealth } from "../utils/poleState";
@@ -15,6 +18,7 @@ import {
   getPresetRange,
   inferTelemetryInterval,
   normalizeTelemetryRows,
+  resolveTelemetryInterval,
 } from "./analytics.helpers";
 import { getOverviewPoleList } from "./overview.helpers";
 import "../styles/lightwise.css";
@@ -29,6 +33,22 @@ const RANGE_PRESETS = [
   { id: "quarter", label: "Quarter" },
   { id: "year", label: "Year" },
   { id: "custom", label: "Custom" },
+];
+
+const AGGREGATION_OPTIONS = [
+  { id: "auto", label: "Auto" },
+  { id: "5s", label: "5 sec" },
+  { id: "10s", label: "10 sec" },
+  { id: "30s", label: "30 sec" },
+  { id: "1m", label: "1 min" },
+  { id: "5m", label: "5 min" },
+  { id: "10m", label: "10 min" },
+  { id: "15m", label: "15 min" },
+  { id: "30m", label: "30 min" },
+  { id: "1h", label: "1 hour" },
+  { id: "6h", label: "6 hours" },
+  { id: "12h", label: "12 hours" },
+  { id: "1d", label: "1 day" },
 ];
 
 const FAULT_FILTERS = [
@@ -103,7 +123,16 @@ function readStoredRange() {
       typeof parsed.to === "string" &&
       typeof parsed.preset === "string"
     ) {
-      return parsed;
+      const aggregation = AGGREGATION_OPTIONS.some(
+        (option) => option.id === parsed.aggregation
+      )
+        ? parsed.aggregation
+        : "auto";
+
+      return {
+        ...parsed,
+        aggregation,
+      };
     }
   } catch {}
 
@@ -111,6 +140,7 @@ function readStoredRange() {
     preset: "30d",
     from: fallback.from,
     to: fallback.to,
+    aggregation: "auto",
   };
 }
 
@@ -154,6 +184,29 @@ function liveRowFromPole(pole) {
   });
 
   return Object.keys(row).length > 2 ? row : null;
+}
+
+function pinRowToLiveRange(row, from, to) {
+  if (!row?.timestamp) return row;
+
+  const timestamp = new Date(row.timestamp).getTime();
+  const fromMs = new Date(from).getTime();
+  const toMs = new Date(to).getTime();
+
+  if (
+    Number.isFinite(timestamp) &&
+    Number.isFinite(fromMs) &&
+    Number.isFinite(toMs) &&
+    timestamp >= fromMs &&
+    timestamp <= toMs
+  ) {
+    return row;
+  }
+
+  return {
+    ...row,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 function liveRowFromWsMessage(message) {
@@ -207,18 +260,18 @@ function buildLiveReportTelemetry(reportPoles, telemetryByPole, liveTelemetryByP
     const poleId = pole?.streetlight_id;
     if (!poleId) return nextTelemetry;
 
-    const snapshotRow = liveRowFromPole(pole);
+    const snapshotRow = pinRowToLiveRange(liveRowFromPole(pole), from, to);
     const rows = filterRowsForRange(
       mergeTelemetryRows(
         telemetryByPole[poleId],
-        liveTelemetryByPole[poleId] || [],
-        snapshotRow ? [snapshotRow] : []
+        liveTelemetryByPole[poleId] || []
       ),
       from,
       to
     );
+    const mergedRows = mergeTelemetryRows(rows, snapshotRow ? [snapshotRow] : []);
 
-    nextTelemetry[poleId] = { streetlight_id: poleId, data: rows };
+    nextTelemetry[poleId] = { streetlight_id: poleId, data: mergedRows };
     return nextTelemetry;
   }, {});
 }
@@ -666,6 +719,21 @@ function DateTimeField({ label, value, onChange }) {
           <UiIcon name="calendar" size={18} />
         </button>
       </div>
+    </label>
+  );
+}
+
+function SelectField({ label, value, options, onChange }) {
+  return (
+    <label className="analyticsField analyticsSelectField">
+      <span>{label}</span>
+      <select value={value} onChange={onChange}>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
@@ -1137,17 +1205,28 @@ function MotionHeatmap({ poles, center, loading }) {
 }
 
 function AnalyticsSurface() {
-  const { streetlights, lastMessage, wsStatus } = useLightWise();
+  const { streetlights, lastMessage, wsStatus, env } = useLightWise();
   const storedRange = useMemo(() => readStoredRange(), []);
+  const {
+    availablePoles,
+    setSelectedId: setOverviewSelectedId,
+    setSnapshotMap,
+  } = useOverviewData({
+    streetlights,
+    tenantId: env?.TENANT_ID,
+  });
+
+  useWebSocketSync(lastMessage, setSnapshotMap);
 
   const analyticsPoles = useMemo(
-    () => getOverviewPoleList(streetlights),
-    [streetlights]
+    () => getOverviewPoleList(availablePoles),
+    [availablePoles]
   );
 
   const [preset, setPreset] = useState(storedRange.preset);
   const [from, setFrom] = useState(storedRange.from);
   const [to, setTo] = useState(storedRange.to);
+  const [aggregation, setAggregation] = useState(storedRange.aggregation || "auto");
   const [selectedPoleId, setSelectedPoleId] = useState("");
   const [telemetryByPole, setTelemetryByPole] = useState({});
   const [liveTelemetryByPole, setLiveTelemetryByPole] = useState({});
@@ -1167,8 +1246,13 @@ function AnalyticsSurface() {
   const deferredFaultSearch = useDeferredValue(faultSearch);
   const isLiveRange = preset === "live";
   const interval = useMemo(
-    () => (isLiveRange ? "1m" : inferTelemetryInterval(from, to)),
-    [from, isLiveRange, to]
+    () =>
+      aggregation === "auto"
+        ? isLiveRange
+          ? "1m"
+          : inferTelemetryInterval(from, to)
+        : resolveTelemetryInterval(aggregation, from, to),
+    [aggregation, from, isLiveRange, to]
   );
   const rangeLabel = useMemo(
     () => (isLiveRange ? "Live telemetry" : buildReportDateLabel(from, to)),
@@ -1187,6 +1271,10 @@ function AnalyticsSurface() {
     () => (selectedPole ? [selectedPole] : []),
     [selectedPole]
   );
+  const { loading: latestTelemetryLoading } = useTelemetryLoader(
+    selectedReportPoleId,
+    setSnapshotMap
+  );
 
   const rangeError = useMemo(() => {
     const fromMs = new Date(from).getTime();
@@ -1204,8 +1292,14 @@ function AnalyticsSurface() {
   }, [from, to]);
 
   useEffect(() => {
-    persistRange({ preset, from, to });
-  }, [preset, from, to]);
+    persistRange({ preset, from, to, aggregation });
+  }, [aggregation, preset, from, to]);
+
+  useEffect(() => {
+    if (selectedReportPoleId) {
+      setOverviewSelectedId(selectedReportPoleId);
+    }
+  }, [selectedReportPoleId, setOverviewSelectedId]);
 
   useEffect(() => {
     if (!isLiveRange) return undefined;
@@ -1403,7 +1497,9 @@ function AnalyticsSurface() {
   }, [deferredFaultSearch, faultFilter, report.faults]);
 
   const showInitialSkeleton =
-    loading && report.rawTelemetryRows.length === 0 && analyticsPoles.length > 0;
+    (loading || latestTelemetryLoading) &&
+    report.rawTelemetryRows.length === 0 &&
+    analyticsPoles.length > 0;
 
   function applyPreset(nextPreset) {
     setPreset(nextPreset);
@@ -1537,8 +1633,14 @@ function AnalyticsSurface() {
             value={to}
             onChange={(event) => handleCustomDateChange("to", event.target.value)}
           />
+          <SelectField
+            label="Aggregation"
+            value={aggregation}
+            options={AGGREGATION_OPTIONS}
+            onChange={(event) => setAggregation(event.target.value)}
+          />
           <div className="analyticsRangeMeta">
-            <span className="analyticsRangeMetaLabel">Aggregation</span>
+            <span className="analyticsRangeMetaLabel">Using</span>
             <strong>{interval}</strong>
           </div>
         </div>

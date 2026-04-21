@@ -14,6 +14,24 @@ const FIXTURE_KWH_PER_HOUR = 0.16;
 const DAYLIGHT_LUX_THRESHOLD = 180;
 const DEFAULT_LIGHT_LEVEL = 68;
 const LIVE_RANGE_MS = 60 * 60 * 1000;
+const TELEMETRY_INTERVALS = new Set([
+  "5s", "10s", "30s",
+  "1m", "5m", "10m", "15m", "30m",
+  "1h", "6h", "12h",
+  "1d", "7d", "30d",
+]);
+const INTERVAL_UNIT_SECONDS = {
+  s: 1,
+  m: 60,
+  h: 60 * 60,
+  d: 24 * 60 * 60,
+};
+const INTERVAL_COERCION_RULES = [
+  [30 * 24 * 60 * 60, "1d"],
+  [7 * 24 * 60 * 60, "1h"],
+  [24 * 60 * 60, "5m"],
+  [6 * 60 * 60, "1m"],
+];
 
 function roundWhole(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -69,25 +87,19 @@ function clamp(value, min, max) {
 }
 
 function intervalToHours(interval) {
+  const seconds = parseIntervalSeconds(interval);
+  return seconds !== null ? seconds / (60 * 60) : 1;
+}
+
+function parseIntervalSeconds(interval) {
   const value = String(interval || "").trim();
-  if (!value) return 1;
+  const match = value.match(/^(\d+(?:\.\d+)?)([smhd])$/);
+  if (!match) return null;
 
-  if (value.endsWith("m")) {
-    const minutes = Number.parseFloat(value.slice(0, -1));
-    return Number.isFinite(minutes) ? minutes / 60 : 1;
-  }
-
-  if (value.endsWith("h")) {
-    const hours = Number.parseFloat(value.slice(0, -1));
-    return Number.isFinite(hours) ? hours : 1;
-  }
-
-  if (value.endsWith("d")) {
-    const days = Number.parseFloat(value.slice(0, -1));
-    return Number.isFinite(days) ? days * 24 : 24;
-  }
-
-  return 1;
+  const amount = Number.parseFloat(match[1]);
+  const multiplier = INTERVAL_UNIT_SECONDS[match[2]];
+  if (!Number.isFinite(amount) || !multiplier) return null;
+  return amount * multiplier;
 }
 
 function escapeCsvValue(value) {
@@ -604,6 +616,35 @@ export function inferTelemetryInterval(from, to) {
   if (daySpan <= 45) return "1h";
   if (daySpan <= 180) return "6h";
   return "1d";
+}
+
+export function resolveTelemetryInterval(requested, from, to) {
+  const requestedInterval = TELEMETRY_INTERVALS.has(requested)
+    ? requested
+    : inferTelemetryInterval(from, to);
+  const requestedSeconds = parseIntervalSeconds(requestedInterval);
+  const fromMs = parseTimestamp(from);
+  const toMs = parseTimestamp(to);
+
+  if (requestedSeconds === null || fromMs === null || toMs === null || toMs <= fromMs) {
+    return requestedInterval;
+  }
+
+  const windowSeconds = (toMs - fromMs) / 1000;
+  const rule = INTERVAL_COERCION_RULES.find(([thresholdSeconds]) => {
+    return windowSeconds >= thresholdSeconds;
+  });
+
+  if (!rule) return requestedInterval;
+
+  const minimumInterval = rule[1];
+  const minimumSeconds = parseIntervalSeconds(minimumInterval);
+
+  if (minimumSeconds !== null && requestedSeconds < minimumSeconds) {
+    return minimumInterval;
+  }
+
+  return requestedInterval;
 }
 
 export function buildReportDateLabel(from, to) {
