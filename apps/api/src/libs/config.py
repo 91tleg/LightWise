@@ -38,6 +38,10 @@ class Config:
             "DDB_TABLE_WS_CONNECTIONS",
             "WebSocketConnections"
         )
+        self.DDB_TABLE_DOWNLINK_COMMANDS = os.getenv(
+            "DDB_TABLE_DOWNLINK_COMMANDS",
+            "DownlinkCommands"
+        )
 
         # WebSocket
         self.WS_ENDPOINT = os.getenv("WS_ENDPOINT", "")

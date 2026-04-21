@@ -62,6 +62,7 @@ Globals:
         INFLUX_TOKEN: !Ref InfluxToken
         INFLUX_ORG: !Ref InfluxOrg
         INFLUX_BUCKET: streetlight-telemetry
+        DDB_TABLE_DOWNLINK_COMMANDS: !Ref DownlinkCommands
 
 Resources:
   CognitoUserPool:
@@ -295,6 +296,8 @@ Resources:
             TableName: !Ref StreetlightMetadata
         - DynamoDBReadPolicy:
             TableName: !Ref WebSocketConnections
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DownlinkCommands
         - Statement:
           - Effect: Allow
             Action: execute-api:ManageConnections
@@ -512,6 +515,20 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
+
+  DownlinkCommands:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: command_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: command_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
 
 Outputs:
   WebSocketEndpoint:
