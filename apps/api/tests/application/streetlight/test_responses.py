@@ -2,6 +2,7 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 from application.streetlight.responses import (
+    heartbeat_to_ws_message,
     streetlight_to_response,
     telemetry_to_ws_message,
     streetlight_to_list_item,
@@ -22,6 +23,7 @@ def mock_state(sample_now):
     state.health.name = "OK"
     state.last_seen = sample_now
     state.motion_detected = True
+    state.light_level = 80
     state.diagnostics.overall_ok = True
     state.diagnostics.ambient_health.name = "OK"
     state.diagnostics.mmwave_health.name = "OK"
@@ -54,6 +56,7 @@ def test_streetlight_to_response_full_data(mock_state, mock_metadata):
     assert result["streetlight_id"] == "SL-001"
     assert result["lat"] == 45.523
     assert "2026-04-07" in result["last_seen"]
+    assert result["light_level"] == 80
     assert result["diagnostics"]["overall_ok"] is True
 
 
@@ -76,8 +79,24 @@ def test_telemetry_to_ws_message(sample_now):
 
     result = telemetry_to_ws_message(report, health)
 
+    assert result["event"] == "telemetry"
     assert result["health"] == "DEGRADED"
     assert result["data"]["lux"] == 150.5
+    assert isinstance(result["timestamp"], str)
+
+
+def test_heartbeat_to_ws_message(sample_now):
+    heartbeat = MagicMock()
+    heartbeat.streetlight_id = "SL-001"
+    heartbeat.tenant_id = "tenant-55"
+    heartbeat.site_id = "SITE-1"
+    heartbeat.timestamp = sample_now
+
+    result = heartbeat_to_ws_message(heartbeat)
+
+    assert result["event"] == "heartbeat"
+    assert result["streetlight_id"] == "SL-001"
+    assert result["status"] == "online"
     assert isinstance(result["timestamp"], str)
 
 
@@ -87,3 +106,6 @@ def test_streetlight_to_list_item_mapping(mock_state, mock_metadata):
     assert result["streetlight_id"] == "SL-001"
     assert result["location"]["lat"] == 45.523
     assert result["health"] == "OK"
+    assert result["motion_detected"] is True
+    assert result["light_level"] == 80
+    assert result["diagnostics"]["overall_ok"] is True

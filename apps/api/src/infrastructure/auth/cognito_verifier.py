@@ -50,8 +50,8 @@ class CognitoVerifier:
         Raises AuthError on any failure.
 
         Note: verify_aud is disabled because Cognito access tokens
-        populate `client_id` rather than `aud` — client is validated
-        manually below.
+        populate `client_id` while ID tokens populate `aud`. The client
+        identifier is validated manually after token_use is known.
         """
         try:
             header = jwt.get_unverified_header(token)
@@ -92,9 +92,10 @@ class CognitoVerifier:
         if token_use not in ("access", "id"):
             raise AuthError(f"Unexpected token_use: {token_use}")
 
-        client_id = claims.get("client_id")
+        client_id_claim = "aud" if token_use == "id" else "client_id"
+        client_id = claims.get(client_id_claim)
         if not client_id:
-            raise AuthError("Token missing client_id claim")
+            raise AuthError(f"Token missing {client_id_claim} claim")
         if client_id != self._config.client_id:
             raise AuthError("Token client_id mismatch")
 

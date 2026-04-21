@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 from dataclasses import dataclass
 
-from domain.streetlight.events import TelemetryReport
+from domain.streetlight.events import Heartbeat, TelemetryReport
 from domain.streetlight.health import HealthStatus
 from domain.streetlight.models import StreetlightState, StreetlightMetadata
 
@@ -29,6 +29,7 @@ def streetlight_to_response(response: StreetlightResponse) -> dict:
         "health": s.health.name,
         "last_seen": s.last_seen.isoformat(),
         "motion_detected": s.motion_detected,
+        "light_level": s.light_level,
         "diagnostics": {
             "overall_ok": s.diagnostics.overall_ok,
             "ambient_health": s.diagnostics.ambient_health.name,
@@ -51,6 +52,7 @@ def telemetry_to_ws_message(
     report: TelemetryReport, health: HealthStatus
 ) -> dict:
     return {
+        "event": "telemetry",
         "streetlight_id": report.streetlight_id,
         "tenant_id": report.tenant_id,
         "site_id": report.site_id,
@@ -73,6 +75,17 @@ def telemetry_to_ws_message(
     }
 
 
+def heartbeat_to_ws_message(heartbeat: Heartbeat) -> dict:
+    return {
+        "event": "heartbeat",
+        "streetlight_id": heartbeat.streetlight_id,
+        "tenant_id": heartbeat.tenant_id,
+        "site_id": heartbeat.site_id,
+        "timestamp": heartbeat.timestamp.isoformat(),
+        "status": "online",
+    }
+
+
 def streetlight_to_list_item(
     state: StreetlightState,
     metadata: StreetlightMetadata | None,
@@ -83,6 +96,17 @@ def streetlight_to_list_item(
         "site_id": metadata.site_id if metadata else None,
         "health": state.health.name,
         "last_seen": state.last_seen.isoformat(),
+        "motion_detected": state.motion_detected,
+        "light_level": state.light_level,
+        "diagnostics": {
+            "overall_ok": state.diagnostics.overall_ok,
+            "ambient_health": state.diagnostics.ambient_health.name,
+            "mmwave_health": state.diagnostics.mmwave_health.name,
+            "th_ok": state.diagnostics.th_ok,
+            "light_ok": state.diagnostics.light_ok,
+        },
+        "rssi": state.rssi,
+        "snr": state.snr,
         "location": {
             "lat": metadata.lat if metadata else None,
             "lng": metadata.lng if metadata else None,

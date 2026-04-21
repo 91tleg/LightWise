@@ -8,7 +8,10 @@ Handles all three event types: TelemetryReport, Heartbeat, CommandResponse.
 from __future__ import annotations
 from typing import Protocol
 
-from application.streetlight.responses import telemetry_to_ws_message
+from application.streetlight.responses import (
+    heartbeat_to_ws_message,
+    telemetry_to_ws_message,
+)
 from domain.streetlight.events import (
     CommandResponse,
     Heartbeat,
@@ -110,6 +113,15 @@ class ProcessUplink:
             tenant_id=event.tenant_id,
             streetlight_id=event.streetlight_id,
         )
+        connections = self._ws_repo.get_connections_for_streetlight(
+            tenant_id=event.tenant_id,
+            streetlight_id=event.streetlight_id,
+        )
+        if connections:
+            self._ws_publisher.broadcast(
+                connections,
+                heartbeat_to_ws_message(event),
+            )
 
     def _handle_command_response(self, event: CommandResponse) -> None:
         self._command_repo.update_status(

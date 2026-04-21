@@ -94,6 +94,10 @@ export function useWebSocket(wsBaseUrl, options = {}) {
       if (manualCloseRef.current || connectAttemptRef.current !== attemptId) return;
       setError(e);
       setStatus("error");
+      if (autoReconnect) {
+        clearReconnectTimer();
+        reconnectTimerRef.current = setTimeout(connect, reconnectDelayMs);
+      }
       return;
     }
 

@@ -4,7 +4,7 @@ from functools import lru_cache
 from infrastructure.auth.cognito_config import CognitoConfig
 from infrastructure.auth.cognito_verifier import CognitoVerifier
 from infrastructure.auth.iam import allow_policy
-from infrastructure.auth.token import extract_websocket_token
+from infrastructure.auth.token import extract_websocket_auth
 from libs.config import settings
 from libs.logging import logger
 
@@ -21,8 +21,8 @@ def _verifier() -> CognitoVerifier:
 
 
 def handler(event: dict, context: object) -> dict:
-    token = extract_websocket_token(event)
-    if not token:
+    auth = extract_websocket_auth(event)
+    if not auth:
         logger.warning(
             "WebSocket auth rejected - no token in Sec-WebSocket-Protocol",
             extra={"method_arn": event.get("methodArn")},
@@ -30,7 +30,7 @@ def handler(event: dict, context: object) -> dict:
         raise Exception("Unauthorized")
 
     try:
-        claims = _verifier().verify(token)
+        claims = _verifier().verify(auth.token)
     except Exception:
         logger.warning(
             "WebSocket auth rejected - token verification failed",
@@ -48,6 +48,6 @@ def handler(event: dict, context: object) -> dict:
         context={
             "tenant_id": claims.tenant_id,
             "user_id": claims.sub,
-            "selected_protocol": "Bearer"
+            "selected_protocol": auth.selected_protocol,
         },
     )
