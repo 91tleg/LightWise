@@ -87,9 +87,9 @@ export function useWebSocket(wsBaseUrl, options = {}) {
 
     let socket;
     try {
-      const token = getToken ? await getToken() : null;
+      const token = getToken ? String((await getToken()) || "").trim() : "";
       if (manualCloseRef.current || connectAttemptRef.current !== attemptId) return;
-      socket = token ? new WebSocket(wsUrl, [token]) : new WebSocket(wsUrl);
+      socket = token ? new WebSocket(wsUrl, ["Bearer", token]) : new WebSocket(wsUrl);
     } catch (e) {
       if (manualCloseRef.current || connectAttemptRef.current !== attemptId) return;
       setError(e);
