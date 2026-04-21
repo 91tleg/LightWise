@@ -1,6 +1,7 @@
 import React, { createContext, useContext } from "react";
 import { LIGHTWISE_ENV } from "../config/env";
 import { useWebSocket } from "../hooks/useWebSocket";
+import { fetchIdToken } from "../services/auth";
 import { AuthContext } from "./AuthContext";
 
 export const WSContext = createContext(null);
@@ -12,6 +13,7 @@ export function WSProvider({ children }) {
     useWebSocket(isAuthenticated ? LIGHTWISE_ENV.WS_URL : "", {
       debug: false,
       autoReconnect: true,
+      getToken: fetchIdToken,
     });
 
   const value = { wsStatus, wsError, lastMessage, send, subscribe };
