@@ -5,6 +5,7 @@ const DEFAULT_OPTIONS = {
   reconnectDelayMs: 1500,
   maxMessages:      50,
   debug:            false,
+  getToken:         null,
 };
 
 export function useWebSocket(wsBaseUrl, options = {}) {
@@ -13,6 +14,7 @@ export function useWebSocket(wsBaseUrl, options = {}) {
     reconnectDelayMs,
     maxMessages,
     debug,
+    getToken,
   } = { ...DEFAULT_OPTIONS, ...options };
 
   const wsUrl = useMemo(() => (wsBaseUrl || "").trim(), [wsBaseUrl]);
@@ -21,6 +23,7 @@ export function useWebSocket(wsBaseUrl, options = {}) {
   const reconnectTimerRef = useRef(null);
   const manualCloseRef    = useRef(false);
   const subscribedIdsRef  = useRef(new Set());
+  const connectAttemptRef = useRef(0);
 
   const [status,      setStatus]      = useState(wsUrl ? "connecting" : "idle");
   const [error,       setError]       = useState(null);
@@ -40,6 +43,7 @@ export function useWebSocket(wsBaseUrl, options = {}) {
 
   const disconnect = useCallback(() => {
     manualCloseRef.current = true;
+    connectAttemptRef.current += 1;
     clearReconnectTimer();
     const ws = wsRef.current;
     wsRef.current = null;
@@ -68,12 +72,14 @@ export function useWebSocket(wsBaseUrl, options = {}) {
     return send({ action: "subscribe", streetlight_id: id });
   }, [send]);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!wsUrl) { setStatus("idle"); return; }
 
     const ws = wsRef.current;
     if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
 
+    const attemptId = connectAttemptRef.current + 1;
+    connectAttemptRef.current = attemptId;
     manualCloseRef.current = false;
     clearReconnectTimer();
     setError(null);
@@ -81,8 +87,11 @@ export function useWebSocket(wsBaseUrl, options = {}) {
 
     let socket;
     try {
-      socket = new WebSocket(wsUrl);
+      const token = getToken ? await getToken() : null;
+      if (manualCloseRef.current || connectAttemptRef.current !== attemptId) return;
+      socket = token ? new WebSocket(wsUrl, [token]) : new WebSocket(wsUrl);
     } catch (e) {
+      if (manualCloseRef.current || connectAttemptRef.current !== attemptId) return;
       setError(e);
       setStatus("error");
       return;
@@ -119,14 +128,14 @@ export function useWebSocket(wsBaseUrl, options = {}) {
 
     socket.onclose = (evt) => {
       log("closed", evt.code, evt.reason);
-      wsRef.current = null;
+      if (wsRef.current === socket) wsRef.current = null;
       setStatus("disconnected");
       if (!manualCloseRef.current && autoReconnect) {
         clearReconnectTimer();
         reconnectTimerRef.current = setTimeout(connect, reconnectDelayMs);
       }
     };
-  }, [wsUrl, autoReconnect, reconnectDelayMs, maxMessages, log, clearReconnectTimer]);
+  }, [wsUrl, autoReconnect, reconnectDelayMs, maxMessages, getToken, log, clearReconnectTimer]);
 
   useEffect(() => {
     if (!wsUrl) { disconnect(); setStatus("idle"); return; }
