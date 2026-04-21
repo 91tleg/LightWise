@@ -6,11 +6,13 @@
 
 namespace mmwave
 {
+
     struct Data
     {
-        bool motionDetected; /* True only if health check passes */
-        SensorHealth health;
+        bool motionDetected { false };
+        SensorHealth health { SensorHealth::TOTAL_FAILURE };
     };
+
 } /* namespace mmwave */
 
 #endif /* SRC_COMMON_TYPES_MMWAVE_DATA_HPP */

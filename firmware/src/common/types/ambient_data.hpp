@@ -5,11 +5,13 @@
 
 namespace ambient
 {
+
     struct Data
     {
-        float lux;           /* EMA-filtered ambient light level */
-        SensorHealth health; /* Overall sensor health state */
+        float lux { 0.0f };
+        SensorHealth health { SensorHealth::TOTAL_FAILURE };
     };
+
 } /* namespace ambient */
 
 #endif /* SRC_COMMON_TYPES_AMBIENT_DATA_HPP */

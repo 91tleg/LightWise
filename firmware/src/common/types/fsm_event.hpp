@@ -40,9 +40,9 @@ namespace fsm
         uint8_t tempDimHours  { 0U }; /**< Duration hours (LoraTempDim)   */
 
         /* Sensor telemetry */
-        float   lux         { 0.0f }; /**< Ambient lux                    */
-        uint8_t temperature { 0U   }; /**< Temperature °C                 */
-        uint8_t humidity    { 0U   }; /**< Relative humidity 0–100 %      */
+        float   lux        { 0.0f }; /**< Ambient lux                    */
+        int8_t temperature { 0U   }; /**< Temperature °C                 */
+        uint8_t humidity   { 0U   }; /**< Relative humidity 0–100 %      */
 
         /* Sensor health — updated each cycle, used by assembleOutputs() */
         SensorHealth ambientHealth { SensorHealth::TOTAL_FAILURE }; /**< Ambient sensor health */
