@@ -27,6 +27,13 @@ class CognitoVerifier:
     def __init__(self, config: CognitoConfig) -> None:
         self._config = config
 
+    def _client_id_matches(self, client_id: object) -> bool:
+        if isinstance(client_id, str):
+            return client_id == self._config.client_id
+        if isinstance(client_id, list):
+            return self._config.client_id in client_id
+        return False
+
     @cached_property
     def _jwks(self) -> dict:
         """
@@ -87,6 +94,8 @@ class CognitoVerifier:
             raise AuthError("Invalid token issuer") from e
         except jwt.DecodeError as e:
             raise AuthError("Token decode failed") from e
+        except jwt.PyJWTError as e:
+            raise AuthError("Token verification failed") from e
 
         token_use = claims.get("token_use")
         if token_use not in ("access", "id"):
@@ -96,7 +105,7 @@ class CognitoVerifier:
         client_id = claims.get(client_id_claim)
         if not client_id:
             raise AuthError(f"Token missing {client_id_claim} claim")
-        if client_id != self._config.client_id:
+        if not self._client_id_matches(client_id):
             raise AuthError("Token client_id mismatch")
 
         tenant_id = claims.get("custom:tenant_id")
@@ -104,13 +113,16 @@ class CognitoVerifier:
             raise AuthError("Token missing custom:tenant_id claim")
 
         groups = parse_groups(claims.get("cognito:groups", []))
+        resolved_client_id = (
+            client_id if isinstance(client_id, str) else self._config.client_id
+        )
 
         return VerifiedClaims(
             sub=claims["sub"],
             tenant_id=tenant_id,
             email=claims.get("email"),
             groups=groups,
-            client_id=client_id,
+            client_id=resolved_client_id,
             given_name=claims.get("given_name") or "",
             family_name=claims.get("family_name") or "",
         )

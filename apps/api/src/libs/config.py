@@ -45,7 +45,11 @@ class Config:
 
         # Auth
         self.COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
-        self.COGNITO_APP_CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID")
+        self.COGNITO_CLIENT_ID = (
+            os.getenv("COGNITO_CLIENT_ID")
+            or os.getenv("COGNITO_APP_CLIENT_ID")
+        )
+        self.COGNITO_APP_CLIENT_ID = self.COGNITO_CLIENT_ID
         self.AUTH_ENABLED = os.getenv(
             "AUTH_ENABLED", "true"
         ).lower() == "true"
