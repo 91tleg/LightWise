@@ -159,8 +159,25 @@ class TestHeartbeat:
         use_case.execute(_HEARTBEAT)
         writer.write.assert_not_called()
 
-    def test_ws_not_broadcast(self):
-        use_case, _, _, publisher, _, _ = _use_case()
+    def test_ws_repo_queried_with_correct_identity(self):
+        use_case, _, _, _, ws_repo, _ = _use_case()
+        use_case.execute(_HEARTBEAT)
+        ws_repo.get_connections_for_streetlight.assert_called_once_with(
+            tenant_id="tenant-1",
+            streetlight_id="sl-001",
+        )
+
+    def test_broadcasts_when_connections_exist(self):
+        connections = [{"connection_id": "conn-1"}]
+        use_case, _, _, publisher, _, _ = _use_case(connections=connections)
+        use_case.execute(_HEARTBEAT)
+        publisher.broadcast.assert_called_once()
+        call_connections, message = publisher.broadcast.call_args[0]
+        assert call_connections == connections
+        assert message["event"] == "heartbeat"
+
+    def test_no_broadcast_when_no_connections(self):
+        use_case, _, _, publisher, _, _ = _use_case(connections=[])
         use_case.execute(_HEARTBEAT)
         publisher.broadcast.assert_not_called()
 

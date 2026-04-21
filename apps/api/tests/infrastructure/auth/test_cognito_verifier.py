@@ -70,6 +70,24 @@ def test_verify_returns_verified_claims(cognito_verifier):
     assert result.client_id == "test-client-id"
 
 
+def test_verify_accepts_id_token_audience(cognito_verifier):
+    claims = _make_claims(
+        token_use="id",
+        aud="test-client-id",
+        client_id=None,
+    )
+    with patch.object(
+        cognito_verifier, "_get_public_key", return_value=MagicMock()
+    ):
+        with patch(
+            "jwt.get_unverified_header", return_value={"kid": "test-kid"}
+        ):
+            with patch("jwt.decode", return_value=claims):
+                result = cognito_verifier.verify("some.jwt.token")
+
+    assert result.client_id == "test-client-id"
+
+
 def test_verify_admin_in_multiple_groups(cognito_verifier):
     with patch.object(
         cognito_verifier, "_get_public_key", return_value=MagicMock()
@@ -158,6 +176,25 @@ def test_client_id_mismatch_raises(cognito_verifier):
                 "jwt.decode",
                 return_value=_make_claims(client_id="wrong-client")
             ):
+                with pytest.raises(
+                    AuthError, match="Token client_id mismatch"
+                ):
+                    cognito_verifier.verify("some.jwt.token")
+
+
+def test_id_token_audience_mismatch_raises(cognito_verifier):
+    claims = _make_claims(
+        token_use="id",
+        aud="wrong-client",
+        client_id=None,
+    )
+    with patch.object(
+        cognito_verifier, "_get_public_key", return_value=MagicMock()
+    ):
+        with patch(
+            "jwt.get_unverified_header", return_value={"kid": "test-kid"}
+        ):
+            with patch("jwt.decode", return_value=claims):
                 with pytest.raises(
                     AuthError, match="Token client_id mismatch"
                 ):
