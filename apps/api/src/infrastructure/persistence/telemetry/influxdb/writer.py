@@ -25,7 +25,7 @@ class InfluxTelemetryWriter:
             .field("lux", float(event.lux))
             .field("temperature_c", int(event.temperature_c))
             .field("humidity_pct", int(event.humidity))
-            .field("motion", int(event.motion))
+            .field("motion", int(event.motion_detected))
             .field("light_level_pct", int(event.light_level))
             .time(int(event.timestamp.timestamp()), WritePrecision.S)
         )

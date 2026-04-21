@@ -24,6 +24,9 @@ def mock_state(sample_now):
     state.last_seen = sample_now
     state.motion_detected = True
     state.light_level = 80
+    state.temp_c = 22
+    state.humidity = 61
+    state.lux = 123.4
     state.diagnostics.overall_ok = True
     state.diagnostics.ambient_health.name = "OK"
     state.diagnostics.mmwave_health.name = "OK"
@@ -57,6 +60,9 @@ def test_streetlight_to_response_full_data(mock_state, mock_metadata):
     assert result["lat"] == 45.523
     assert "2026-04-07" in result["last_seen"]
     assert result["light_level"] == 80
+    assert result["temp_c"] == 22
+    assert result["humidity"] == 61
+    assert result["lux"] == 123.4
     assert result["diagnostics"]["overall_ok"] is True
 
 
@@ -108,4 +114,7 @@ def test_streetlight_to_list_item_mapping(mock_state, mock_metadata):
     assert result["health"] == "OK"
     assert result["motion_detected"] is True
     assert result["light_level"] == 80
+    assert result["temp_c"] == 22
+    assert result["humidity"] == 61
+    assert result["lux"] == 123.4
     assert result["diagnostics"]["overall_ok"] is True

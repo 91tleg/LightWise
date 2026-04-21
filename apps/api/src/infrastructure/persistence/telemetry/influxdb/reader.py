@@ -68,6 +68,7 @@ class InfluxTelemetryReader:
                     r._field == "lux"             or
                     r._field == "temperature_c"   or
                     r._field == "humidity_pct"    or
+                    r._field == "motion"          or
                     r._field == "light_level_pct"
               )
               |> aggregateWindow(
@@ -100,6 +101,7 @@ class InfluxTelemetryReader:
                     "lux": record.values.get("lux"),
                     "temperature_c": record.values.get("temperature_c"),
                     "humidity_pct": record.values.get("humidity_pct"),
+                    "motion": record.values.get("motion"),
                     "light_level_pct": record.values.get("light_level_pct"),
                 }
                 for record in generator
