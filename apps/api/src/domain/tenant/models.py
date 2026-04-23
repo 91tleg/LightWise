@@ -23,3 +23,5 @@ class TenantUser:
     email: str
     role: str
     created_at: str
+    
+    
