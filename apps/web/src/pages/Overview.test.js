@@ -1,4 +1,8 @@
-import { getCombinedSensorHealth, getOverviewPoleList } from "./overview.helpers";
+import {
+  getCombinedSensorHealth,
+  getOverviewPoleList,
+  isPoleTelemetryStale,
+} from "./overview.helpers";
 
 describe("getOverviewPoleList", () => {
   test("keeps only the working overview pole when it is present", () => {
@@ -75,5 +79,29 @@ describe("getCombinedSensorHealth", () => {
       label: "Sensors degraded",
       tone: "warning",
     });
+  });
+});
+
+describe("isPoleTelemetryStale", () => {
+  test("returns true when last_seen is missing", () => {
+    expect(isPoleTelemetryStale({}, new Date("2026-04-23T19:00:00Z"))).toBe(true);
+  });
+
+  test("returns false when telemetry is recent", () => {
+    expect(
+      isPoleTelemetryStale(
+        { last_seen: "2026-04-23T18:58:00Z" },
+        new Date("2026-04-23T19:00:00Z")
+      )
+    ).toBe(false);
+  });
+
+  test("returns true when telemetry is stale", () => {
+    expect(
+      isPoleTelemetryStale(
+        { last_seen: "2026-04-23T18:40:00Z" },
+        new Date("2026-04-23T19:00:00Z")
+      )
+    ).toBe(true);
   });
 });
