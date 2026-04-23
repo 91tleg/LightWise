@@ -14,9 +14,9 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 
-from application.tenant.invite_user import InviteUser
+from apps.api.src.application.tenant.invite_user import InviteUser
 from domain.errors import AuthError
-from infrastructure.auth.cognito_admin import (
+from apps.api.src.infrastructure.auth.cognito_admin import (
     create_cognito_user
 )
 from infrastructure.auth.identity import resolve_identity
