@@ -69,5 +69,3 @@ class RemoveUser:
         )
         self._user_repo.delete_user(tenant_id, user_id)
         
-        
-        

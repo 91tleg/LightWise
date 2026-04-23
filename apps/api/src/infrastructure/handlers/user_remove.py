@@ -102,4 +102,3 @@ def handler(event: dict, context: object) -> dict:
         },
     )
     return success({"message": "User removed"})
-
