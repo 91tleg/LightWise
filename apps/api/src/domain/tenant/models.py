@@ -24,4 +24,3 @@ class TenantUser:
     role: str
     created_at: str
     
-    
