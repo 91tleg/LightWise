@@ -50,4 +50,4 @@ def handler(event: dict, context: object) -> dict:
         }
         for u in users
     ])
-    
+
