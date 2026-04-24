@@ -62,7 +62,7 @@ def telemetry_to_ws_message(
             "lux": report.readings.lux,
             "temp_c": report.readings.temperature_c,
             "humidity": report.readings.humidity,
-            "motion_detected": report.readings.motion,
+            "motion_detected": report.readings.motion_detected,
             "light_level": report.readings.light_level,
         },
         "diagnostics": {
