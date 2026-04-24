@@ -79,4 +79,3 @@ class InviteUser:
         )
         self._user_repo.save_user(user)
         return user
-

@@ -18,4 +18,3 @@ class OperatorProfile:
     @property
     def full_name(self) -> str:
         return f"{self.first_name.strip()} {self.last_name.strip()}".strip()
-

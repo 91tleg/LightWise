@@ -147,4 +147,3 @@ def get_user_tenant_repo() -> UserTenantRepo:
         table_name=settings.DDB_TABLE_USERS_AND_TENANTS
 
     )
-

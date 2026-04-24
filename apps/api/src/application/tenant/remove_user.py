@@ -16,7 +16,7 @@ class TenantRepo(Protocol):
 
 class TenantUserRepo(Protocol):
     def get_user(
-            self, tenant_id: str, user_id: str
+        self, tenant_id: str, user_id: str
     ) -> TenantUser | None: ...
 
     def delete_user(
@@ -68,4 +68,3 @@ class RemoveUser:
             email=user.email,
         )
         self._user_repo.delete_user(tenant_id, user_id)
-

@@ -140,4 +140,3 @@ def handler(event: dict, context: object) -> dict:
         },
         status_code=201,
     )
-

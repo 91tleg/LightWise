@@ -19,4 +19,3 @@ class ListUsers:
 
     def execute(self, tenant_id: str) -> list[TenantUser]:
         return self._user_repo.list_users(tenant_id)
-

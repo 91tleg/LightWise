@@ -21,6 +21,7 @@ class ListStreetlights:
     Orchestrates fetching both State and Metadata to provide a
     complete fleet overview for a tenant.
     """
+
     def __init__(
         self,
         state_repo: StreetlightsRepo,
