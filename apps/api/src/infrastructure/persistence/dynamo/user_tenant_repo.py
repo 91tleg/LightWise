@@ -27,6 +27,8 @@ class UserTenantRepo:
             return Tenant(
                 tenant_id=item["tenant_id"],
                 name=item["name"],
+                owner_user_id=item["owner_user_id"],
+                max_users=int(item["max_users"]),
                 created_at=item["created_at"],
             )
         except ClientError as e:
@@ -40,6 +42,8 @@ class UserTenantRepo:
                 "tenant_id": tenant.tenant_id,
                 "user_id": self.TENANT_SK,
                 "name": tenant.name,
+                "owner_user_id": tenant.owner_user_id,
+                "max_users": tenant.max_users,
                 "created_at": tenant.created_at,
             })
         except ClientError as e:
@@ -63,17 +67,38 @@ class UserTenantRepo:
                 f"Failed to retrieve user: {user_id}"
             ) from e
 
-    def list_users(self, tenant_id: str) -> list[TenantUser]:
+    def count_users(self, tenant_id: str) -> int:
         try:
             result = self._table.query(
                 KeyConditionExpression=(
                     Key("tenant_id").eq(tenant_id)
                     & Key("user_id").begins_with("u-")
-                )
+                ),
+                Select="COUNT",
             )
-            return [self._item_to_user(item) for item in result.get(
-                "Items", []
-            )]
+            return result.get("Count", 0)
+        except ClientError as e:
+            raise PersistenceError(
+                f"Failed to count users for tenant: {tenant_id}"
+            ) from e
+
+    def list_users(self, tenant_id: str) -> list[TenantUser]:
+        try:
+            items = []
+            kwargs = {
+                "KeyConditionExpression": (
+                    Key("tenant_id").eq(tenant_id)
+                    & Key("user_id").begins_with("u-")
+                )
+            }
+            while True:
+                result = self._table.query(**kwargs)
+                items.extend(result.get("Items", []))
+                last = result.get("LastEvaluatedKey")
+                if not last:
+                    break
+                kwargs["ExclusiveStartKey"] = last
+            return [self._item_to_user(item) for item in items]
         except ClientError as e:
             raise PersistenceError(
                 f"Failed to list users for tenant: {tenant_id}"
@@ -95,7 +120,7 @@ class UserTenantRepo:
 
     def delete_user(self, tenant_id: str, user_id: str) -> None:
         try:
-            self.ta_tableble.delete_item(
+            self._table.delete_item(
                 Key={"tenant_id": tenant_id, "user_id": user_id}
             )
         except ClientError as e:
@@ -120,4 +145,5 @@ def get_user_tenant_repo() -> UserTenantRepo:
 
     return UserTenantRepo(
         table_name=settings.DDB_TABLE_USERS_AND_TENANTS
+
     )
