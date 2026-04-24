@@ -71,7 +71,9 @@ def mock_report(now: datetime) -> MagicMock:
 class TestStreetlightToResponse:
     def test_full_data(self, mock_state, mock_metadata, now):
         result = streetlight_to_response(
-            StreetlightResponse(state=mock_state, metadata=mock_metadata)
+            StreetlightResponse(
+                state=mock_state, metadata=mock_metadata
+            )
         )
         assert result["streetlight_id"] == "SL-001"
         assert result["tenant_id"] == "tenant-55"
@@ -90,7 +92,9 @@ class TestStreetlightToResponse:
 
     def test_diagnostics(self, mock_state, mock_metadata):
         result = streetlight_to_response(
-            StreetlightResponse(state=mock_state, metadata=mock_metadata)
+            StreetlightResponse(
+                state=mock_state, metadata=mock_metadata
+            )
         )
         assert result["diagnostics"]["overall_ok"] is True
         assert result["diagnostics"]["ambient_health"] == "SYSTEM_OK"
@@ -109,9 +113,13 @@ class TestStreetlightToResponse:
         assert result["model"] is None
         assert result["installed_at"] is None
 
-    def test_no_temp_humidity_lux_in_response(self, mock_state, mock_metadata):
+    def test_no_temp_humidity_lux_in_response(
+        self, mock_state, mock_metadata
+    ):
         result = streetlight_to_response(
-            StreetlightResponse(state=mock_state, metadata=mock_metadata)
+            StreetlightResponse(
+                state=mock_state, metadata=mock_metadata
+            )
         )
         assert "temp_c" not in result
         assert "humidity" not in result
@@ -139,7 +147,6 @@ class TestTelemetryToWsMessage:
         assert result["data"]["light_level"] == 80
 
     def test_motion_field_name(self, mock_report):
-        """motion is report.readings.motion not motion_detected."""
         result = telemetry_to_ws_message(mock_report, MagicMock())
         assert result["data"]["motion_detected"] is True
 
@@ -180,7 +187,9 @@ class TestStreetlightToListItem:
         assert result["location"]["lat"] == 45.523
         assert result["location"]["lng"] == -122.676
 
-    def test_no_temp_humidity_lux_in_list_item(self, mock_state, mock_metadata):
+    def test_no_temp_humidity_lux_in_list_item(
+        self, mock_state, mock_metadata
+    ):
         result = streetlight_to_list_item(mock_state, mock_metadata)
         assert "temp_c" not in result
         assert "humidity" not in result
