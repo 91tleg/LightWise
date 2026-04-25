@@ -43,6 +43,7 @@ jobs:
             --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Env=prod \
+              AuthEnabled=true \
               InfluxUrl=${{ secrets.INFLUX_URL }} \
               InfluxToken=${{ secrets.INFLUX_TOKEN }} \
               InfluxOrg=${{ secrets.INFLUX_ORG }}
