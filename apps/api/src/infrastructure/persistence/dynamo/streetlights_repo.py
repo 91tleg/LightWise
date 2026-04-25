@@ -196,8 +196,12 @@ class StreetlightsRepo:
             ),
             rssi=int(item["rssi"]) if item.get("rssi") is not None else None,
             snr=float(item["snr"]) if item.get("snr") is not None else None,
-            temp_c=int(item["temp_c"]) if item.get("temp_c") is not None else None,
-            humidity=int(item["humidity"]) if item.get("humidity") is not None else None,
+            temp_c=int(
+                item["temp_c"]
+            ) if item.get("temp_c") is not None else None,
+            humidity=int(
+                item["humidity"]
+            ) if item.get("humidity") is not None else None,
             lux=float(raw_lux) if raw_lux is not None else None,
         )
 

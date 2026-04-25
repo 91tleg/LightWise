@@ -144,7 +144,9 @@ class TestTelemetryToWsMessage:
         assert result["data"]["light_level"] == 80
 
     def test_motion_detected_from_readings(self, mock_report):
-        """motion_detected in output maps to report.readings.motion_detected."""
+        """
+        motion_detected in output maps to report.readings.motion_detected.
+        """
         mock_report.readings.motion_detected = True
         result = telemetry_to_ws_message(mock_report, MagicMock())
         assert result["data"]["motion_detected"] is True
