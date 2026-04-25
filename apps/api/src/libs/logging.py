@@ -12,14 +12,14 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "message": record.getMessage(),
         }
+        if record.exc_info:
+            log_record["exception"] = self.formatException(record.exc_info)
         for key in (
             "tenant_id",
             "streetlight_id",
             "user_id",
             "request_id",
-            "method_arn",
-            "auth_error",
-            "token_use",
+            "error"
         ):
             if hasattr(record, key):
                 log_record[key] = getattr(record, key)
@@ -39,12 +39,14 @@ def bind_context(
     tenant_id=None,
     streetlight_id=None,
     user_id=None,
-    request_id=None
+    request_id=None,
+    error=None
 ):
     extra = {k: v for k, v in {
         "tenant_id": tenant_id,
         "streetlight_id": streetlight_id,
         "user_id": user_id,
-        "request_id": request_id
+        "request_id": request_id,
+        "error": error
     }.items() if v is not None}
     return logging.LoggerAdapter(logger, extra)
