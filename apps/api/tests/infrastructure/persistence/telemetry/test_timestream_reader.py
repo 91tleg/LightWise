@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from infrastructure.persistence.telemetry.timestream.reader import TimestreamReader
+from infrastructure.persistence.telemetry.timestream.reader import (
+    TimestreamReader,
+)
 
 
 def _reader() -> TimestreamReader:
