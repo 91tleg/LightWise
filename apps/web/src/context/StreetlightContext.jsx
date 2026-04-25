@@ -46,9 +46,7 @@ export function StreetlightProvider({ children }) {
       const list = Array.isArray(prev) ? prev : [];
       const exists = list.some((row) => row.streetlight_id === id);
 
-      if (!exists) {
-        return [normalizeStreetlightFromApi({ streetlight_id: id, ...patch }), ...list];
-      }
+      if (!exists) return list;
 
       return list.map((row) =>
         row.streetlight_id === id
@@ -66,6 +64,16 @@ export function StreetlightProvider({ children }) {
       return;
     }
     refreshStreetlights();
+  }, [isAuthenticated, refreshStreetlights]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
+    const timer = window.setInterval(() => {
+      refreshStreetlights();
+    }, 60 * 1000);
+
+    return () => window.clearInterval(timer);
   }, [isAuthenticated, refreshStreetlights]);
 
   useEffect(() => {
@@ -92,15 +100,7 @@ export function StreetlightProvider({ children }) {
       const index = list.findIndex((row) => row.streetlight_id === streetlightId);
       const snapshot = snapshotFromWsMessage(lastMessage);
 
-      if (index === -1) {
-        return [
-          mergePoleSnapshot(
-            normalizeStreetlightFromApi({ streetlight_id: streetlightId }),
-            snapshot
-          ),
-          ...list,
-        ];
-      }
+      if (index === -1) return list;
 
       return list.map((row) =>
         row.streetlight_id === streetlightId ? mergePoleSnapshot(row, snapshot) : row
