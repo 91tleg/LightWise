@@ -166,7 +166,8 @@
   color: #5e7792;
 }
 
-.analyticsField input {
+.analyticsField input,
+.analyticsField select {
   width: 100%;
   min-height: 44px;
   border-radius: 14px;
@@ -177,6 +178,24 @@
   font-size: 14px;
   font-weight: 800;
   box-sizing: border-box;
+}
+
+.analyticsSelectField {
+  min-width: 150px;
+}
+
+.analyticsField select {
+  appearance: none;
+  padding-right: 38px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #2b4663 50%),
+    linear-gradient(135deg, #2b4663 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 20px,
+    calc(100% - 12px) 20px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  cursor: pointer;
 }
 
 .analyticsField input[type="datetime-local"]::-webkit-calendar-picker-indicator {
@@ -211,6 +230,7 @@
 }
 
 .analyticsField input:focus,
+.analyticsField select:focus,
 .analyticsSearchInput:focus {
   outline: none;
   border-color: rgba(13, 115, 168, 0.45);
@@ -291,6 +311,82 @@
   font-size: 13px;
   line-height: 1.5;
   color: #62758a;
+}
+
+.analyticsPoleListCard {
+  padding: 16px;
+}
+
+.analyticsPoleList {
+  display: grid;
+  gap: 10px;
+}
+
+.analyticsPoleListItem {
+  width: 100%;
+  min-height: 66px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff, #f7fbff);
+  color: #18324b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.analyticsPoleListItem strong,
+.analyticsPoleListItem small {
+  display: block;
+}
+
+.analyticsPoleListItem strong {
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+.analyticsPoleListItem small {
+  margin-top: 4px;
+  color: #6b8097;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.analyticsPoleListItem.isSelected {
+  border-color: rgba(13, 115, 168, 0.28);
+  background: linear-gradient(180deg, #eef8ff, #e8f3fb);
+  box-shadow: inset 0 0 0 1px rgba(13, 115, 168, 0.08);
+}
+
+.analyticsPoleHealth {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(148, 163, 184, 0.14);
+  color: #475569;
+  font-size: 11px;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+
+.analyticsPoleHealth.healthy {
+  background: rgba(34, 197, 94, 0.14);
+  color: #166534;
+}
+
+.analyticsPoleHealth.warning {
+  background: rgba(245, 158, 11, 0.14);
+  color: #9a6500;
+}
+
+.analyticsPoleHealth.critical {
+  background: rgba(239, 68, 68, 0.14);
+  color: #b42318;
 }
 
 .analyticsWideCard,
@@ -1032,7 +1128,9 @@ body.dark .analyticsMetricSwitch,
 body.dark .analyticsPresetButton,
 body.dark .analyticsActionButton,
 body.dark .analyticsFilterPill,
+body.dark .analyticsPoleListItem,
 body.dark .analyticsField input,
+body.dark .analyticsField select,
 body.dark .analyticsSearchInput {
   background: rgba(17, 29, 43, 0.92);
   border-color: rgba(148, 163, 184, 0.12);
@@ -1079,6 +1177,7 @@ body.dark .analyticsMetricSwitch.isActive {
 body.dark .analyticsRangeMetaLabel,
 body.dark .analyticsField span,
 body.dark .analyticsMetricLabel,
+body.dark .analyticsPoleListItem small,
 body.dark .analyticsTable th,
 body.dark .analyticsVizAxis {
   color: #a8bed1;
@@ -1107,11 +1206,37 @@ body.dark .analyticsZoneRow.isExpanded {
 body.dark .analyticsTable td,
 body.dark .analyticsSectionTitle,
 body.dark .analyticsMetricValue,
+body.dark .analyticsPoleListItem strong,
 body.dark .analyticsFaultTitle,
 body.dark .analyticsEmptyTitle,
 body.dark .analyticsExportButton strong,
 body.dark .analyticsHeroTitle {
   color: #f1f6fb;
+}
+
+body.dark .analyticsPoleListItem.isSelected {
+  border-color: rgba(99, 179, 255, 0.28);
+  background: linear-gradient(180deg, rgba(18, 38, 59, 0.99), rgba(13, 28, 46, 0.98));
+}
+
+body.dark .analyticsPoleHealth {
+  background: rgba(148, 163, 184, 0.14);
+  color: #dbe7f6;
+}
+
+body.dark .analyticsPoleHealth.healthy {
+  background: rgba(34, 197, 94, 0.16);
+  color: #7ee2a8;
+}
+
+body.dark .analyticsPoleHealth.warning {
+  background: rgba(245, 158, 11, 0.16);
+  color: #ffd082;
+}
+
+body.dark .analyticsPoleHealth.critical {
+  background: rgba(239, 68, 68, 0.16);
+  color: #ff9a9a;
 }
 
 body.dark .analyticsActionButton,

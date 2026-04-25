@@ -15,6 +15,7 @@ function isSensorWarning(value) {
 }
 
 export const OVERVIEW_WORKING_POLE_ID = "LW-00100";
+export const POLE_OFFLINE_THRESHOLD_MS = 180 * 1000;
 
 export function getOverviewPoleList(
   poles,
@@ -34,6 +35,24 @@ export function getOverviewPoleList(
   }
 
   return rows.slice(0, 1);
+}
+
+export function isPoleTelemetryStale(
+  pole,
+  nowValue = Date.now(),
+  thresholdMs = POLE_OFFLINE_THRESHOLD_MS
+) {
+  const lastSeen = pole?.last_seen;
+  if (!lastSeen) return true;
+
+  const timestamp = new Date(lastSeen).getTime();
+  const nowMs = nowValue instanceof Date ? nowValue.getTime() : Number(nowValue);
+
+  if (!Number.isFinite(timestamp) || !Number.isFinite(nowMs)) {
+    return true;
+  }
+
+  return nowMs - timestamp > thresholdMs;
 }
 
 export function getCombinedSensorHealth(pole) {

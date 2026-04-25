@@ -5,7 +5,7 @@ from domain.streetlight.interval import TelemetryInterval
 
 class TestTelemetryInterval:
     def test_init_valid_values(self):
-        intervals = ["1m", "5m", "1h", "1d", "30d"]
+        intervals = ["5s", "10s", "30s", "1m", "5m", "1h", "1d", "30d"]
         for val in intervals:
             interval = TelemetryInterval(val)
             assert interval.value == val
@@ -39,11 +39,12 @@ class TestTelemetryInterval:
         (1, "1m", "5m"),
         (2, "10m", "10m"),   # Requested is coarser than min, keep
 
-        # Window >= 1 hour -> Min 1m
-        (0.05, "1m", "1m"),  # ~72 mins: 1m is allowed
+        # Live-sized windows can use seconds-level buckets
+        (0.05, "30s", "30s"),  # ~72 mins: seconds are allowed
+        (0.25, "30s", "1m"),   # 6h window -> Min 1m
 
         # Tiny window (under 1h) -> No coercion
-        (0.01, "1m", "1m"),
+        (0.01, "5s", "5s"),
     ])
     def test_resolve_for_window(self, window_days, requested, expected):
         from_dt = datetime(2024, 1, 1, 12, 0)
