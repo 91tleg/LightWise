@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -25,6 +26,9 @@ def mock_state(now: datetime) -> MagicMock:
     state.last_seen = now
     state.motion_detected = True
     state.light_level = 80
+    state.temp_c = 22
+    state.humidity = 61
+    state.lux = 123.4
     state.diagnostics.overall_ok = True
     state.diagnostics.ambient_health.name = "SYSTEM_OK"
     state.diagnostics.mmwave_health.name = "SYSTEM_OK"
@@ -71,9 +75,7 @@ def mock_report(now: datetime) -> MagicMock:
 class TestStreetlightToResponse:
     def test_full_data(self, mock_state, mock_metadata, now):
         result = streetlight_to_response(
-            StreetlightResponse(
-                state=mock_state, metadata=mock_metadata
-            )
+            StreetlightResponse(state=mock_state, metadata=mock_metadata)
         )
         assert result["streetlight_id"] == "SL-001"
         assert result["tenant_id"] == "tenant-55"
@@ -81,6 +83,9 @@ class TestStreetlightToResponse:
         assert result["last_seen"] == now.isoformat()
         assert result["motion_detected"] is True
         assert result["light_level"] == 80
+        assert result["temp_c"] == 22
+        assert result["humidity"] == 61
+        assert result["lux"] == 123.4
         assert result["rssi"] == -65
         assert result["snr"] == 10.0
         assert result["lat"] == 45.523
@@ -92,9 +97,7 @@ class TestStreetlightToResponse:
 
     def test_diagnostics(self, mock_state, mock_metadata):
         result = streetlight_to_response(
-            StreetlightResponse(
-                state=mock_state, metadata=mock_metadata
-            )
+            StreetlightResponse(state=mock_state, metadata=mock_metadata)
         )
         assert result["diagnostics"]["overall_ok"] is True
         assert result["diagnostics"]["ambient_health"] == "SYSTEM_OK"
@@ -113,24 +116,18 @@ class TestStreetlightToResponse:
         assert result["model"] is None
         assert result["installed_at"] is None
 
-    def test_no_temp_humidity_lux_in_response(
-        self, mock_state, mock_metadata
-    ):
+    def test_state_fields_present_without_metadata(self, mock_state):
         result = streetlight_to_response(
-            StreetlightResponse(
-                state=mock_state, metadata=mock_metadata
-            )
+            StreetlightResponse(state=mock_state, metadata=None)
         )
-        assert "temp_c" not in result
-        assert "humidity" not in result
-        assert "lux" not in result
+        assert result["temp_c"] == 22
+        assert result["humidity"] == 61
+        assert result["lux"] == 123.4
 
 
 class TestTelemetryToWsMessage:
     def test_event_type(self, mock_report):
-        health = MagicMock()
-        health.name = "DEGRADED"
-        result = telemetry_to_ws_message(mock_report, health)
+        result = telemetry_to_ws_message(mock_report, MagicMock())
         assert result["event"] == "telemetry"
 
     def test_health_name(self, mock_report):
@@ -146,7 +143,9 @@ class TestTelemetryToWsMessage:
         assert result["data"]["humidity"] == 61
         assert result["data"]["light_level"] == 80
 
-    def test_motion_field_name(self, mock_report):
+    def test_motion_detected_from_readings(self, mock_report):
+        """motion_detected in output maps to report.readings.motion_detected."""
+        mock_report.readings.motion_detected = True
         result = telemetry_to_ws_message(mock_report, MagicMock())
         assert result["data"]["motion_detected"] is True
 
@@ -160,9 +159,14 @@ class TestTelemetryToWsMessage:
         assert result["tenant_id"] == "tenant-55"
         assert result["site_id"] == "SITE-1"
 
+    def test_diagnostics(self, mock_report):
+        result = telemetry_to_ws_message(mock_report, MagicMock())
+        assert result["diagnostics"]["overall_ok"] is True
+        assert result["diagnostics"]["ambient_health"] == "SYSTEM_OK"
+
 
 class TestHeartbeatToWsMessage:
-    def test_event_type(self, now):
+    def test_fields(self, now):
         heartbeat = MagicMock()
         heartbeat.streetlight_id = "SL-001"
         heartbeat.tenant_id = "tenant-55"
@@ -184,16 +188,13 @@ class TestStreetlightToListItem:
         assert result["health"] == "OK"
         assert result["motion_detected"] is True
         assert result["light_level"] == 80
+        assert result["temp_c"] == 22
+        assert result["humidity"] == 61
+        assert result["lux"] == 123.4
+        assert result["rssi"] == -65
+        assert result["snr"] == 10.0
         assert result["location"]["lat"] == 45.523
         assert result["location"]["lng"] == -122.676
-
-    def test_no_temp_humidity_lux_in_list_item(
-        self, mock_state, mock_metadata
-    ):
-        result = streetlight_to_list_item(mock_state, mock_metadata)
-        assert "temp_c" not in result
-        assert "humidity" not in result
-        assert "lux" not in result
 
     def test_no_metadata(self, mock_state):
         result = streetlight_to_list_item(mock_state, None)
@@ -202,7 +203,16 @@ class TestStreetlightToListItem:
         assert result["location"]["lat"] is None
         assert result["location"]["lng"] is None
 
+    def test_state_fields_present_without_metadata(self, mock_state):
+        result = streetlight_to_list_item(mock_state, None)
+        assert result["temp_c"] == 22
+        assert result["humidity"] == 61
+        assert result["lux"] == 123.4
+
     def test_diagnostics(self, mock_state, mock_metadata):
         result = streetlight_to_list_item(mock_state, mock_metadata)
         assert result["diagnostics"]["overall_ok"] is True
         assert result["diagnostics"]["ambient_health"] == "SYSTEM_OK"
+        assert result["diagnostics"]["mmwave_health"] == "SYSTEM_OK"
+        assert result["diagnostics"]["th_ok"] is True
+        assert result["diagnostics"]["light_ok"] is True

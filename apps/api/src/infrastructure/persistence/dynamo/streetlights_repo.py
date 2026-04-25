@@ -23,47 +23,54 @@ class StreetlightsRepo:
         telemetry: TelemetryReport,
         health: HealthStatus,
     ) -> None:
+        values = {
+            ":l":   Decimal(str(telemetry.lux)),
+            ":lvl": telemetry.light_level,
+            ":h":   health.name,
+            ":t":   telemetry.timestamp.isoformat(),
+            ":m":   telemetry.motion_detected,
+            ":ah":  telemetry.diagnostics.ambient_health.value,
+            ":mh":  telemetry.diagnostics.mmwave_health.value,
+            ":th":  telemetry.diagnostics.th_ok,
+            ":lo":  telemetry.diagnostics.light_ok,
+            ":ok":  telemetry.diagnostics.overall_ok,
+            ":tc":  telemetry.readings.temperature_c,
+            ":hum": telemetry.readings.humidity,
+            ":lux": Decimal(str(telemetry.readings.lux)),
+        }
+
+        expr = (
+            "SET last_lux = :l, "
+            "light_level = :lvl, "
+            "health_status = :h, "
+            "last_seen = :t, "
+            "motion_detected = :m, "
+            "ambient_health = :ah, "
+            "mmwave_health = :mh, "
+            "th_ok = :th, "
+            "light_ok = :lo, "
+            "overall_ok = :ok, "
+            "temp_c = :tc, "
+            "humidity = :hum, "
+            "lux = :lux"
+        )
+
+        if telemetry.rssi is not None:
+            expr += ", rssi = :rssi"
+            values[":rssi"] = telemetry.rssi
+
+        if telemetry.snr is not None:
+            expr += ", snr = :snr"
+            values[":snr"] = Decimal(str(telemetry.snr))
+
         try:
             self._table.update_item(
                 Key={
                     "tenant_id": telemetry.tenant_id,
                     "streetlight_id": telemetry.streetlight_id,
                 },
-                UpdateExpression=(
-                    "SET last_lux = :l, "
-                    "lux = :l, "
-                    "temp_c = :tc, "
-                    "humidity = :hum, "
-                    "light_level = :lvl, "
-                    "health_status = :h, "
-                    "last_seen = :t, "
-                    "motion_detected = :m, "
-                    "ambient_health = :ah, "
-                    "mmwave_health = :mh, "
-                    "th_ok = :th, "
-                    "light_ok = :lo, "
-                    "overall_ok = :ok, "
-                    "rssi = :rssi, "
-                    "snr = :snr"
-                ),
-                ExpressionAttributeValues={
-                    ":l":    Decimal(str(telemetry.lux)),
-                    ":lvl":  telemetry.light_level,
-                    ":h":    health.value,
-                    ":t":    telemetry.timestamp.isoformat(),
-                    ":m":    telemetry.motion_detected,
-                    ":tc":   telemetry.temperature_c,
-                    ":hum":  telemetry.humidity,
-                    ":ah":   telemetry.diagnostics.ambient_health.value,
-                    ":mh":   telemetry.diagnostics.mmwave_health.value,
-                    ":th":   telemetry.diagnostics.th_ok,
-                    ":lo":   telemetry.diagnostics.light_ok,
-                    ":ok":   telemetry.diagnostics.overall_ok,
-                    ":rssi": telemetry.rssi,
-                    ":snr":  Decimal(
-                        str(telemetry.snr)
-                    ) if telemetry.snr is not None else None,
-                },
+                UpdateExpression=expr,
+                ExpressionAttributeValues=values,
             )
         except Exception as e:
             raise PersistenceError(
@@ -89,12 +96,16 @@ class StreetlightsRepo:
 
     def list_by_tenant(self, tenant_id: str) -> list[StreetlightState]:
         try:
-            response = self._table.query(
-                KeyConditionExpression=Key("tenant_id").eq(tenant_id),
-            )
-            return [self._from_item(item) for item in response.get(
-                "Items", []
-            )]
+            items = []
+            kwargs = {"KeyConditionExpression": Key("tenant_id").eq(tenant_id)}
+            while True:
+                response = self._table.query(**kwargs)
+                items.extend(response.get("Items", []))
+                last = response.get("LastEvaluatedKey")
+                if not last:
+                    break
+                kwargs["ExclusiveStartKey"] = last
+            return [self._from_item(item) for item in items]
         except Exception as e:
             raise PersistenceError(
                 f"Could not retrieve streetlights for tenant {tenant_id}"
@@ -145,19 +156,28 @@ class StreetlightsRepo:
             ) from e
 
     @staticmethod
-    def _from_item(item: dict) -> StreetlightState:
-        def number_or_none(value: object) -> float | None:
-            if value is None:
-                return None
+    def _parse_health(value: object) -> HealthStatus:
+        """
+        Handle both string names ('CRITICAL') and integer values (3).
+        Legacy items stored integers; current items store names.
+        """
+        if isinstance(value, str):
             try:
-                return float(value)
-            except (TypeError, ValueError):
-                return None
+                return HealthStatus[value]
+            except KeyError:
+                return HealthStatus.OK
+        try:
+            return HealthStatus(int(value))
+        except (ValueError, TypeError):
+            return HealthStatus.OK
 
+    @staticmethod
+    def _from_item(item: dict) -> StreetlightState:
+        raw_lux = item.get("lux", item.get("last_lux"))
         return StreetlightState(
             streetlight_id=item["streetlight_id"],
             tenant_id=item["tenant_id"],
-            health=HealthStatus(
+            health=StreetlightsRepo._parse_health(
                 item.get("health_status", HealthStatus.OK.value)
             ),
             last_seen=datetime.fromisoformat(item["last_seen"]),
@@ -176,11 +196,9 @@ class StreetlightsRepo:
             ),
             rssi=int(item["rssi"]) if item.get("rssi") is not None else None,
             snr=float(item["snr"]) if item.get("snr") is not None else None,
-            temp_c=int(item["temp_c"])
-            if item.get("temp_c") is not None else None,
-            humidity=int(item["humidity"])
-            if item.get("humidity") is not None else None,
-            lux=number_or_none(item.get("lux", item.get("last_lux"))),
+            temp_c=int(item["temp_c"]) if item.get("temp_c") is not None else None,
+            humidity=int(item["humidity"]) if item.get("humidity") is not None else None,
+            lux=float(raw_lux) if raw_lux is not None else None,
         )
 
 
