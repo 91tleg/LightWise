@@ -105,7 +105,7 @@ export default function Overview() {
   }, []);
 
   const { events } = useWebSocketSync(lastMessage, setSnapshotMap);
-  const { loading: telemetryLoading, error: telemetryError } = useTelemetryLoader(
+  useTelemetryLoader(
     overviewSelectedPole?.streetlight_id,
     setSnapshotMap,
     { refreshMs: OVERVIEW_TELEMETRY_REFRESH_MS }
@@ -123,19 +123,16 @@ export default function Overview() {
     const reportingPoles = overviewPoles.filter(
       (pole) => !isPoleTelemetryStale(pole, nowMs)
     );
-    const polesWithHealth = overviewPoles.filter((pole) =>
-      hasReading(pole?.health)
-    );
     const total = overviewPoles.length;
-    const healthy = polesWithHealth.filter((pole) => {
+    const healthy = reportingPoles.filter((pole) => {
       const health = String(pole.health || "").toUpperCase();
       return health === "OK" || health === "HEALTHY";
     }).length;
-    const warning = polesWithHealth.filter((pole) => {
+    const warning = reportingPoles.filter((pole) => {
       const health = String(pole.health || "").toUpperCase();
       return health === "DEGRADED" || health === "WARNING";
     }).length;
-    const critical = polesWithHealth.filter(
+    const critical = reportingPoles.filter(
       (pole) => String(pole.health || "").toUpperCase() === "CRITICAL"
     ).length;
     const offline = total - reportingPoles.length;
@@ -154,50 +151,46 @@ export default function Overview() {
 
   const brightnessAvg = useMemo(() => {
     const values = overviewPoles
+      .filter((pole) => !isPoleTelemetryStale(pole, nowMs))
       .map((pole) => pole.light_level)
       .filter((value) => Number.isFinite(Number(value)))
       .map(Number);
 
     if (!values.length) return null;
     return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
-  }, [overviewPoles]);
+  }, [nowMs, overviewPoles]);
 
   const selectedPoleIsStale = isPoleTelemetryStale(overviewSelectedPole, nowMs);
   const selectedPoleHasTelemetry = hasPoleTelemetry(overviewSelectedPole);
   const selectedPoleIsLive = selectedPoleHasTelemetry && !selectedPoleIsStale;
-  const combinedSensorHealth = getCombinedSensorHealth(overviewSelectedPole);
+  const showLiveReadings = wsStatus === "connected" && selectedPoleIsLive;
+  const combinedSensorHealth = showLiveReadings
+    ? getCombinedSensorHealth(overviewSelectedPole)
+    : { label: "Waiting for data", tone: "neutral" };
   const motionValue =
-    typeof overviewSelectedPole?.motion_detected === "boolean"
+    showLiveReadings && typeof overviewSelectedPole?.motion_detected === "boolean"
       ? motionLabel(overviewSelectedPole.motion_detected)
-      : telemetryLoading
-      ? "Loading"
-      : telemetryError
-      ? "Unavailable"
       : "Waiting for data";
   const motionTone =
-    overviewSelectedPole?.motion_detected === true
+    showLiveReadings && overviewSelectedPole?.motion_detected === true
       ? "active"
-      : overviewSelectedPole?.motion_detected === false
+      : showLiveReadings && overviewSelectedPole?.motion_detected === false
       ? "healthy"
       : "neutral";
   const lightValue =
-    overviewSelectedPole?.light_level != null
+    showLiveReadings && overviewSelectedPole?.light_level != null
       ? `${overviewSelectedPole.light_level}%`
-      : telemetryLoading
-      ? "Loading"
-      : telemetryError
-      ? "Unavailable"
       : "Waiting for data";
-  const selectedPoleHealthLabel = cleanDisplay(
-    overviewSelectedPole?.health,
-    "Waiting for data"
-  );
-  const selectedPoleHealthTone = toneForHealth(overviewSelectedPole?.health);
-  const liveMetricFallback = telemetryLoading
-    ? "Loading"
-    : telemetryError
-    ? "Unavailable"
+  const selectedPoleHealthLabel = showLiveReadings
+    ? cleanDisplay(overviewSelectedPole?.health, "Waiting for data")
     : "Waiting for data";
+  const selectedPoleHealthTone = showLiveReadings
+    ? toneForHealth(overviewSelectedPole?.health)
+    : "neutral";
+  const liveMetricFallback = "Waiting for data";
+  const lastSeenValue = showLiveReadings
+    ? "Now"
+    : formatTimestamp(overviewSelectedPole?.last_seen);
   const connectionValue =
     wsStatus === "connected"
       ? selectedPoleIsLive
@@ -208,10 +201,10 @@ export default function Overview() {
       : "Offline";
   const connectionNote = selectedPoleIsLive
     ? "Receiving current telemetry"
-    : wsStatus === "connected"
-    ? "WebSocket connected; waiting for next pole event"
     : overviewSelectedPole?.last_seen
     ? `Latest loaded sample ${formatTimestamp(overviewSelectedPole.last_seen)}`
+    : wsStatus === "connected"
+    ? "WebSocket connected; waiting for next pole event"
     : "Awaiting first pole report";
   const connectionTone = selectedPoleIsLive
     ? "healthy"
@@ -295,18 +288,12 @@ export default function Overview() {
                       <MetricRow
                         label="Brightness"
                         value={lightValue}
-                        tone={
-                          selectedPoleIsLive
-                            ? "healthy"
-                            : overviewSelectedPole?.light_level != null
-                            ? "warning"
-                            : "neutral"
-                        }
+                        tone={showLiveReadings ? "healthy" : "neutral"}
                       />
                       <MetricRow
                         label="Temperature"
                         value={renderMetricValue(
-                          overviewSelectedPole.temp_c,
+                          showLiveReadings ? overviewSelectedPole.temp_c : null,
                           (value) => `${value}°C`,
                           liveMetricFallback
                         )}
@@ -314,7 +301,7 @@ export default function Overview() {
                       <MetricRow
                         label="Humidity"
                         value={renderMetricValue(
-                          overviewSelectedPole.humidity,
+                          showLiveReadings ? overviewSelectedPole.humidity : null,
                           (value) => `${value}%`,
                           liveMetricFallback
                         )}
@@ -322,7 +309,7 @@ export default function Overview() {
                       <MetricRow
                         label="Lux"
                         value={renderMetricValue(
-                          overviewSelectedPole.lux,
+                          showLiveReadings ? overviewSelectedPole.lux : null,
                           (value) => `${Math.round(value)}`,
                           liveMetricFallback
                         )}
@@ -343,7 +330,7 @@ export default function Overview() {
                       />
                       <MetricRow
                         label="Last Seen"
-                        value={formatTimestamp(overviewSelectedPole.last_seen)}
+                        value={lastSeenValue}
                       />
                       <MetricRow
                         label="Sensor Health"
@@ -363,11 +350,10 @@ export default function Overview() {
                     const selected =
                       pole.streetlight_id === overviewSelectedPole?.streetlight_id;
                     const poleIsStale = isPoleTelemetryStale(pole, nowMs);
-                    const poleHealthLabel = cleanDisplay(
-                      pole.health,
-                      poleIsStale ? "No live data" : "Waiting"
-                    );
-                    const poleHealthTone = hasReading(pole.health)
+                    const poleHealthLabel = poleIsStale
+                      ? "No live data"
+                      : cleanDisplay(pole.health, "Waiting");
+                    const poleHealthTone = !poleIsStale && hasReading(pole.health)
                       ? toneForHealth(pole.health)
                       : "neutral";
 
