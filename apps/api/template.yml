@@ -422,6 +422,20 @@ Resources:
             Path: /streetlights/{id}/metadata
             Method: put
 
+  StreetlightsSendCommandFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.streetlights_send_command.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DownlinkCommands
+      Events:
+        SendCommand:
+          Type: Api
+          Properties:
+            Path: /streetlights/{id}/commands
+            Method: post
+
   Streetlights:
     Type: AWS::DynamoDB::Table
     Properties:
