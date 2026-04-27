@@ -9,8 +9,8 @@ using namespace light;
 class MockLightSensor : public LightSensor
 {
 public:
-    MOCK_METHOD( bool, getLevel, ( uint8_t & level ), ( const override ) );
-    MOCK_METHOD( bool, setLevel, ( uint8_t level ),   ( override ) );
+    MOCK_METHOD( uint8_t, getLevel, (), ( noexcept, const override ) );
+    MOCK_METHOD( bool, setLevel, ( uint8_t level ),   ( noexcept, override ) );
 };
 
 #endif /* TEST_MOCKS_LIB_MOCK_LIGHT_SENSOR_HPP */

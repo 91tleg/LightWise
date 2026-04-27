@@ -11,7 +11,7 @@ namespace mmwave
     {
 
         constexpr char kTag[] { "MmwaveTask" };
-        constexpr uint32_t kTaskPollMs { 100U };
+        constexpr uint32_t kTaskPollMs { 200U };
 
     } /* anaonymous namespace */
 
@@ -19,7 +19,7 @@ namespace mmwave
     {
         configASSERT( pvParameters != nullptr );
 
-        TaskParams &params { *static_cast< TaskParams * >( pvParameters ) };
+        TaskParams & params { *static_cast< TaskParams * >( pvParameters ) };
 
         configASSERT( params.queue         != nullptr );
         configASSERT( params.fsmTaskHandle != nullptr );

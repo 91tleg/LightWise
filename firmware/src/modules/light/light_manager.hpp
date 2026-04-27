@@ -2,7 +2,6 @@
 #define SRC_MODULES_LIGHT_LIGHT_MANAGER_HPP
 
 #include <cstdint>
-#include <functional> /* std::reference_wrapper */
 
 namespace light
 {
@@ -20,18 +19,18 @@ namespace light
          * Post-condition: current_ = 0, not ramping, stepsPerSecond_ = 1
          * (safe minimum — caller must set a real rate via setTarget()).
          */
-        explicit Manager( LightSensor &led ) noexcept;
+        explicit Manager( LightSensor & led ) noexcept;
 
-        ~Manager()                            = default;
-        Manager( const Manager & )            = delete;
-        Manager &operator=( const Manager & ) = delete;
-        Manager( Manager && )                 = delete;
-        Manager &operator=( Manager && )      = delete;
+        ~Manager()                             = default;
+        Manager( const Manager & )             = delete;
+        Manager & operator=( const Manager & ) = delete;
+        Manager( Manager && )                  = delete;
+        Manager & operator=( Manager && )      = delete;
 
         /**
          * @brief  Set a new brightness target and ramp rate.
          *
-         * @param  target         Desired output level [0, 255].
+         * @param  target         Desired output level [0, 100].
          * @param  stepsPerSecond Ramp speed in steps/s. Zero is clamped to 1.
          *                        Examples: 1 = slow fade, 255 = near-instant.
          */
@@ -68,7 +67,7 @@ namespace light
         [[nodiscard]] uint32_t stepIntervalMs() const noexcept;
 
     private:
-        std::reference_wrapper< LightSensor > led_;
+        LightSensor & led_;
 
         uint8_t  current_        { 0U };
         uint8_t  target_         { 0U };

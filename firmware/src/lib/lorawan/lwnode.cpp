@@ -1,5 +1,6 @@
 #include "lwnode.hpp"
 #include <cstring>
+#include <algorithm>
 
 #include "utils/str/num_fmt.h"
 #include "utils/str/str_ext.h"
@@ -151,7 +152,6 @@ namespace lorawan
     {
         bool result { false  };
 
-        char ack[ kAtAckMaxLen ] {};
         const char * cmd { nullptr };
 
         switch( region )
@@ -172,6 +172,7 @@ namespace lorawan
 
         if( cmd != nullptr )
         {
+            char ack[ kAtAckMaxLen ] {};
             if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
             {
                 if( ackEquals( ack, "+REGION=OK\r\n" ) )
@@ -193,13 +194,13 @@ namespace lorawan
         {
             /* Copy into mutable buffer for uppercase conversion. */
             char appEui[ kAppEuiHexChars + 1U ] {};
-            static_cast< void >( std::memcpy( appEui, appEuiHex, kAppEuiHexChars ) );
+            static_cast< void >( std::copy_n( appEuiHex, kAppEuiHexChars, appEui ) );
             appEui[ kAppEuiHexChars ] = '\0';
             str_ext_to_upper_case( appEui );
 
             char cmd[ kAppEuiCmdLen ] {};
-            static_cast< void >( std::memcpy( cmd, kAppEuiPrefix, kAppEuiPrefixLen ) );
-            static_cast< void >( std::memcpy( &cmd[ kAppEuiPrefixLen ], appEui, kAppEuiHexChars ) );
+            static_cast< void >( std::copy_n( kAppEuiPrefix, kAppEuiPrefixLen, cmd ) );
+            static_cast< void >( std::copy_n( appEui, kAppEuiHexChars, &cmd[ kAppEuiPrefixLen ] ) );
             cmd[ kAppEuiCmdLen - 1U ] = '\0';
 
             char ack[ kAtAckMaxLen ] {};
@@ -220,13 +221,13 @@ namespace lorawan
         {
             /* Copy into mutable buffer for uppercase conversion. */
             char appKey[ kAppKeyHexChars + 1U ] {};
-            static_cast< void >( std::memcpy( appKey, appKeyHex, kAppKeyHexChars ) );
+            static_cast< void >( std::copy_n( appKeyHex, kAppKeyHexChars, appKey ) );
             appKey[ kAppKeyHexChars ] = '\0';
             str_ext_to_upper_case( appKey );
 
             char cmd[ kAppKeyCmdLen ] {};
-            static_cast< void >( std::memcpy( cmd, kAppKeyPrefix, kAppKeyPrefixLen ) );
-            static_cast< void >( std::memcpy( &cmd[ kAppKeyPrefixLen ], appKey, kAppKeyHexChars ) );
+            static_cast< void >( std::copy_n( kAppKeyPrefix, kAppKeyPrefixLen, cmd ) );
+            static_cast< void >( std::copy_n( appKey, kAppKeyHexChars, &cmd[ kAppKeyPrefixLen ] ) );
             cmd[ kAppKeyCmdLen - 1U ] = '\0';
 
             char ack[ kAtAckMaxLen ] {};
@@ -339,7 +340,6 @@ namespace lorawan
     {
         bool result { false };
 
-        char ack[ kAtAckMaxLen ] {};
         const char * cmd { nullptr };
 
         switch( classType )
@@ -357,6 +357,7 @@ namespace lorawan
 
         if( cmd != nullptr )
         {
+            char ack[ kAtAckMaxLen ] {};
             if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
             {
                 if( ackEquals( ack, "+CLASS=OK\r\n" ) )
@@ -529,13 +530,13 @@ namespace lorawan
         bool result { false };
 
         char ack[ kAtAckMaxLen ] {};
-        uint8_t retry { kBeginRetryCount };
 
         result = sendAtCmd( "AT+REBOOT", ack, sizeof( ack ) );
         delay_ms( 100U );
 
         if( result )
         {
+            uint8_t retry { kBeginRetryCount };
             /* AT Test */
             while( retry > 0U )
             {
