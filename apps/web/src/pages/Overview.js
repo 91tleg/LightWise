@@ -191,26 +191,13 @@ export default function Overview() {
   const lastSeenValue = showLiveReadings
     ? "Now"
     : formatTimestamp(overviewSelectedPole?.last_seen);
-  const connectionValue =
-    wsStatus === "connected"
-      ? selectedPoleIsLive
-        ? "Live"
-        : "Listening"
-      : wsStatus === "connecting"
-      ? "Connecting"
-      : "Offline";
+  const connectionValue = selectedPoleIsLive ? "Live" : "Offline";
   const connectionNote = selectedPoleIsLive
     ? "Receiving current telemetry"
     : overviewSelectedPole?.last_seen
     ? `Latest loaded sample ${formatTimestamp(overviewSelectedPole.last_seen)}`
-    : wsStatus === "connected"
-    ? "WebSocket connected; waiting for next pole event"
     : "Awaiting first pole report";
-  const connectionTone = selectedPoleIsLive
-    ? "healthy"
-    : wsStatus === "connected" || wsStatus === "connecting"
-    ? "warning"
-    : "critical";
+  const connectionTone = selectedPoleIsLive ? "healthy" : "critical";
   const summaryCards = useMemo(
     () => [
       {
