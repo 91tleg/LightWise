@@ -12,6 +12,9 @@ Responsibilities:
 from __future__ import annotations
 from functools import lru_cache
 
+from domain.streetlight.events import (
+    TelemetryReport, Heartbeat, CommandResponse
+)
 from application.streetlight.process_uplink import ProcessUplink
 from infrastructure.uplink.errors import (
     InvalidUplinkEvent, DecodeError, UplinkError
@@ -57,12 +60,24 @@ def handler(event: dict, context: object) -> None:
     try:
         uplink = _extractor().extract(event)
         frame = decode_uplink(uplink)
+
+        match frame:
+            case TelemetryReport():
+                uplink_type = "TELEMETRY"
+            case Heartbeat():
+                uplink_type = "HEARTBEAT"
+            case CommandResponse():
+                uplink_type = "ACK_NACK"
+            case _:
+                uplink_type = "UNKNOWN"
+
         _use_case().execute(frame)
 
         logger.info(
-            "Uplink processed",
+            "Uplink processed successfully",
             extra={
                 "streetlight_id": uplink.streetlight_id,
+                "uplink_type": uplink_type,
                 "frame_type": type(frame).__name__,
             },
         )
