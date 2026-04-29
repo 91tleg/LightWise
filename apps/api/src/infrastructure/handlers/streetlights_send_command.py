@@ -6,31 +6,28 @@ import uuid
 from functools import lru_cache
 
 from domain.errors import AuthError
+from domain.streetlight.command_params import validate_command_params
+from domain.streetlight.commands import VALID_COMMANDS, get_command_byte
 from infrastructure.auth.identity import resolve_identity
+from infrastructure.lorawan.iot_core import send_downlink
 from infrastructure.persistence.dynamo.downlink_command_repo import (
     get_downlink_command_repo,
+)
+from infrastructure.persistence.dynamo.streetlight_metadata_repo import (
+    get_streetlight_metadata_repo,
 )
 from libs.logging import logger
 from libs.response import success, error
 
 
-VALID_COMMANDS = {
-    "SET_LEVELS",
-    "SET_MOTION_TIMEOUT",
-    "OVERRIDE_ON",
-    "OVERRIDE_OFF",
-    "RESUME_AUTO",
-    "REQUEST_UPLINK",
-    "REBOOT",
-    "SET_MOTION_SENSITIVITY",
-    "SET_HEARTBEAT_INTERVAL",
-    "SET_TEMP_DIM",
-}
-
-
 @lru_cache(maxsize=1)
 def _repo():
     return get_downlink_command_repo()
+
+
+@lru_cache(maxsize=1)
+def _metadata_repo():
+    return get_streetlight_metadata_repo()
 
 
 def handler(event: dict, context: object) -> dict:
@@ -60,10 +57,26 @@ def handler(event: dict, context: object) -> dict:
     if not isinstance(params, dict):
         return error(400, "params must be an object")
 
+    try:
+        validate_command_params(command, params)
+    except ValueError as exc:
+        return error(422, str(exc))
+
+    metadata = _metadata_repo().get(tenant_id, streetlight_id)
+    if not metadata:
+        return error(404, "Streetlight not found")
+
+    wireless_device_id = metadata.wireless_device_id
+    if not wireless_device_id:
+        return error(400, "wireless_device_id is missing")
+
     command_id = f"cmd-{uuid.uuid4()}"
-    ttl = int(time.time()) + 300  # 5 minutes
+    ttl = int(time.time()) + 300
 
     try:
+        cmd_byte = get_command_byte(command)
+        payload = bytes([1, cmd_byte])
+
         _repo().write(
             streetlight_id=streetlight_id,
             command_id=command_id,
@@ -72,15 +85,19 @@ def handler(event: dict, context: object) -> dict:
             command_type=command,
             payload=params,
             ttl=ttl,
-            echo_cmd=0,
+            echo_cmd=cmd_byte,
         )
+
+        send_downlink(wireless_device_id, payload)
+
+        _repo().mark_sent(streetlight_id, command_id)
 
         return success(
             {
                 "command_id": command_id,
                 "streetlight_id": streetlight_id,
                 "command": command,
-                "status": "pending",
+                "status": "sent",
             },
             status_code=202,
         )

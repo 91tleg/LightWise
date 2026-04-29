@@ -429,6 +429,19 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DownlinkCommands
+
+        - Statement:
+            - Effect: Allow
+              Action:
+              - iotwireless:SendDataToWirelessDevice
+              Resource: "*"
+
+        - Statement:
+            - Effect: Allow
+              Action:
+              - dynamodb:GetItem
+              Resource: "*"
+
       Events:
         SendCommand:
           Type: Api
