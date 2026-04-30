@@ -30,6 +30,34 @@ def _metadata_repo():
     return get_streetlight_metadata_repo()
 
 
+def _encode_payload(command: str, params: dict) -> bytes:
+    cmd_byte = get_command_byte(command)
+    payload = bytearray([1, cmd_byte])
+
+    if command == "SET_LEVELS":
+        payload.append(params["max_level"])
+        payload.append(params["dim_level"])
+
+    elif command == "SET_MOTION_TIMEOUT":
+        timeout = params["timeout_seconds"]
+        payload.extend(timeout.to_bytes(2, "big"))
+
+    elif command == "OVERRIDE_ON":
+        payload.append(params["level"])
+
+    elif command == "SET_MOTION_SENSITIVITY":
+        payload.append(params["sensitivity"])
+
+    elif command == "SET_HEARTBEAT_INTERVAL":
+        payload.append(params["interval_minutes"])
+
+    elif command == "SET_TEMP_DIM":
+        payload.append(params["level"])
+        payload.append(params["duration_hours"])
+
+    return bytes(payload)
+
+
 def handler(event: dict, context: object) -> dict:
     try:
         tenant_id, user_id = resolve_identity(event)
@@ -75,7 +103,7 @@ def handler(event: dict, context: object) -> dict:
 
     try:
         cmd_byte = get_command_byte(command)
-        payload = bytes([1, cmd_byte])
+        payload = _encode_payload(command, params)
 
         _repo().write(
             streetlight_id=streetlight_id,
