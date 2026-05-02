@@ -2,6 +2,8 @@
 
 #include <stddef.h>
 #include <cstring>
+#include <array>
+#include <string>
 
 #include "hal/c4001.h"
 #include "utils/str/str_ext.h"
@@ -22,6 +24,7 @@ namespace mmwave
         constexpr char kCmdResetSystem[]    { "resetSystem" };
         constexpr char kCmdExistMode[]      { "setRunApp 0" };
         constexpr char kCmdSpeedMode[]      { "setRunApp 1" };
+        constexpr char kCmdSetPwm[]         { "setPwm"      };
 
         /* Query Commands */
         constexpr char kCmdGetSensitivity[] { "getSensitivity" };
@@ -91,7 +94,6 @@ namespace mmwave
 
         uint8_t buf[ kRxMaxBytes ] {};
         int len { 0 };
-        bool hasValidData { false };
 
         /* Flush and allow sensor to stream */
         c4001_hal_flush( &sensor_ );
@@ -106,6 +108,7 @@ namespace mmwave
 
         if( len > 0 )
         {
+            bool hasValidData { false };
             buf[ len ] = '\0';
 
             for( int i { 0 }; i < len; ++i )
@@ -154,16 +157,15 @@ namespace mmwave
         bool result = false;
 
         uint8_t buf[ kRxMaxBytes ] {};
-        int len { 0 };
 
         static_cast< void >( writeCmd( kCmdStartSensor ) );
 
         for( uint32_t attempt = 0U; attempt < kPollStartRetryCount; ++attempt )
         {
-            len = c4001_hal_read( &sensor_,
-                                  buf, 
-                                  sizeof( buf ),
-                                  kUartReadTimeoutMs ); 
+            int len = c4001_hal_read( &sensor_,
+                                      buf, 
+                                      sizeof( buf ),
+                                      kUartReadTimeoutMs ); 
 
             if( len > 0 )
             {
@@ -674,7 +676,23 @@ namespace mmwave
 
         if( ( pwm1 <= 100U ) && ( pwm2 <= 100U ) )
         {
+            std::array< char, 32U > cmd {};
+            char * p = cmd.data();
 
+            static constexpr std::string_view kPrefix { "setPwm " };
+            for( char c : kPrefix )
+            {
+                *p++ = c;
+            }
+
+            p = num_fmt_append_u16( p, static_cast< uint16_t > ( pwm1 ) );
+            *p++ = ' ';
+            p = num_fmt_append_u16( p, static_cast< uint16_t > ( pwm2 ) );
+            *p++ = ' ';
+            p = num_fmt_append_u16( p, static_cast< uint16_t > ( timer ) );
+            *p = '\0';
+
+            result = cmdStopSaveStart( cmd.data(), cmd.data(), 1U );
         }
 
         return result;
@@ -683,6 +701,23 @@ namespace mmwave
     bool C4001::setGpioPolarity( uint8_t value )
     {
         bool result { false };
+
+        if( value <= 1U )
+        {
+            std::array< char, 32U > cmd {};
+            char * p = cmd.data();
+
+            static constexpr std::string_view kPrefix { "setGpioMode 1 " };
+            for( char c : kPrefix )
+            {
+                *p++ = c;
+            }
+
+            p = num_fmt_append_u16( p, static_cast< uint16_t >( value ) );
+            *p = '\0';
+
+            result = cmdStopSaveStart( cmd.data(), cmd.data(), 1U );
+        }
 
         return result;
     }
@@ -795,7 +830,6 @@ namespace mmwave
         if( cmd != nullptr )
         {
             uint8_t buf[ kRxMaxBytes ] {};
-            int len { 0 };
 
             static_cast< void >( std::memset( &data, 0, sizeof( ResponseData ) ) );
             static_cast< void >( std::memset( buf, 0, sizeof( buf ) ) );
@@ -806,10 +840,10 @@ namespace mmwave
                 {
                     delay_ms( kDelayAfterCmdMs );
 
-                    len = c4001_hal_read( &sensor_,
-                                          buf,
-                                          sizeof( buf ),
-                                          kUartReadTimeoutMs );
+                    int len = c4001_hal_read( &sensor_,
+                                              buf,
+                                              sizeof( buf ),
+                                              kUartReadTimeoutMs );
                     if( len > 0 )
                     {
                         result = parseResponse( buf, 

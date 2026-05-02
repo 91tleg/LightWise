@@ -1,5 +1,7 @@
 #include "rbd.hpp"
 
+#include <inttypes.h>
+
 #include "hal/rbd.h"
 #include "utils/log/log.h"
 
@@ -35,7 +37,7 @@ namespace light
             level_  = level;
             result  = true;
 
-            LOGD( kTag, "setLevel: %u -> delay %u us", level, delayUs );
+            LOGD( kTag, "setLevel: %" PRIu8 " -> delay %" PRIu32 " us", level, delayUs );
         }
 
         return result;
