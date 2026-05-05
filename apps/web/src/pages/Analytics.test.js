@@ -273,6 +273,41 @@ describe("buildAnalyticsReport", () => {
     });
   });
 
+  test("uses the pole name instead of a fabricated central zone for single-pole analytics", () => {
+    const report = buildAnalyticsReport(
+      [
+        {
+          streetlight_id: "LW-00001",
+          name: "Main",
+          lat: 47.61,
+          lng: -122.2,
+          health: "OK",
+        },
+      ],
+      {
+        "LW-00001": {
+          data: [
+            {
+              time: "2026-03-10T00:00:00",
+              lux: 12,
+              motion: true,
+              light_level_pct: 75,
+              health: "OK",
+            },
+          ],
+        },
+      },
+      {
+        from: "2026-03-10T00:00:00",
+        to: "2026-03-10T01:00:00",
+        interval: "1h",
+      }
+    );
+
+    expect(report.zones.map((zone) => zone.zone)).toEqual(["Main"]);
+    expect(report.rawTelemetryRows[0].zone).toBe("Main");
+  });
+
   test("does not fabricate analytics when telemetry is missing", () => {
     const report = buildAnalyticsReport([streetlights[0]], {}, {
       from: "2026-03-10T00:00:00",

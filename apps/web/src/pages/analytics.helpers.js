@@ -169,6 +169,14 @@ export function deriveZoneLabel(pole, center = DEFAULT_CENTER) {
   return `${northSouth} ${eastWest}`;
 }
 
+function getSinglePoleZoneLabel(pole) {
+  const name = String(pole?.name || "").trim();
+  if (name) return name;
+
+  const id = String(pole?.streetlight_id || "").trim();
+  return id || "Unassigned";
+}
+
 function getLightingDemandFactor(row) {
   const lux = safeNum(row?.lux);
   if (lux !== null) {
@@ -675,10 +683,11 @@ export function buildAnalyticsReport(streetlights = [], telemetryByPole = {}, op
   const poles = Array.isArray(streetlights) ? streetlights : [];
   const center = getNetworkCenter(poles);
   const intervalHours = intervalToHours(options.interval || inferTelemetryInterval(options.from, options.to));
+  const usePoleNameAsZone = poles.length === 1;
 
   const poleSummaries = poles.map((pole) => {
     const rawRows = sortTelemetryRows(normalizeTelemetryRows(telemetryByPole[pole?.streetlight_id]));
-    const zone = deriveZoneLabel(pole, center);
+    const zone = usePoleNameAsZone ? getSinglePoleZoneLabel(pole) : deriveZoneLabel(pole, center);
     return buildPoleSummary(pole, rawRows, intervalHours, zone);
   });
   const reportingPoleSummaries = poleSummaries.filter(
