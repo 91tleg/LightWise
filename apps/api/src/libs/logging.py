@@ -6,6 +6,14 @@ from libs.config import settings
 
 
 class JsonFormatter(logging.Formatter):
+    RESERVED_ATTRS = {
+        "args", "created", "exc_info", "exc_text", "filename",
+        "funcName", "levelname", "levelno", "lineno", "message",
+        "module", "msecs", "msg", "name", "pathname", "process",
+        "processName", "relativeCreated", "stack_info", "thread",
+        "threadName",
+    }
+
     def format(self, record):
         log_record = {
             "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S.%fZ"),
@@ -14,15 +22,11 @@ class JsonFormatter(logging.Formatter):
         }
         if record.exc_info:
             log_record["exception"] = self.formatException(record.exc_info)
-        for key in (
-            "tenant_id",
-            "streetlight_id",
-            "user_id",
-            "request_id",
-            "error"
-        ):
-            if hasattr(record, key):
-                log_record[key] = getattr(record, key)
+
+        for key, value in record.__dict__.items():
+            if key not in self.RESERVED_ATTRS and not key.startswith("_"):
+                log_record[key] = value
+
         return json.dumps(log_record)
 
 
