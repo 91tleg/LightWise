@@ -14,3 +14,13 @@ def send_downlink(wireless_device_id: str, payload: bytes) -> None:
         TransmitMode=1,
         PayloadData=base64.b64encode(payload).decode(),
     )
+
+
+class IoTCoreDownlinkSender:
+    def send(self, wireless_device_id: str, payload: bytes) -> None:
+        send_downlink(wireless_device_id, payload)
+
+
+@lru_cache(maxsize=1)
+def get_downlink_sender() -> IoTCoreDownlinkSender:
+    return IoTCoreDownlinkSender()

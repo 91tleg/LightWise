@@ -1,10 +1,12 @@
 from __future__ import annotations
+from dataclasses import asdict
 from functools import lru_cache
 from datetime import datetime, timezone
 
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
+from domain.streetlight.commands import StreetlightCommand
 from infrastructure.persistence.error import PersistenceError
 from infrastructure.persistence.dynamo.client import get_dynamodb_resource
 
@@ -22,7 +24,7 @@ class DownlinkCommandRepo:
     Covers the full command lifecycle:
       - write()         - initial PENDING record on command issuance
       - mark_sent()     - PENDING -> SENT after network server accepts
-      - update_status() - SENT -> ACKNOWLEDGED | FAILED on ACK/NACK uplink
+      - update_status() - PENDING/SENT -> ACKNOWLEDGED | FAILED on ACK/NACK
       - get()           - fetch a single command record
       - list_for_streetlight() - per-device command history
       - list_for_tenant()      - fleet-wide audit log via GSI
@@ -38,10 +40,8 @@ class DownlinkCommandRepo:
         command_id: str,
         tenant_id: str,
         issued_by: str,
-        command_type: str,
-        payload: dict,
+        command: StreetlightCommand,
         ttl: int,
-        echo_cmd: int,
     ) -> None:
         """
         Write an initial PENDING command record.
@@ -57,14 +57,14 @@ class DownlinkCommandRepo:
                 "command_id": command_id,
                 "tenant_id": tenant_id,
                 "issued_by": issued_by,
-                "command_type": command_type,
-                "payload": payload,
+                "command_type": command.command.name,
+                "payload": asdict(command.params),
                 "status": STATUS_PENDING,
                 "created_at": now,
                 "sent_at": None,
                 "acknowledged_at": None,
                 "ttl": ttl,
-                "echo_cmd": echo_cmd,
+                "echo_cmd": command.command.value,
             })
         except ClientError as e:
             raise PersistenceError(
@@ -107,15 +107,15 @@ class DownlinkCommandRepo:
         reason: str,
     ) -> None:
         """
-        Transition SENT -> ACKNOWLEDGED | FAILED on receipt of an ACK/NACK.
+        Transition PENDING/SENT -> ACKNOWLEDGED | FAILED on ACK/NACK.
 
-        Resolves the command by finding the most recent SENT record for
-        the streetlight matching the echo_cmd, then updates its status.
+        Resolves the command by finding the most recent dispatchable record
+        for the streetlight matching the echo_cmd, then updates its status.
 
         response - "ACK" or "NACK" (ResponseCode.name)
         reason   - ReasonCode.name (e.g. "OK", "NVS_ERROR")
         """
-        command = self._find_sent_command(streetlight_id, echo_cmd)
+        command = self._find_ackable_command(streetlight_id, echo_cmd)
         if not command:
             return
 
@@ -137,10 +137,11 @@ class DownlinkCommandRepo:
                     "acknowledged_at = :now, "
                     "reason = :reason"
                 ),
-                ConditionExpression="#s = :sent",
+                ConditionExpression="#s IN (:pending, :sent)",
                 ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={
                     ":status": final_status,
+                    ":pending": STATUS_PENDING,
                     ":sent": STATUS_SENT,
                     ":now": now,
                     ":reason": reason,
@@ -180,7 +181,7 @@ class DownlinkCommandRepo:
         """
         List recent commands for a single streetlight.
 
-        Results are ordered by command_id (ULID -- time-ordered) descending
+        Results are ordered by command_id (time-prefixed) descending
         so the most recent command is first.
         """
         try:
@@ -222,7 +223,7 @@ class DownlinkCommandRepo:
                 f"Failed to list commands for tenant: {tenant_id}"
             ) from e
 
-    def _find_sent_command(
+    def _find_ackable_command(
         self, streetlight_id: str, echo_cmd: int
     ) -> dict | None:
         try:
@@ -230,13 +231,16 @@ class DownlinkCommandRepo:
                 KeyConditionExpression=Key(
                     "streetlight_id"
                 ).eq(streetlight_id),
-                FilterExpression="#s = :sent AND echo_cmd = :echo",
+                FilterExpression=(
+                    "#s IN (:pending, :sent) AND echo_cmd = :echo"
+                ),
                 ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={
+                    ":pending": STATUS_PENDING,
                     ":sent": STATUS_SENT,
                     ":echo": echo_cmd
                 },
-                ScanIndexForward=False,  # Get latest first
+                ScanIndexForward=False,
                 Limit=10
             )
             items = result.get("Items", [])
