@@ -130,13 +130,12 @@ def handler(event: dict, context: object) -> dict:
             "role": user.role,
         },
     )
-    return success(
-        {
-            "user_id": user.user_id,
-            "email": user.email,
-            "role": user.role,
-            "tenant_id": user.tenant_id,
-            "created_at": user.created_at,
-        },
-        status_code=201,
-    )
+    response = success({
+        "user_id": user.user_id,
+        "email": user.email,
+        "role": user.role,
+        "tenant_id": user.tenant_id,
+        "created_at": user.created_at,
+    })
+    response["statusCode"] = 201
+    return response
