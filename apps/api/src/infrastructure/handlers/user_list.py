@@ -10,7 +10,7 @@ Any authenticated user in the tenant can list users.
 from __future__ import annotations
 from functools import lru_cache
 
-from application.tenant.list_users import ListUsers
+from apps.api.src.application.tenant.list_users import ListUsers
 from domain.errors import AuthError
 from infrastructure.auth.identity import resolve_identity
 from infrastructure.persistence.dynamo.user_tenant_repo import (
@@ -43,7 +43,6 @@ def handler(event: dict, context: object) -> dict:
     return success([
         {
             "user_id": u.user_id,
-            "name": u.name,
             "email": u.email,
             "role": u.role,
             "tenant_id": u.tenant_id,

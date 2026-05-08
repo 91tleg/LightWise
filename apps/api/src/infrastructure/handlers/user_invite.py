@@ -14,9 +14,11 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 
-from application.tenant.invite_user import InviteUser
+from apps.api.src.application.tenant.invite_user import InviteUser
 from domain.errors import AuthError
-from infrastructure.auth.cognito_admin import create_cognito_user
+from apps.api.src.infrastructure.auth.cognito_admin import (
+    create_cognito_user
+)
 from infrastructure.auth.identity import resolve_identity
 from infrastructure.persistence.dynamo.user_tenant_repo import (
     get_user_tenant_repo,
@@ -33,14 +35,12 @@ class _CognitoAdminAdapter:
         email: str,
         tenant_id: str,
         role: str,
-        name: str,
     ) -> str:
         return create_cognito_user(
             user_pool_id=user_pool_id,
             email=email,
             tenant_id=tenant_id,
             role=role,
-            name=name,
         )
 
 
@@ -57,7 +57,7 @@ def _use_case() -> InviteUser:
 
 def handler(event: dict, context: object) -> dict:
     try:
-        tenant_id, requesting_user_id = resolve_identity(event)
+        requesting_user_id, _ = resolve_identity(event)
     except AuthError:
         return error(401, "Unauthorized")
 
@@ -67,7 +67,6 @@ def handler(event: dict, context: object) -> dict:
         return error(400, "Invalid JSON body")
 
     email = body.get("email", "").strip()
-    name = body.get("name", "").strip()
     role = body.get("role", "").strip()
 
     if not email:
@@ -77,13 +76,14 @@ def handler(event: dict, context: object) -> dict:
     if role not in ("admin", "operator"):
         return error(400, "role must be admin or operator")
 
+    tenant_id, _ = resolve_identity(event)
+
     try:
         user = _use_case().execute(
             requesting_user_id=requesting_user_id,
             tenant_id=tenant_id,
             email=email,
             role=role,
-            name=name,
         )
     except PermissionError as exc:
         logger.warning(
@@ -133,7 +133,6 @@ def handler(event: dict, context: object) -> dict:
     return success(
         {
             "user_id": user.user_id,
-            "name": user.name,
             "email": user.email,
             "role": user.role,
             "tenant_id": user.tenant_id,

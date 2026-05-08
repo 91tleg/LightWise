@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from datetime import datetime, timezone
 from functools import lru_cache
 
 from domain.errors import AuthError
@@ -126,8 +125,7 @@ def handler(event: dict, context: object) -> dict:
                 "command_id": command_id,
                 "streetlight_id": streetlight_id,
                 "command": command,
-                "status": "pending",
-                "dispatched_at": datetime.now(timezone.utc).isoformat(),
+                "status": "sent",
             },
             status_code=202,
         )

@@ -4,14 +4,14 @@ import json
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,Authorization",
-    "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,PUT,OPTIONS",
     "Content-Type": "application/json"
 }
 
 
-def success(body, status_code=200):
+def success(body):
     return {
-        "statusCode": status_code,
+        "statusCode": 200,
         "headers": CORS_HEADERS,
         "body": json.dumps(body)
     }
