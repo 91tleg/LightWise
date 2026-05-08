@@ -167,3 +167,142 @@ At least one field is required.
 ```json
 { "error": "Streetlight not found" }
 ```
+
+---
+
+## `POST /invite-user`
+
+Invites a new user to the tenant and creates their Cognito account.
+
+Only the tenant owner can invite users.
+
+### Authentication
+
+Requires a valid Cognito access token.
+
+### Request Body
+
+```json
+{
+  "email": "operator@city.gov",
+  "role": "operator"
+}
+```
+
+### Fields
+
+| Field   | Type   | Required | Description                              |
+| ------- | ------ | -------- | ---------------------------------------- |
+| `email` | string | Yes      | Email address of the invited user        |
+| `role`  | string | Yes      | User role. Must be `admin` or `operator` |
+
+**Response `201`**
+
+```json
+{
+  "user_id": "3f5a9c7d-8e11-4a1f-bb2d-4d0d3c7a5e91",
+  "email": "operator@city.gov",
+  "role": "operator",
+  "tenant_id": "tenant-123",
+  "created_at": "2026-05-07T18:22:14.000Z"
+}
+```
+
+**Response `403`**
+
+Returned when the requesting user is not the tenant owner.
+
+```json
+{
+  "message": "Only tenant owner can invite users"
+}
+```
+
+**Response `409`**
+
+Returned when the Cognito user already exists or Cognito rejects the request.
+
+```json
+{
+  "message": "User already exists"
+}
+```
+
+---
+
+## `GET /users`
+
+Returns all users belonging to the authenticated user's tenant.
+
+Any authenticated user in the tenant can list users.
+
+### Authentication
+
+Requires a valid Cognito access token.
+
+**Response `200`**
+
+```json
+[
+  {
+    "user_id": "3f5a9c7d-8e11-4a1f-bb2d-4d0d3c7a5e91",
+    "email": "owner@city.gov",
+    "role": "admin",
+    "tenant_id": "tenant-123",
+    "created_at": "2026-05-01T10:15:42.000Z"
+  },
+  {
+    "user_id": "7b1c92a4-4c8b-42f6-a6f8-87d9b9cf5c10",
+    "email": "operator@city.gov",
+    "role": "operator",
+    "tenant_id": "tenant-123",
+    "created_at": "2026-05-07T18:22:14.000Z"
+  }
+]
+```
+
+---
+
+## `DELETE /users/{id}`
+
+Removes a user from the tenant and deletes their Cognito account.
+
+Only the tenant owner can remove users.
+
+### Authentication
+
+Requires a valid Cognito access token.
+
+### Path Parameters
+
+| Parameter | Type   | Required | Description                   |
+| --------- | ------ | -------- | ----------------------------- |
+| `id`      | string | Yes      | User ID of the user to remove |
+
+**Response `200`**
+
+```json
+{
+  "message": "User removed"
+}
+```
+
+**Response `403`**
+
+Returned when the requesting user is not the tenant owner.
+
+```json
+{
+  "message": "Only tenant owner can remove users"
+}
+```
+
+**Response `409`**
+
+Returned when Cognito rejects the delete request.
+
+```json
+{
+  "message": "User does not exist"
+}
+```
