@@ -70,13 +70,12 @@ class UserTenantRepo:
     def count_users(self, tenant_id: str) -> int:
         try:
             result = self._table.query(
-                KeyConditionExpression=(
-                    Key("tenant_id").eq(tenant_id)
-                    & Key("user_id").begins_with("u-")
-                ),
-                Select="COUNT",
+                KeyConditionExpression=Key("tenant_id").eq(tenant_id),
             )
-            return result.get("Count", 0)
+            return len([
+                item for item in result.get("Items", [])
+                if item.get("user_id") != self.TENANT_SK
+            ])
         except ClientError as e:
             raise PersistenceError(
                 f"Failed to count users for tenant: {tenant_id}"
@@ -86,10 +85,7 @@ class UserTenantRepo:
         try:
             items = []
             kwargs = {
-                "KeyConditionExpression": (
-                    Key("tenant_id").eq(tenant_id)
-                    & Key("user_id").begins_with("u-")
-                )
+                "KeyConditionExpression": Key("tenant_id").eq(tenant_id)
             }
             while True:
                 result = self._table.query(**kwargs)
@@ -98,7 +94,11 @@ class UserTenantRepo:
                 if not last:
                     break
                 kwargs["ExclusiveStartKey"] = last
-            return [self._item_to_user(item) for item in items]
+            return [
+                self._item_to_user(item)
+                for item in items
+                if item.get("user_id") != self.TENANT_SK
+            ]
         except ClientError as e:
             raise PersistenceError(
                 f"Failed to list users for tenant: {tenant_id}"
@@ -109,6 +109,7 @@ class UserTenantRepo:
             self._table.put_item(Item={
                 "tenant_id": user.tenant_id,
                 "user_id": user.user_id,
+                "name": user.name,
                 "email": user.email,
                 "role": user.role,
                 "created_at": user.created_at,
@@ -136,6 +137,7 @@ class UserTenantRepo:
             email=item["email"],
             role=item["role"],
             created_at=item["created_at"],
+            name=item.get("name", ""),
         )
 
 

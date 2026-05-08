@@ -27,6 +27,7 @@ class CognitoAdmin(Protocol):
         email: str,
         tenant_id: str,
         role: str,
+        name: str,
     ) -> str: ...
 
 
@@ -49,6 +50,7 @@ class InviteUser:
         tenant_id: str,
         email: str,
         role: str,
+        name: str = "",
     ) -> TenantUser:
         tenant = self._tenant_repo.get_tenant(tenant_id)
         if not tenant:
@@ -68,6 +70,7 @@ class InviteUser:
             email=email,
             tenant_id=tenant_id,
             role=role,
+            name=name,
         )
 
         user = TenantUser(
@@ -76,6 +79,7 @@ class InviteUser:
             email=email,
             role=role,
             created_at=datetime.now(timezone.utc).isoformat(),
+            name=name,
         )
         self._user_repo.save_user(user)
         return user

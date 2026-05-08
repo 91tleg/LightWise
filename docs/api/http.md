@@ -167,3 +167,80 @@ At least one field is required.
 ```json
 { "error": "Streetlight not found" }
 ```
+
+---
+
+### `GET /users`
+
+Returns all users in the caller's tenant.
+
+**Response `200`**
+```json
+[
+  {
+    "user_id": "cognito-sub-001",
+    "name": "Jordan Lee",
+    "email": "jordan.lee@city.gov",
+    "role": "operator",
+    "tenant_id": "tenant-001",
+    "created_at": "2026-04-09T16:18:00Z"
+  }
+]
+```
+
+---
+
+### `POST /invite-user`
+
+Creates a Cognito user, assigns the requested Cognito group, and stores the tenant
+membership record. Only the tenant owner can invite users.
+
+**Request Body**
+```json
+{
+  "name": "Jordan Lee",
+  "email": "jordan.lee@city.gov",
+  "role": "operator"
+}
+```
+
+**Response `201`**
+```json
+{
+  "user_id": "cognito-sub-001",
+  "name": "Jordan Lee",
+  "email": "jordan.lee@city.gov",
+  "role": "operator",
+  "tenant_id": "tenant-001",
+  "created_at": "2026-04-09T16:18:00Z"
+}
+```
+
+**Response `400`**
+```json
+{ "error": "email is required" }
+{ "error": "role must be admin or operator" }
+```
+
+**Response `403`**
+```json
+{ "error": "Only the tenant owner can invite users" }
+```
+
+---
+
+### `DELETE /users/{id}`
+
+Deletes the Cognito user and removes the tenant membership record. Only the tenant
+owner can remove users.
+
+**Path Parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | string | Cognito user `sub` |
+
+**Response `200`**
+```json
+{ "message": "User removed" }
+```
