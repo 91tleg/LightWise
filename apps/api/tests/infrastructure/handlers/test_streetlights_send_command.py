@@ -4,7 +4,7 @@ from unittest.mock import patch
 from application.streetlight.send_command import (
     InvalidCommandError,
     InvalidCommandParamsError,
-    SentStreetlightCommand,
+    DispatchedCommand,
     StreetlightNotFoundError,
 )
 from domain.errors import AuthError
@@ -23,7 +23,7 @@ class TestSendCommandHandler:
         self,
         event: dict,
         identity=("tenant-1", "user-1"),
-        result=SentStreetlightCommand(
+        result=DispatchedCommand(
             command_id="cmd-1",
             streetlight_id="sl-001",
             command="SET_LEVELS",
