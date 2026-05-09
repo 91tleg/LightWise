@@ -36,6 +36,19 @@ export function normalizeEvent(raw) {
   const ts = raw.timestamp || new Date().toISOString();
   const id = (prefix) => `${prefix}-${ts}-${Math.random().toString(16).slice(2)}`;
 
+  if (raw.event === "command.ack") {
+    const data = raw.data || {};
+    return {
+      id:            id(data.command_id || "command"),
+      type:          "command",
+      timestamp:     ts,
+      streetlightId: raw.streetlight_id || "",
+      value:         `${data.command || "Command"} ${data.response_code || "response"}`,
+      note:          data.reason_code || data.command_id || "",
+      raw,
+    };
+  }
+
   // Telemetry push: { tenant_id, streetlight_id, timestamp, health, data, diagnostics }
   if (raw.streetlight_id && (raw.data || raw.diagnostics || raw.health)) {
     const {
