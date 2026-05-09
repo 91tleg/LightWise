@@ -25,7 +25,10 @@ from infrastructure.auth.identity import resolve_identity
 from infrastructure.lorawan.downlink_encoder import (
     DownlinkCommandPayloadEncoder
 )
-from infrastructure.lorawan.iot_core import get_downlink_sender
+from infrastructure.lorawan.iot_core import (
+    DispatchError,
+    get_downlink_sender,
+)
 from infrastructure.persistence.dynamo.downlink_command_repo import (
     get_downlink_command_repo,
 )
@@ -88,6 +91,16 @@ def handler(event: dict, context: object) -> dict:
         return error(404, "Streetlight not found")
     except MissingWirelessDeviceIdError:
         return error(400, "wireless_device_id is missing for this streetlight")
+    except DispatchError:
+        logger.exception(
+            "IoT Core dispatch failed",
+            extra={
+                "tenant_id": tenant_id,
+                "streetlight_id": streetlight_id,
+                "command": command,
+            },
+        )
+        return error(500, "Failed to dispatch command to device")
     except Exception:
         logger.exception(
             "Failed to send streetlight command",
