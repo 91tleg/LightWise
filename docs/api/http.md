@@ -170,6 +170,114 @@ At least one field is required.
 
 ---
 
+### `GET /streetlights/{id}/commands`
+
+Returns recent downlink command records for a streetlight. Used by the admin
+console to show whether commands are pending, acknowledged, rejected, or timed
+out.
+
+**Path Parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | string | Streetlight identifier |
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `limit` | integer | no | Maximum number of commands to return |
+
+**Response `200`**
+```json
+{
+  "streetlight_id": "LW-00100",
+  "commands": [
+    {
+      "command_id": "cmd-20260509-001",
+      "streetlight_id": "LW-00100",
+      "command": "SET_LEVELS",
+      "params": {
+        "max_level": 90,
+        "dim_level": 20
+      },
+      "status": "ACKNOWLEDGED",
+      "dispatched_at": "2026-05-09T18:22:14.000Z",
+      "response": {
+        "received_at": "2026-05-09T18:22:17.000Z",
+        "response_code": "ACK",
+        "reason_code": ""
+      }
+    }
+  ]
+}
+```
+
+---
+
+### `POST /streetlights/{id}/commands`
+
+Queues a downlink command for a streetlight. The command is encoded for the
+LoRaWAN device and recorded so the admin console can display command history
+and acknowledgement status.
+
+**Path Parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | string | Streetlight identifier |
+
+**Request Body**
+
+```json
+{
+  "command": "SET_LEVELS",
+  "params": {
+    "max_level": 90,
+    "dim_level": 20
+  }
+}
+```
+
+**Supported commands**
+
+| Command | Parameters |
+|---|---|
+| `REQUEST_UPLINK` | none |
+| `OVERRIDE_ON` | `level` |
+| `OVERRIDE_OFF` | none |
+| `RESUME_AUTO` | none |
+| `SET_LEVELS` | `max_level`, `dim_level` |
+| `SET_MOTION_TIMEOUT` | `timeout_seconds` |
+| `SET_TEMP_DIM` | `level`, `duration_hours` |
+| `SET_MOTION_SENSITIVITY` | `sensitivity` |
+| `SET_HEARTBEAT_INTERVAL` | `interval_minutes` |
+| `REBOOT` | none |
+
+**Response `202`**
+```json
+{
+  "command_id": "cmd-20260509-001",
+  "streetlight_id": "LW-00100",
+  "command": "SET_LEVELS",
+  "status": "PENDING",
+  "dispatched_at": "2026-05-09T18:22:14.000Z"
+}
+```
+
+**Response `400`**
+```json
+{ "error": "command is required" }
+{ "error": "Unsupported command" }
+```
+
+**Response `404`**
+```json
+{ "error": "Streetlight not found" }
+```
+
+---
+
 ## `POST /invite-user`
 
 Invites a new user to the tenant and creates their Cognito account.
