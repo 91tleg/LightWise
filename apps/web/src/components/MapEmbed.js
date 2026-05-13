@@ -102,6 +102,7 @@ export default function MapEmbed({
   focusLng = null,
   focusRadiusMeters = 30,
   forceNativePin = false,
+  showPoleMarkers = true,
 }) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const validPoles = useMemo(() => {
@@ -155,7 +156,9 @@ export default function MapEmbed({
     [validPoles, center, motionFocusPoint]
   );
 
-  const showMarkerOverlay = interactive;
+  const markerPoles = showPoleMarkers ? validPoles : [];
+  const showMarkerOverlay = interactive && (markerPoles.length > 0 || hasMotionFocus);
+  const showPoleInfo = showInfo && (showPoleMarkers || hasMotionFocus);
   const explicitPinPoint = useMemo(() => {
     if (isValidCoord(lat) && isValidCoord(lng)) {
       return { lat: Number(lat), lng: Number(lng) };
@@ -172,8 +175,9 @@ export default function MapEmbed({
     return null;
   }, [activePole, explicitPinPoint, motionFocusPoint]);
 
+  const allowNativePin = showPoleMarkers || !interactive || hasMotionFocus;
   const nativePinMode =
-    forceNativePin || !interactive || hasMotionFocus || validPoles.length <= 1;
+    allowNativePin && (forceNativePin || !interactive || hasMotionFocus || validPoles.length <= 1);
 
   const zoomLevel = useMemo(() => {
     if (hasMotionFocus) {
@@ -231,7 +235,7 @@ export default function MapEmbed({
 
           {showMarkerOverlay ? (
             <div className="lwMapMarkerLayer">
-              {validPoles.map((pole) => {
+              {markerPoles.map((pole) => {
                 const tone = toneForPole(pole);
                 const isSelected = pole?.streetlight_id === activePole?.streetlight_id;
 
@@ -261,7 +265,7 @@ export default function MapEmbed({
             </div>
           ) : null}
 
-          {showInfo && activePole ? (
+          {showPoleInfo && activePole ? (
             <div className="lwMapInfoWindow">
               <strong>{activePole.streetlight_id}</strong>
               <span>{activePole.name || "Unnamed pole"}</span>
