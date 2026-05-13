@@ -394,6 +394,21 @@
   outline: none;
 }
 
+.lwAdminSelect {
+  color-scheme: light;
+}
+
+.lwAdminSelect option,
+.lwAdminSelect optgroup {
+  background-color: #ffffff;
+  color: #13273a;
+}
+
+.lwAdminSelect option:checked {
+  background-color: #0b63a6;
+  color: #ffffff;
+}
+
 .lwAdminTextarea {
   resize: vertical;
   min-height: 88px;
@@ -852,6 +867,10 @@
   min-width: 520px;
 }
 
+.lwAdminSectionGridCompact .lwAdminTable {
+  min-width: 0;
+}
+
 .lwAdminTable thead th {
   padding: 12px 14px;
   text-align: left;
@@ -883,6 +902,7 @@
   font-size: 13px;
   font-weight: 700;
   color: #1f3347;
+  overflow-wrap: anywhere;
 }
 
 .lwAdminTable td strong {
@@ -1155,6 +1175,21 @@ body.dark .lwAdminTimelineTrackWrap {
   background: linear-gradient(180deg, rgba(14, 26, 41, 0.98), rgba(10, 21, 35, 0.96));
   border-color: rgba(148, 163, 184, 0.14);
   color: #dce8f5;
+}
+
+body.dark .lwAdminSelect {
+  color-scheme: dark;
+}
+
+body.dark .lwAdminSelect option,
+body.dark .lwAdminSelect optgroup {
+  background-color: #0e1a29;
+  color: #eef5ff;
+}
+
+body.dark .lwAdminSelect option:checked {
+  background-color: #0b63a6;
+  color: #ffffff;
 }
 
 body.dark .lwAdminThemeToggleBtn {
