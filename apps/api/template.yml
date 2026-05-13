@@ -28,7 +28,7 @@ Parameters:
 Globals:
   Api:
     Cors:
-      AllowMethods: "'GET,PUT,POST,OPTIONS'"
+      AllowMethods: "'GET,PUT,POST,DELETE,OPTIONS'"
       AllowHeaders: "'Content-Type,Authorization'"
       AllowOrigin: !Ref AllowedOrigin
     Auth:
@@ -364,6 +364,58 @@ Resources:
             Method: get
             Auth:
               Authorizer: CognitoAuthorizer
+
+  ListUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.user_list.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersAndTenants
+      Events:
+        ListUsers:
+          Type: Api
+          Properties:
+            Path: /users
+            Method: get
+
+  InviteUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.user_invite.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersAndTenants
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminCreateUser
+              Resource: !GetAtt CognitoUserPool.Arn
+      Events:
+        InviteUser:
+          Type: Api
+          Properties:
+            Path: /invite-user
+            Method: post
+
+  RemoveUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.user_remove.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersAndTenants
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminDeleteUser
+              Resource: !GetAtt CognitoUserPool.Arn
+      Events:
+        RemoveUser:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: delete
 
   ListStreetlightsFunction:
     Type: AWS::Serverless::Function

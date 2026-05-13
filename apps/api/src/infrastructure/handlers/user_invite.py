@@ -57,7 +57,7 @@ def _use_case() -> InviteUser:
 
 def handler(event: dict, context: object) -> dict:
     try:
-        requesting_user_id, _ = resolve_identity(event)
+        tenant_id, requesting_user_id = resolve_identity(event)
     except AuthError:
         return error(401, "Unauthorized")
 
@@ -75,8 +75,6 @@ def handler(event: dict, context: object) -> dict:
         return error(400, "role is required")
     if role not in ("admin", "operator"):
         return error(400, "role must be admin or operator")
-
-    tenant_id, _ = resolve_identity(event)
 
     try:
         user = _use_case().execute(

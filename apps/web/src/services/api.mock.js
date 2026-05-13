@@ -348,22 +348,6 @@ export function mockListUsers() {
       tenant_id: MOCK_PROFILE.tenant_id,
       created_at: "2026-02-01T18:22:00Z",
     },
-    {
-      user_id: "mock-admin-avery",
-      name: "Avery Brooks",
-      email: "avery.brooks@city.gov",
-      role: "admin",
-      tenant_id: MOCK_PROFILE.tenant_id,
-      created_at: "2026-02-03T15:12:00Z",
-    },
-    {
-      user_id: "mock-operator-jules",
-      name: "Jules Chen",
-      email: "jules.chen@city.gov",
-      role: "operator",
-      tenant_id: MOCK_PROFILE.tenant_id,
-      created_at: "2026-02-06T11:40:00Z",
-    },
   ];
 }
 

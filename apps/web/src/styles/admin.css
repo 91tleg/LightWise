@@ -1166,9 +1166,34 @@ body.dark .lwAdminDayPill.isActive,
 body.dark .lwAdminSectionNavItem.isActive,
 body.dark .lwAdminRecordItem.isSelected,
 body.dark .lwAdminSecondaryBtn.isActive {
-  background: rgba(26, 118, 191, 0.28);
-  border-color: rgba(91, 197, 255, 0.24);
+  background: linear-gradient(180deg, rgba(18, 76, 118, 0.9), rgba(13, 54, 86, 0.92));
+  border-color: rgba(91, 197, 255, 0.36);
   color: #9fd6ff;
+}
+
+body.dark .lwAdminSectionNavItemTop,
+body.dark .lwAdminSectionNavItemTop span,
+body.dark .lwAdminSectionNavItem.isActive .lwAdminSectionNavItemTop,
+body.dark .lwAdminSectionNavItem.isActive .lwAdminSectionNavItemTop span {
+  color: #eef7ff;
+}
+
+body.dark .lwAdminSectionNavItem .lwAdminSectionNavDesc {
+  color: #b4c7d9;
+}
+
+body.dark .lwAdminSectionNavItem.isActive .lwAdminSectionNavDesc {
+  color: #d2e8fb;
+}
+
+body.dark .lwAdminSectionNavIcon {
+  background: rgba(14, 116, 144, 0.22);
+  color: #67d2e3;
+}
+
+body.dark .lwAdminSectionNavItem.isActive .lwAdminSectionNavIcon {
+  background: rgba(103, 210, 227, 0.18);
+  color: #9eefff;
 }
 
 body.dark .lwAdminChip {

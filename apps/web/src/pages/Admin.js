@@ -25,6 +25,21 @@ import "../styles/lightwise.css";
 import "../styles/admin.css";
 
 const ADMIN_STORAGE_KEY = "lightwise_admin_console_v8";
+const LEGACY_DEMO_USER_EMAILS = new Set([
+  "avery.brooks@city.gov",
+  "jules.chen@city.gov",
+]);
+const LEGACY_DEMO_ZONE_NAMES = new Set([
+  "downtown core",
+  "waterfront",
+  "civic campus",
+]);
+const LEGACY_DEMO_SCHEDULE_NAMES = new Set([
+  "day window",
+  "night window",
+  "waterfront day window",
+  "waterfront night window",
+]);
 const DAY_OPTIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TIME_OPTIONS = Array.from({ length: 97 }, (_, index) => {
   const minutes = Math.min(index * 15, 24 * 60);
@@ -117,6 +132,32 @@ function safeWriteAdminState(value) {
 
 function makeId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function isLegacyDemoUser(user = {}) {
+  return LEGACY_DEMO_USER_EMAILS.has(String(user.email || "").trim().toLowerCase());
+}
+
+function isLegacyDemoZone(zone = {}) {
+  return LEGACY_DEMO_ZONE_NAMES.has(String(zone.name || "").trim().toLowerCase());
+}
+
+function isLegacyDemoSchedule(schedule = {}) {
+  return LEGACY_DEMO_SCHEDULE_NAMES.has(String(schedule.name || "").trim().toLowerCase());
+}
+
+function isLegacyDemoDevice(device = {}) {
+  const devEui = normalizeDevEui(device.devEui);
+  const gateway = String(device.gateway || "").trim();
+  return /^70B3D57ED00A\d{2}$/.test(devEui) && /^GW-\d{2}$/.test(gateway);
+}
+
+function isLocalOnlyUser(user = {}) {
+  return !String(user.user_id || "").trim() && !String(user.created_at || "").trim();
+}
+
+function isInviteEndpointUnavailable(error) {
+  return String(error?.message || "").startsWith("Failed to fetch (POST ");
 }
 
 function clamp(value, min, max) {
@@ -219,153 +260,26 @@ function isValidEmail(value = "") {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim());
 }
 
-function createPolygon(center, offsets) {
-  return offsets.map((offset) => ({
-    lat: Number((center.lat + offset.lat).toFixed(6)),
-    lng: Number((center.lng + offset.lng).toFixed(6)),
-  }));
-}
-
-function createSeedAdminState(basePoles = [], operator = null) {
-  const center = pickBestCenter(basePoles);
-  const poles = Array.isArray(basePoles) ? basePoles : [];
-  const zoneIds = {
-    downtown: makeId("zone"),
-    waterfront: makeId("zone"),
-    civic: makeId("zone"),
-  };
-  const zones = [
-    {
-      id: zoneIds.downtown,
-      name: "Downtown Core",
-      description: "Retail frontage, late foot traffic, and the busiest curb edge.",
-      motionSensitivity: 72,
-      polygon: createPolygon(center, [
-        { lat: 0.004, lng: -0.0065 },
-        { lat: 0.0056, lng: 0.0008 },
-        { lat: 0.0015, lng: 0.0068 },
-        { lat: -0.0042, lng: 0.0035 },
-        { lat: -0.0036, lng: -0.0054 },
-      ]),
-      assignedPoleIds: poles.slice(0, 2).map((pole) => pole.streetlight_id),
-    },
-    {
-      id: zoneIds.waterfront,
-      name: "Waterfront",
-      description: "Lower-density path lighting with higher wind exposure after dark.",
-      motionSensitivity: 48,
-      polygon: createPolygon(center, [
-        { lat: 0.0014, lng: -0.0105 },
-        { lat: 0.0034, lng: -0.004 },
-        { lat: -0.0028, lng: -0.0012 },
-        { lat: -0.0052, lng: -0.0086 },
-      ]),
-      assignedPoleIds: poles.slice(2, 4).map((pole) => pole.streetlight_id),
-    },
-    {
-      id: zoneIds.civic,
-      name: "Civic Campus",
-      description: "City hall, transit stop frontage, and public event spillover.",
-      motionSensitivity: 61,
-      polygon: createPolygon(center, [
-        { lat: 0.0074, lng: 0.0022 },
-        { lat: 0.0046, lng: 0.0108 },
-        { lat: -0.0016, lng: 0.0088 },
-        { lat: -0.0008, lng: 0.0018 },
-      ]),
-      assignedPoleIds: poles.slice(4, 6).map((pole) => pole.streetlight_id),
-    },
-  ];
-
-  const schedules = [
-    {
-      id: makeId("schedule"),
-      name: "Day window",
-      zoneId: zoneIds.downtown,
-      startMinute: 0,
-      endMinute: 12 * 60,
-      dimLevel: 68,
-      days: [0, 1, 2, 3, 4, 5, 6],
-    },
-    {
-      id: makeId("schedule"),
-      name: "Night window",
-      zoneId: zoneIds.downtown,
-      startMinute: 12 * 60,
-      endMinute: 24 * 60,
-      dimLevel: 82,
-      days: [0, 1, 2, 3, 4, 5, 6],
-    },
-    {
-      id: makeId("schedule"),
-      name: "Waterfront day window",
-      zoneId: zoneIds.waterfront,
-      startMinute: 0,
-      endMinute: 12 * 60,
-      dimLevel: 58,
-      days: [0, 1, 2, 3, 4, 5, 6],
-    },
-    {
-      id: makeId("schedule"),
-      name: "Waterfront night window",
-      zoneId: zoneIds.waterfront,
-      startMinute: 12 * 60,
-      endMinute: 24 * 60,
-      dimLevel: 74,
-      days: [0, 1, 2, 3, 4, 5, 6],
-    },
-  ].map((schedule) => ({
-    ...schedule,
-    endMinute: clamp(schedule.endMinute, schedule.startMinute + 30, 48 * 60),
-  }));
-
-  const devices = (poles.length ? poles : [{ streetlight_id: "LW-PLN-001", name: "Planning pole" }])
-    .slice(0, Math.max(2, poles.length))
-    .map((pole, index) => ({
-      id: makeId("device"),
-      label: `${pole.name || "Pole"} radio`,
-      devEui: normalizeDevEui(`70B3D57ED00A${String(index + 1).padStart(2, "0")}`),
-      poleId: pole.streetlight_id,
-      gateway: `GW-${String(index + 1).padStart(2, "0")}`,
-      signalRssi: -88 - index * 5,
-      lastUplink: new Date(Date.now() - index * 17 * 60 * 1000).toISOString(),
-    }));
-
-  const operatorUser = operator
+function createSeedAdminState(operator = null) {
+  const users = operator
     ? {
         id: makeId("user"),
         name: operator.name || "Current user",
         email: operator.email || "operator@lightwise.local",
         role: operator.role === "admin" ? "admin" : "operator",
       }
-    : {
-        id: makeId("user"),
-        name: "Morgan Street",
-        email: "morgan.street@city.gov",
-        role: "admin",
-      };
+    : null;
 
-  const users = [
-    operatorUser,
-    {
-      id: makeId("user"),
-      name: "Avery Brooks",
-      email: "avery.brooks@city.gov",
-      role: "operator",
-    },
-    {
-      id: makeId("user"),
-      name: "Jules Chen",
-      email: "jules.chen@city.gov",
-      role: "operator",
-    },
-  ];
-
-  return { zones, schedules, devices, users };
+  return {
+    zones: [],
+    schedules: [],
+    devices: [],
+    users: users ? [users] : [],
+  };
 }
 
 function reconcileAdminState(currentState, basePoles = [], operator = null) {
-  const fallback = createSeedAdminState(basePoles, operator);
+  const fallback = createSeedAdminState(operator);
   if (!currentState || typeof currentState !== "object") {
     return fallback;
   }
@@ -373,6 +287,7 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   const poleIds = new Set(basePoles.map((pole) => pole.streetlight_id));
   const zones = Array.isArray(currentState.zones)
     ? currentState.zones
+        .filter((zone) => !isLegacyDemoZone(zone))
         .map((zone) => {
           const polygon = (Array.isArray(zone?.polygon) ? zone.polygon : [])
             .map(normalizePoint)
@@ -395,6 +310,7 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   const zoneIds = new Set(zones.map((zone) => zone.id));
   const schedules = Array.isArray(currentState.schedules)
     ? currentState.schedules
+        .filter((schedule) => !isLegacyDemoSchedule(schedule))
         .map((schedule) => {
           if (!schedule?.id || !zoneIds.has(schedule.zoneId)) return null;
 
@@ -424,6 +340,7 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
 
   const devices = Array.isArray(currentState.devices)
     ? currentState.devices
+        .filter((device) => !isLegacyDemoDevice(device))
         .map((device) => {
           if (!device?.id) return null;
 
@@ -442,15 +359,18 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
 
   const users = Array.isArray(currentState.users)
     ? currentState.users
+        .filter((user) => !isLegacyDemoUser(user))
         .map((user) => {
           if (!user?.id) return null;
 
           const role = user.role === "admin" ? "admin" : "operator";
           return {
             id: String(user.id),
+            user_id: String(user.user_id || "").trim(),
             name: String(user.name || "").trim(),
             email: String(user.email || "").trim(),
             role,
+            created_at: user.created_at || "",
           };
         })
         .filter(Boolean)
@@ -461,9 +381,11 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
     const existingIndex = users.findIndex((user) => user.email.toLowerCase() === operatorEmail);
     const operatorEntry = {
       id: existingIndex >= 0 ? users[existingIndex].id : makeId("user"),
+      user_id: existingIndex >= 0 ? users[existingIndex].user_id || "" : "",
       name: operator.name || "Current user",
       email: operator.email,
       role: operator.role === "admin" ? "admin" : "operator",
+      created_at: existingIndex >= 0 ? users[existingIndex].created_at || "" : "",
     };
 
     if (existingIndex >= 0) {
@@ -474,8 +396,8 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   }
 
   return {
-    zones: zones.length ? zones : fallback.zones,
-    schedules: schedules.length ? schedules : fallback.schedules,
+    zones,
+    schedules,
     devices,
     users: users.length ? users : fallback.users,
   };
@@ -631,18 +553,20 @@ function mergeRemoteUsers(remoteUsers = [], localUsers = [], operator = null) {
       .map((user) => [user.id, user])
   );
 
-  const users = (Array.isArray(remoteUsers) ? remoteUsers : []).map((user) => {
-    const local = localById.get(user.id) || localByEmail.get(String(user.email || "").toLowerCase()) || {};
-    const email = user.email || local.email || "";
-    return {
-      id: user.id || user.user_id || local.id || email,
-      user_id: user.user_id || user.id || local.user_id || local.id || email,
-      name: user.name || local.name || userNameFromEmail(email) || "User",
-      email,
-      role: user.role === "admin" ? "admin" : "operator",
-      created_at: user.created_at || local.created_at || "",
-    };
-  });
+  const users = (Array.isArray(remoteUsers) ? remoteUsers : [])
+    .filter((user) => !isLegacyDemoUser(user))
+    .map((user) => {
+      const local = localById.get(user.id) || localByEmail.get(String(user.email || "").toLowerCase()) || {};
+      const email = user.email || local.email || "";
+      return {
+        id: user.id || user.user_id || local.id || email,
+        user_id: user.user_id || user.id || local.user_id || local.id || email,
+        name: user.name || local.name || userNameFromEmail(email) || "User",
+        email,
+        role: user.role === "admin" ? "admin" : "operator",
+        created_at: user.created_at || local.created_at || "",
+      };
+    });
 
   if (operator?.email) {
     const operatorEmail = operator.email.trim().toLowerCase();
@@ -1238,7 +1162,10 @@ export default function Admin() {
   const zones = useMemo(() => adminState?.zones ?? [], [adminState?.zones]);
   const schedules = useMemo(() => adminState?.schedules ?? [], [adminState?.schedules]);
   const devices = useMemo(() => adminState?.devices ?? [], [adminState?.devices]);
-  const users = useMemo(() => adminState?.users ?? [], [adminState?.users]);
+  const users = useMemo(
+    () => (adminState?.users ?? []).filter((user) => !isLegacyDemoUser(user)),
+    [adminState?.users]
+  );
   const poleZoneMap = useMemo(() => buildPoleZoneMap(zones), [zones]);
   const zoneLookup = useMemo(
     () =>
@@ -1784,23 +1711,39 @@ export default function Admin() {
 
     const nextUser = {
       id: userEditorMode === "edit" && selectedUser ? selectedUser.id : makeId("user"),
+      user_id: userEditorMode === "edit" && selectedUser ? selectedUser.user_id || "" : "",
       name: userForm.name.trim(),
       email: userForm.email.trim(),
       role: userForm.role,
+      created_at: userEditorMode === "edit" && selectedUser ? selectedUser.created_at || "" : "",
     };
 
     setUserSaving(true);
 
     try {
-      const savedUser =
-        userEditorMode === "create" ? await inviteUser(nextUser) : nextUser;
+      let savedLocally = false;
+      let savedUser = nextUser;
+
+      if (userEditorMode === "create") {
+        try {
+          savedUser = await inviteUser(nextUser);
+        } catch (error) {
+          if (!isInviteEndpointUnavailable(error)) {
+            throw error;
+          }
+          savedLocally = true;
+          savedUser = nextUser;
+        }
+      }
 
       const mergedUser = {
         ...savedUser,
         id: savedUser.id || savedUser.user_id || nextUser.id,
+        user_id: savedUser.user_id || nextUser.user_id || "",
         name: savedUser.name || nextUser.name,
         email: savedUser.email || nextUser.email,
         role: savedUser.role || nextUser.role,
+        created_at: savedUser.created_at || nextUser.created_at || "",
       };
 
       patchAdminState((current) => ({
@@ -1811,15 +1754,20 @@ export default function Admin() {
             : [mergedUser, ...current.users],
       }));
 
-      if (userEditorMode === "create") {
+      if (userEditorMode === "create" && !savedLocally) {
         setRemoteUsers((current) => [mergedUser, ...(Array.isArray(current) ? current : [])]);
       }
 
       setUserEditorMode("edit");
       setSelectedUserId(mergedUser.id);
       setUserStatus({
-        tone: "healthy",
-        text: userEditorMode === "edit" ? "User updated locally." : "Cognito invite sent.",
+        tone: savedLocally ? "warning" : "healthy",
+        text:
+          userEditorMode === "edit"
+            ? "User updated locally."
+            : savedLocally
+            ? "User added locally. Cognito invite service unavailable."
+            : "Cognito invite sent.",
       });
     } catch (error) {
       setUserStatus({
@@ -1836,7 +1784,11 @@ export default function Admin() {
 
     setUserSaving(true);
     try {
-      await removeUser(user.user_id || user.id);
+      const localOnly = isLocalOnlyUser(user);
+      if (!localOnly) {
+        await removeUser(user.user_id || user.id);
+      }
+
       patchAdminState((current) => ({
         ...current,
         users: current.users.filter((item) => item.id !== user.id),
@@ -1847,7 +1799,10 @@ export default function Admin() {
           : current
       );
       setSelectedUserId(null);
-      setUserStatus({ tone: "healthy", text: "User removed from Cognito." });
+      setUserStatus({
+        tone: "healthy",
+        text: localOnly ? "User removed locally." : "User removed from Cognito.",
+      });
     } catch (error) {
       setUserStatus({
         tone: "critical",
@@ -2055,7 +2010,7 @@ export default function Admin() {
                             onChange={(event) =>
                               setZoneForm((current) => ({ ...current, name: event.target.value }))
                             }
-                            placeholder="Downtown Core"
+                            placeholder="Zone name"
                           />
                           <FieldMessage error={zoneErrors.name} />
                         </label>
@@ -2526,43 +2481,6 @@ export default function Admin() {
                         </select>
                         <FieldMessage error={scheduleErrors.zoneId} />
                       </label>
-                    </div>
-
-                    <div className="lwAdminButtonRow">
-                      <button
-                        type="button"
-                        className="lwAdminGhostBtn"
-                        onClick={() =>
-                          setScheduleForm((current) => ({
-                            ...current,
-                            name:
-                              scheduleEditorMode === "create" && !current.name
-                                ? "Day window"
-                                : current.name,
-                            startMinute: 0,
-                            endMinute: 12 * 60,
-                          }))
-                        }
-                      >
-                        12 AM to 12 PM
-                      </button>
-                      <button
-                        type="button"
-                        className="lwAdminGhostBtn"
-                        onClick={() =>
-                          setScheduleForm((current) => ({
-                            ...current,
-                            name:
-                              scheduleEditorMode === "create" && !current.name
-                                ? "Night window"
-                                : current.name,
-                            startMinute: 12 * 60,
-                            endMinute: 24 * 60,
-                          }))
-                        }
-                      >
-                        12 PM to 12 AM
-                      </button>
                     </div>
 
                     <div className="lwAdminInlineSurface lwAdminScheduleHint">
