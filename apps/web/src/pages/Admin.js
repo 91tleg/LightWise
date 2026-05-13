@@ -1456,7 +1456,7 @@ export default function Admin() {
         if (!isCurrent) return;
         setCommandStatus({
           tone: "warning",
-          text: error?.message || "Command history unavailable.",
+          text: "Command history unavailable. You can still send downlinks.",
         });
       });
 

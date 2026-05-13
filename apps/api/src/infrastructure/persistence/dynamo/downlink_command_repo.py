@@ -3,7 +3,7 @@ from dataclasses import asdict
 from functools import lru_cache
 from datetime import datetime, timezone
 
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 from domain.streetlight.commands import StreetlightCommand
@@ -176,6 +176,7 @@ class DownlinkCommandRepo:
     def list_for_streetlight(
         self,
         streetlight_id: str,
+        tenant_id: str | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """
@@ -184,14 +185,17 @@ class DownlinkCommandRepo:
         Results are ordered by command_id (time-prefixed) descending
         so the most recent command is first.
         """
+        query_kwargs = {
+            "KeyConditionExpression": Key("streetlight_id").eq(streetlight_id),
+            "ScanIndexForward": False,
+            "Limit": limit,
+        }
+
+        if tenant_id:
+            query_kwargs["FilterExpression"] = Attr("tenant_id").eq(tenant_id)
+
         try:
-            result = self._table.query(
-                KeyConditionExpression=Key("streetlight_id").eq(
-                    streetlight_id
-                ),
-                ScanIndexForward=False,
-                Limit=limit,
-            )
+            result = self._table.query(**query_kwargs)
             return result.get("Items", [])
 
         except ClientError as e:
