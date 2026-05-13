@@ -35,7 +35,8 @@ class TestListCommandsHandler:
             _PATCH_RESOLVE_IDENTITY,
             return_value=identity,
         ), patch(_PATCH_COMMAND_REPO) as mock_repo:
-            mock_repo.return_value.list_for_streetlight.return_value = items or []
+            list_for_streetlight = mock_repo.return_value.list_for_streetlight
+            list_for_streetlight.return_value = items or []
             return handler(event, None), mock_repo
 
     def test_returns_command_history(self):
@@ -99,7 +100,10 @@ class TestListCommandsHandler:
 
     def test_caps_large_limit(self):
         _, mock_repo = self._call(_event(query={"limit": "500"}))
-        assert mock_repo.return_value.list_for_streetlight.call_args.kwargs["limit"] == 100
+        call_kwargs = (
+            mock_repo.return_value.list_for_streetlight.call_args.kwargs
+        )
+        assert call_kwargs["limit"] == 100
 
     def test_returns_401_on_auth_error(self):
         with patch(
