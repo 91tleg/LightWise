@@ -449,6 +449,20 @@ Resources:
             Path: /streetlights/{id}/commands
             Method: post
 
+  StreetlightsListCommandsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.streetlights_list_commands.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DownlinkCommands
+      Events:
+        ListCommands:
+          Type: Api
+          Properties:
+            Path: /streetlights/{id}/commands
+            Method: get
+
   Streetlights:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -548,11 +562,26 @@ Resources:
     Properties:
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
+        - AttributeName: streetlight_id
+          AttributeType: S
         - AttributeName: command_id
           AttributeType: S
+        - AttributeName: tenant_id
+          AttributeType: S
       KeySchema:
-        - AttributeName: command_id
+        - AttributeName: streetlight_id
           KeyType: HASH
+        - AttributeName: command_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ByTenant
+          KeySchema:
+            - AttributeName: tenant_id
+              KeyType: HASH
+            - AttributeName: command_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
