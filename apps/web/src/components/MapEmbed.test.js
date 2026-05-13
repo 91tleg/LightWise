@@ -36,6 +36,7 @@ test("renders the real map background, loading surface, and LightWise markers", 
   expect(screen.getByTitle("Network map").getAttribute("src")).toContain(
     "output=embed"
   );
+  expect(screen.getByTitle("Network map").style.pointerEvents).toBe("none");
 });
 
 test("renders a marker for a single interactive pole", () => {
@@ -50,4 +51,20 @@ test("renders a marker for a single interactive pole", () => {
   );
 
   expect(screen.getByLabelText("Select pole LW-00043")).toBeTruthy();
+});
+
+test("hides LightWise pole markers when marker rendering is disabled", () => {
+  render(
+    <MapEmbed
+      title="Hidden marker map"
+      poles={poles}
+      selectedId="LW-00043"
+      interactive
+      showPoleMarkers={false}
+    />
+  );
+
+  expect(screen.queryByLabelText("Select pole LW-00043")).toBeNull();
+  expect(screen.queryByText("LW-00043")).toBeNull();
+  expect(screen.getByTitle("Hidden marker map").getAttribute("src")).not.toContain("&q=");
 });
