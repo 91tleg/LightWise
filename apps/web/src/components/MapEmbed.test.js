@@ -36,6 +36,7 @@ test("renders the real map background, loading surface, and LightWise markers", 
   expect(screen.getByTitle("Network map").getAttribute("src")).toContain(
     "output=embed"
   );
+  expect(screen.getByTitle("Network map").style.pointerEvents).toBe("none");
 });
 
 test("renders a marker for a single interactive pole", () => {

@@ -364,6 +364,10 @@ export default function Overview() {
               onSelectPole={(pole) => setSelectedId(pole.streetlight_id)}
               interactive
               forceNativePin
+              motionDetected={!selectedPoleIsStale && overviewSelectedPole?.motion_detected === true}
+              focusLat={overviewSelectedPole?.motion_focus_lat}
+              focusLng={overviewSelectedPole?.motion_focus_lng}
+              focusRadiusMeters={overviewSelectedPole?.motion_focus_radius_m ?? 30}
               showLegend
             />
           </Card>
