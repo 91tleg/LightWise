@@ -553,20 +553,18 @@ function mergeRemoteUsers(remoteUsers = [], localUsers = [], operator = null) {
       .map((user) => [user.id, user])
   );
 
-  const users = (Array.isArray(remoteUsers) ? remoteUsers : [])
-    .filter((user) => !isLegacyDemoUser(user))
-    .map((user) => {
-      const local = localById.get(user.id) || localByEmail.get(String(user.email || "").toLowerCase()) || {};
-      const email = user.email || local.email || "";
-      return {
-        id: user.id || user.user_id || local.id || email,
-        user_id: user.user_id || user.id || local.user_id || local.id || email,
-        name: user.name || local.name || userNameFromEmail(email) || "User",
-        email,
-        role: user.role === "admin" ? "admin" : "operator",
-        created_at: user.created_at || local.created_at || "",
-      };
-    });
+  const users = (Array.isArray(remoteUsers) ? remoteUsers : []).map((user) => {
+    const local = localById.get(user.id) || localByEmail.get(String(user.email || "").toLowerCase()) || {};
+    const email = user.email || local.email || "";
+    return {
+      id: user.id || user.user_id || local.id || email,
+      user_id: user.user_id || user.id || local.user_id || local.id || email,
+      name: user.name || local.name || userNameFromEmail(email) || "User",
+      email,
+      role: user.role === "admin" ? "admin" : "operator",
+      created_at: user.created_at || local.created_at || "",
+    };
+  });
 
   if (operator?.email) {
     const operatorEmail = operator.email.trim().toLowerCase();
@@ -1162,10 +1160,7 @@ export default function Admin() {
   const zones = useMemo(() => adminState?.zones ?? [], [adminState?.zones]);
   const schedules = useMemo(() => adminState?.schedules ?? [], [adminState?.schedules]);
   const devices = useMemo(() => adminState?.devices ?? [], [adminState?.devices]);
-  const users = useMemo(
-    () => (adminState?.users ?? []).filter((user) => !isLegacyDemoUser(user)),
-    [adminState?.users]
-  );
+  const users = useMemo(() => adminState?.users ?? [], [adminState?.users]);
   const poleZoneMap = useMemo(() => buildPoleZoneMap(zones), [zones]);
   const zoneLookup = useMemo(
     () =>
