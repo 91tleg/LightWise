@@ -1,9 +1,17 @@
 import React, { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import AdminWsControls from "../components/AdminWsControls";
 import Layout from "../components/Layout";
 import MapEmbed from "../components/MapEmbed";
 import UiIcon from "../components/UiIcon";
 import { useLightWise } from "../hooks/useLightWise";
-import { updateStreetlightMetadata } from "../services/api";
+import {
+  getStreetlightCommandHistory,
+  inviteUser,
+  listUsers as listTenantUsers,
+  removeUser,
+  sendStreetlightCommand,
+  updateStreetlightMetadata,
+} from "../services/api";
 import { loadPoleMetaMap, upsertPoleMeta } from "../services/poleStorage";
 import { formatTimestamp } from "../utils/formatters";
 import {
@@ -17,6 +25,21 @@ import "../styles/lightwise.css";
 import "../styles/admin.css";
 
 const ADMIN_STORAGE_KEY = "lightwise_admin_console_v8";
+const LEGACY_DEMO_USER_EMAILS = new Set([
+  "avery.brooks@city.gov",
+  "jules.chen@city.gov",
+]);
+const LEGACY_DEMO_ZONE_NAMES = new Set([
+  "downtown core",
+  "waterfront",
+  "civic campus",
+]);
+const LEGACY_DEMO_SCHEDULE_NAMES = new Set([
+  "day window",
+  "night window",
+  "waterfront day window",
+  "waterfront night window",
+]);
 const DAY_OPTIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TIME_OPTIONS = Array.from({ length: 97 }, (_, index) => {
   const minutes = Math.min(index * 15, 24 * 60);
@@ -109,6 +132,32 @@ function safeWriteAdminState(value) {
 
 function makeId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function isLegacyDemoUser(user = {}) {
+  return LEGACY_DEMO_USER_EMAILS.has(String(user.email || "").trim().toLowerCase());
+}
+
+function isLegacyDemoZone(zone = {}) {
+  return LEGACY_DEMO_ZONE_NAMES.has(String(zone.name || "").trim().toLowerCase());
+}
+
+function isLegacyDemoSchedule(schedule = {}) {
+  return LEGACY_DEMO_SCHEDULE_NAMES.has(String(schedule.name || "").trim().toLowerCase());
+}
+
+function isLegacyDemoDevice(device = {}) {
+  const devEui = normalizeDevEui(device.devEui);
+  const gateway = String(device.gateway || "").trim();
+  return /^70B3D57ED00A\d{2}$/.test(devEui) && /^GW-\d{2}$/.test(gateway);
+}
+
+function isLocalOnlyUser(user = {}) {
+  return !String(user.user_id || "").trim() && !String(user.created_at || "").trim();
+}
+
+function isInviteEndpointUnavailable(error) {
+  return String(error?.message || "").startsWith("Failed to fetch (POST ");
 }
 
 function clamp(value, min, max) {
@@ -211,153 +260,26 @@ function isValidEmail(value = "") {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim());
 }
 
-function createPolygon(center, offsets) {
-  return offsets.map((offset) => ({
-    lat: Number((center.lat + offset.lat).toFixed(6)),
-    lng: Number((center.lng + offset.lng).toFixed(6)),
-  }));
-}
-
-function createSeedAdminState(basePoles = [], operator = null) {
-  const center = pickBestCenter(basePoles);
-  const poles = Array.isArray(basePoles) ? basePoles : [];
-  const zoneIds = {
-    downtown: makeId("zone"),
-    waterfront: makeId("zone"),
-    civic: makeId("zone"),
-  };
-  const zones = [
-    {
-      id: zoneIds.downtown,
-      name: "Downtown Core",
-      description: "Retail frontage, late foot traffic, and the busiest curb edge.",
-      motionSensitivity: 72,
-      polygon: createPolygon(center, [
-        { lat: 0.004, lng: -0.0065 },
-        { lat: 0.0056, lng: 0.0008 },
-        { lat: 0.0015, lng: 0.0068 },
-        { lat: -0.0042, lng: 0.0035 },
-        { lat: -0.0036, lng: -0.0054 },
-      ]),
-      assignedPoleIds: poles.slice(0, 2).map((pole) => pole.streetlight_id),
-    },
-    {
-      id: zoneIds.waterfront,
-      name: "Waterfront",
-      description: "Lower-density path lighting with higher wind exposure after dark.",
-      motionSensitivity: 48,
-      polygon: createPolygon(center, [
-        { lat: 0.0014, lng: -0.0105 },
-        { lat: 0.0034, lng: -0.004 },
-        { lat: -0.0028, lng: -0.0012 },
-        { lat: -0.0052, lng: -0.0086 },
-      ]),
-      assignedPoleIds: poles.slice(2, 4).map((pole) => pole.streetlight_id),
-    },
-    {
-      id: zoneIds.civic,
-      name: "Civic Campus",
-      description: "City hall, transit stop frontage, and public event spillover.",
-      motionSensitivity: 61,
-      polygon: createPolygon(center, [
-        { lat: 0.0074, lng: 0.0022 },
-        { lat: 0.0046, lng: 0.0108 },
-        { lat: -0.0016, lng: 0.0088 },
-        { lat: -0.0008, lng: 0.0018 },
-      ]),
-      assignedPoleIds: poles.slice(4, 6).map((pole) => pole.streetlight_id),
-    },
-  ];
-
-  const schedules = [
-    {
-      id: makeId("schedule"),
-      name: "Day window",
-      zoneId: zoneIds.downtown,
-      startMinute: 0,
-      endMinute: 12 * 60,
-      dimLevel: 68,
-      days: [0, 1, 2, 3, 4, 5, 6],
-    },
-    {
-      id: makeId("schedule"),
-      name: "Night window",
-      zoneId: zoneIds.downtown,
-      startMinute: 12 * 60,
-      endMinute: 24 * 60,
-      dimLevel: 82,
-      days: [0, 1, 2, 3, 4, 5, 6],
-    },
-    {
-      id: makeId("schedule"),
-      name: "Waterfront day window",
-      zoneId: zoneIds.waterfront,
-      startMinute: 0,
-      endMinute: 12 * 60,
-      dimLevel: 58,
-      days: [0, 1, 2, 3, 4, 5, 6],
-    },
-    {
-      id: makeId("schedule"),
-      name: "Waterfront night window",
-      zoneId: zoneIds.waterfront,
-      startMinute: 12 * 60,
-      endMinute: 24 * 60,
-      dimLevel: 74,
-      days: [0, 1, 2, 3, 4, 5, 6],
-    },
-  ].map((schedule) => ({
-    ...schedule,
-    endMinute: clamp(schedule.endMinute, schedule.startMinute + 30, 48 * 60),
-  }));
-
-  const devices = (poles.length ? poles : [{ streetlight_id: "LW-PLN-001", name: "Planning pole" }])
-    .slice(0, Math.max(2, poles.length))
-    .map((pole, index) => ({
-      id: makeId("device"),
-      label: `${pole.name || "Pole"} radio`,
-      devEui: normalizeDevEui(`70B3D57ED00A${String(index + 1).padStart(2, "0")}`),
-      poleId: pole.streetlight_id,
-      gateway: `GW-${String(index + 1).padStart(2, "0")}`,
-      signalRssi: -88 - index * 5,
-      lastUplink: new Date(Date.now() - index * 17 * 60 * 1000).toISOString(),
-    }));
-
-  const operatorUser = operator
+function createSeedAdminState(operator = null) {
+  const users = operator
     ? {
         id: makeId("user"),
         name: operator.name || "Current user",
         email: operator.email || "operator@lightwise.local",
         role: operator.role === "admin" ? "admin" : "operator",
       }
-    : {
-        id: makeId("user"),
-        name: "Morgan Street",
-        email: "morgan.street@city.gov",
-        role: "admin",
-      };
+    : null;
 
-  const users = [
-    operatorUser,
-    {
-      id: makeId("user"),
-      name: "Avery Brooks",
-      email: "avery.brooks@city.gov",
-      role: "operator",
-    },
-    {
-      id: makeId("user"),
-      name: "Jules Chen",
-      email: "jules.chen@city.gov",
-      role: "operator",
-    },
-  ];
-
-  return { zones, schedules, devices, users };
+  return {
+    zones: [],
+    schedules: [],
+    devices: [],
+    users: users ? [users] : [],
+  };
 }
 
 function reconcileAdminState(currentState, basePoles = [], operator = null) {
-  const fallback = createSeedAdminState(basePoles, operator);
+  const fallback = createSeedAdminState(operator);
   if (!currentState || typeof currentState !== "object") {
     return fallback;
   }
@@ -365,6 +287,7 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   const poleIds = new Set(basePoles.map((pole) => pole.streetlight_id));
   const zones = Array.isArray(currentState.zones)
     ? currentState.zones
+        .filter((zone) => !isLegacyDemoZone(zone))
         .map((zone) => {
           const polygon = (Array.isArray(zone?.polygon) ? zone.polygon : [])
             .map(normalizePoint)
@@ -387,6 +310,7 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   const zoneIds = new Set(zones.map((zone) => zone.id));
   const schedules = Array.isArray(currentState.schedules)
     ? currentState.schedules
+        .filter((schedule) => !isLegacyDemoSchedule(schedule))
         .map((schedule) => {
           if (!schedule?.id || !zoneIds.has(schedule.zoneId)) return null;
 
@@ -416,6 +340,7 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
 
   const devices = Array.isArray(currentState.devices)
     ? currentState.devices
+        .filter((device) => !isLegacyDemoDevice(device))
         .map((device) => {
           if (!device?.id) return null;
 
@@ -434,15 +359,18 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
 
   const users = Array.isArray(currentState.users)
     ? currentState.users
+        .filter((user) => !isLegacyDemoUser(user))
         .map((user) => {
           if (!user?.id) return null;
 
           const role = user.role === "admin" ? "admin" : "operator";
           return {
             id: String(user.id),
+            user_id: String(user.user_id || "").trim(),
             name: String(user.name || "").trim(),
             email: String(user.email || "").trim(),
             role,
+            created_at: user.created_at || "",
           };
         })
         .filter(Boolean)
@@ -453,9 +381,11 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
     const existingIndex = users.findIndex((user) => user.email.toLowerCase() === operatorEmail);
     const operatorEntry = {
       id: existingIndex >= 0 ? users[existingIndex].id : makeId("user"),
+      user_id: existingIndex >= 0 ? users[existingIndex].user_id || "" : "",
       name: operator.name || "Current user",
       email: operator.email,
       role: operator.role === "admin" ? "admin" : "operator",
+      created_at: existingIndex >= 0 ? users[existingIndex].created_at || "" : "",
     };
 
     if (existingIndex >= 0) {
@@ -466,8 +396,8 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   }
 
   return {
-    zones: zones.length ? zones : fallback.zones,
-    schedules: schedules.length ? schedules : fallback.schedules,
+    zones,
+    schedules,
     devices,
     users: users.length ? users : fallback.users,
   };
@@ -600,6 +530,77 @@ function makeUserForm(user = null) {
         role: user.role || "operator",
       }
     : { ...DEFAULT_USER_FORM };
+}
+
+function userNameFromEmail(email) {
+  return String(email || "")
+    .split("@")[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function mergeRemoteUsers(remoteUsers = [], localUsers = [], operator = null) {
+  const localByEmail = new Map(
+    (Array.isArray(localUsers) ? localUsers : [])
+      .filter((user) => user?.email)
+      .map((user) => [user.email.toLowerCase(), user])
+  );
+  const localById = new Map(
+    (Array.isArray(localUsers) ? localUsers : [])
+      .filter((user) => user?.id)
+      .map((user) => [user.id, user])
+  );
+
+  const users = (Array.isArray(remoteUsers) ? remoteUsers : [])
+    .filter((user) => !isLegacyDemoUser(user))
+    .map((user) => {
+      const local = localById.get(user.id) || localByEmail.get(String(user.email || "").toLowerCase()) || {};
+      const email = user.email || local.email || "";
+      return {
+        id: user.id || user.user_id || local.id || email,
+        user_id: user.user_id || user.id || local.user_id || local.id || email,
+        name: user.name || local.name || userNameFromEmail(email) || "User",
+        email,
+        role: user.role === "admin" ? "admin" : "operator",
+        created_at: user.created_at || local.created_at || "",
+      };
+    });
+
+  if (operator?.email) {
+    const operatorEmail = operator.email.trim().toLowerCase();
+    const index = users.findIndex((user) => user.email.toLowerCase() === operatorEmail);
+    const currentUser = {
+      id: index >= 0 ? users[index].id : operator.sub || operator.email,
+      user_id: index >= 0 ? users[index].user_id || users[index].id : operator.sub || operator.email,
+      name: operator.name || (index >= 0 ? users[index].name : "Current user"),
+      email: operator.email,
+      role: operator.role === "admin" ? "admin" : "operator",
+      created_at: index >= 0 ? users[index].created_at : "",
+    };
+
+    if (index >= 0) {
+      users.splice(index, 1, currentUser);
+    } else {
+      users.unshift(currentUser);
+    }
+  }
+
+  return users;
+}
+
+function normalizeCommandAck(message) {
+  if (!message || message.event !== "command.ack") return null;
+  const data = message.data || {};
+  return {
+    command_id: data.command_id || "",
+    streetlight_id: message.streetlight_id || "",
+    command: data.command || "",
+    response_code: data.response_code || "",
+    reason_code: data.reason_code || "",
+    received_at: message.timestamp || new Date().toISOString(),
+  };
 }
 
 function validateZoneForm(form) {
@@ -1056,7 +1057,14 @@ function AdminMapSurface({
 }
 
 export default function Admin() {
-  const { streetlights, operator, applyStreetlightLocalPatch } = useLightWise();
+  const {
+    streetlights,
+    operator,
+    applyStreetlightLocalPatch,
+    wsStatus,
+    lastMessage,
+    subscribe,
+  } = useLightWise();
   const [metaMap, setMetaMap] = useState(() => loadPoleMetaMap());
   const [adminState, setAdminState] = useState(null);
   const [activeSection, setActiveSection] = useState("zones");
@@ -1084,6 +1092,13 @@ export default function Admin() {
   const [userEditorMode, setUserEditorMode] = useState("edit");
   const [userForm, setUserForm] = useState(DEFAULT_USER_FORM);
   const [userStatus, setUserStatus] = useState(null);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSaving, setUserSaving] = useState(false);
+  const [remoteUsers, setRemoteUsers] = useState(null);
+  const [commandStatus, setCommandStatus] = useState(null);
+  const [commandSending, setCommandSending] = useState(false);
+  const [commandHistory, setCommandHistory] = useState([]);
+  const [lastCommandAck, setLastCommandAck] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
   const deferredPoleSearch = useDeferredValue(poleSearch);
@@ -1099,6 +1114,46 @@ export default function Admin() {
   }, [operator, poles]);
 
   useEffect(() => {
+    if (!operator) return;
+
+    let isCurrent = true;
+    setUsersLoading(true);
+
+    listTenantUsers()
+      .then((remoteUsers) => {
+        if (!isCurrent) return;
+        setRemoteUsers(remoteUsers);
+        setUserStatus(null);
+      })
+      .catch((error) => {
+        if (!isCurrent) return;
+        setUserStatus({
+          tone: "warning",
+          text: error?.message || "User directory sync failed.",
+        });
+      })
+      .finally(() => {
+        if (isCurrent) setUsersLoading(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [operator]);
+
+  useEffect(() => {
+    if (!operator || !remoteUsers) return;
+
+    setAdminState((current) => {
+      const reconciled = reconcileAdminState(current || safeReadAdminState(), poles, operator);
+      return {
+        ...reconciled,
+        users: mergeRemoteUsers(remoteUsers, reconciled.users, operator),
+      };
+    });
+  }, [operator, poles, remoteUsers]);
+
+  useEffect(() => {
     if (adminState) {
       safeWriteAdminState(adminState);
     }
@@ -1107,7 +1162,10 @@ export default function Admin() {
   const zones = useMemo(() => adminState?.zones ?? [], [adminState?.zones]);
   const schedules = useMemo(() => adminState?.schedules ?? [], [adminState?.schedules]);
   const devices = useMemo(() => adminState?.devices ?? [], [adminState?.devices]);
-  const users = useMemo(() => adminState?.users ?? [], [adminState?.users]);
+  const users = useMemo(
+    () => (adminState?.users ?? []).filter((user) => !isLegacyDemoUser(user)),
+    [adminState?.users]
+  );
   const poleZoneMap = useMemo(() => buildPoleZoneMap(zones), [zones]);
   const zoneLookup = useMemo(
     () =>
@@ -1137,6 +1195,8 @@ export default function Admin() {
     () => users.find((user) => user.id === selectedUserId) || null,
     [users, selectedUserId]
   );
+  const selectedCommandStreetlightId =
+    selectedPoleId || selectedDevice?.poleId || poles[0]?.streetlight_id || "";
 
   const sectionMeta = getSectionMeta(activeSection);
   const editableZones = useMemo(() => {
@@ -1333,6 +1393,77 @@ export default function Admin() {
       setUserForm(makeUserForm(selectedUser));
     }
   }, [selectedUser, userEditorMode]);
+
+  useEffect(() => {
+    const ack = normalizeCommandAck(lastMessage);
+    if (!ack) return;
+
+    setLastCommandAck(ack);
+    setCommandStatus({
+      tone: ack.response_code === "ACK" ? "healthy" : "critical",
+      text: `${ack.command || "Command"} ${ack.response_code || "response"}`,
+    });
+    setCommandHistory((current) => {
+      const updated = current.map((item) =>
+        item.command_id === ack.command_id
+          ? {
+              ...item,
+              status: ack.response_code === "ACK" ? "acked" : "nacked",
+              response: {
+                received_at: ack.received_at,
+                response_code: ack.response_code,
+                reason_code: ack.reason_code,
+              },
+            }
+          : item
+      );
+
+      return updated.some((item) => item.command_id === ack.command_id)
+        ? updated
+        : [
+            {
+              command_id: ack.command_id,
+              streetlight_id: ack.streetlight_id,
+              command: ack.command,
+              params: {},
+              status: ack.response_code === "ACK" ? "acked" : "nacked",
+              dispatched_at: ack.received_at,
+              response: {
+                received_at: ack.received_at,
+                response_code: ack.response_code,
+                reason_code: ack.reason_code,
+              },
+            },
+            ...current,
+          ];
+    });
+  }, [lastMessage]);
+
+  useEffect(() => {
+    const id = String(selectedCommandStreetlightId || "").trim();
+    if (!id) {
+      setCommandHistory([]);
+      return;
+    }
+
+    let isCurrent = true;
+    getStreetlightCommandHistory(id)
+      .then((history) => {
+        if (!isCurrent) return;
+        setCommandHistory(Array.isArray(history?.commands) ? history.commands : []);
+      })
+      .catch((error) => {
+        if (!isCurrent) return;
+        setCommandStatus({
+          tone: "warning",
+          text: error?.message || "Command history unavailable.",
+        });
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [selectedCommandStreetlightId]);
 
   function patchAdminState(updater) {
     setAdminState((current) => {
@@ -1572,7 +1703,7 @@ export default function Admin() {
     });
   }
 
-  function handleUserSave() {
+  async function handleUserSave() {
     if (Object.keys(userErrors).length) {
       setUserStatus({ tone: "critical", text: "Complete the required user fields." });
       return;
@@ -1580,25 +1711,150 @@ export default function Admin() {
 
     const nextUser = {
       id: userEditorMode === "edit" && selectedUser ? selectedUser.id : makeId("user"),
+      user_id: userEditorMode === "edit" && selectedUser ? selectedUser.user_id || "" : "",
       name: userForm.name.trim(),
       email: userForm.email.trim(),
       role: userForm.role,
+      created_at: userEditorMode === "edit" && selectedUser ? selectedUser.created_at || "" : "",
     };
 
-    patchAdminState((current) => ({
-      ...current,
-      users:
-        userEditorMode === "edit" && selectedUser
-          ? current.users.map((user) => (user.id === selectedUser.id ? nextUser : user))
-          : [nextUser, ...current.users],
-    }));
+    setUserSaving(true);
 
-    setUserEditorMode("edit");
-    setSelectedUserId(nextUser.id);
-    setUserStatus({
-      tone: "healthy",
-      text: userEditorMode === "edit" ? "User updated." : "User added.",
-    });
+    try {
+      let savedLocally = false;
+      let savedUser = nextUser;
+
+      if (userEditorMode === "create") {
+        try {
+          savedUser = await inviteUser(nextUser);
+        } catch (error) {
+          if (!isInviteEndpointUnavailable(error)) {
+            throw error;
+          }
+          savedLocally = true;
+          savedUser = nextUser;
+        }
+      }
+
+      const mergedUser = {
+        ...savedUser,
+        id: savedUser.id || savedUser.user_id || nextUser.id,
+        user_id: savedUser.user_id || nextUser.user_id || "",
+        name: savedUser.name || nextUser.name,
+        email: savedUser.email || nextUser.email,
+        role: savedUser.role || nextUser.role,
+        created_at: savedUser.created_at || nextUser.created_at || "",
+      };
+
+      patchAdminState((current) => ({
+        ...current,
+        users:
+          userEditorMode === "edit" && selectedUser
+            ? current.users.map((user) => (user.id === selectedUser.id ? mergedUser : user))
+            : [mergedUser, ...current.users],
+      }));
+
+      if (userEditorMode === "create" && !savedLocally) {
+        setRemoteUsers((current) => [mergedUser, ...(Array.isArray(current) ? current : [])]);
+      }
+
+      setUserEditorMode("edit");
+      setSelectedUserId(mergedUser.id);
+      setUserStatus({
+        tone: savedLocally ? "warning" : "healthy",
+        text:
+          userEditorMode === "edit"
+            ? "User updated locally."
+            : savedLocally
+            ? "User added locally. Cognito invite service unavailable."
+            : "Cognito invite sent.",
+      });
+    } catch (error) {
+      setUserStatus({
+        tone: "critical",
+        text: error?.message || "User save failed.",
+      });
+    } finally {
+      setUserSaving(false);
+    }
+  }
+
+  async function handleUserRemove(user) {
+    if (!user?.id) return;
+
+    setUserSaving(true);
+    try {
+      const localOnly = isLocalOnlyUser(user);
+      if (!localOnly) {
+        await removeUser(user.user_id || user.id);
+      }
+
+      patchAdminState((current) => ({
+        ...current,
+        users: current.users.filter((item) => item.id !== user.id),
+      }));
+      setRemoteUsers((current) =>
+        Array.isArray(current)
+          ? current.filter((item) => item.id !== user.id && item.user_id !== user.user_id)
+          : current
+      );
+      setSelectedUserId(null);
+      setUserStatus({
+        tone: "healthy",
+        text: localOnly ? "User removed locally." : "User removed from Cognito.",
+      });
+    } catch (error) {
+      setUserStatus({
+        tone: "critical",
+        text: error?.message || "User removal failed.",
+      });
+    } finally {
+      setUserSaving(false);
+    }
+  }
+
+  async function handleDownlinkSubscribe(streetlightId) {
+    const id = String(streetlightId || "").trim();
+    if (!id) return false;
+    return Boolean(subscribe?.(id));
+  }
+
+  async function handleDownlinkSend(streetlightId, envelope) {
+    const id = String(streetlightId || "").trim();
+    if (!id) {
+      setCommandStatus({ tone: "critical", text: "Select a streetlight." });
+      return false;
+    }
+
+    setCommandSending(true);
+    setCommandStatus({ tone: "neutral", text: "Dispatching command..." });
+    try {
+      if (wsStatus === "connected") {
+        subscribe?.(id);
+      }
+
+      const command = await sendStreetlightCommand(id, envelope);
+      const nextCommand = {
+        ...command,
+        streetlight_id: command.streetlight_id || id,
+        params: command.params || envelope.params || {},
+        dispatched_at: command.dispatched_at || new Date().toISOString(),
+      };
+      setCommandHistory((current) => [nextCommand, ...current.filter((item) => item.command_id !== nextCommand.command_id)]);
+      setCommandStatus({
+        tone: "healthy",
+        text: `${nextCommand.command} accepted.`,
+      });
+      return true;
+    } catch (error) {
+      setCommandStatus({
+        tone: "critical",
+        text: error?.message || "Downlink dispatch failed.",
+      });
+      return false;
+    } finally {
+      setCommandSending(false);
+    }
   }
 
   if (!adminState) {
@@ -1754,7 +2010,7 @@ export default function Admin() {
                             onChange={(event) =>
                               setZoneForm((current) => ({ ...current, name: event.target.value }))
                             }
-                            placeholder="Downtown Core"
+                            placeholder="Zone name"
                           />
                           <FieldMessage error={zoneErrors.name} />
                         </label>
@@ -2227,43 +2483,6 @@ export default function Admin() {
                       </label>
                     </div>
 
-                    <div className="lwAdminButtonRow">
-                      <button
-                        type="button"
-                        className="lwAdminGhostBtn"
-                        onClick={() =>
-                          setScheduleForm((current) => ({
-                            ...current,
-                            name:
-                              scheduleEditorMode === "create" && !current.name
-                                ? "Day window"
-                                : current.name,
-                            startMinute: 0,
-                            endMinute: 12 * 60,
-                          }))
-                        }
-                      >
-                        12 AM to 12 PM
-                      </button>
-                      <button
-                        type="button"
-                        className="lwAdminGhostBtn"
-                        onClick={() =>
-                          setScheduleForm((current) => ({
-                            ...current,
-                            name:
-                              scheduleEditorMode === "create" && !current.name
-                                ? "Night window"
-                                : current.name,
-                            startMinute: 12 * 60,
-                            endMinute: 24 * 60,
-                          }))
-                        }
-                      >
-                        12 PM to 12 AM
-                      </button>
-                    </div>
-
                     <div className="lwAdminInlineSurface lwAdminScheduleHint">
                       <strong>Each saved schedule is one time block.</strong>
                       <span>
@@ -2405,6 +2624,26 @@ export default function Admin() {
 
               {activeSection === "lorawan" ? (
                 <div className="lwAdminSectionGrid lwAdminSectionGridCompact">
+                  <div className="lwAdminDownlinkCard">
+                    <SectionCard
+                      icon="bolt"
+                      title="Downlink Control"
+                      subtitle="Dispatch LoRaWAN commands and watch command ACKs on the active WebSocket."
+                    >
+                      <AdminWsControls
+                        wsStatus={wsStatus}
+                        streetlights={poles}
+                        selectedStreetlightId={selectedCommandStreetlightId}
+                        commandHistory={commandHistory}
+                        commandStatus={commandStatus}
+                        isSending={commandSending}
+                        lastAck={lastCommandAck}
+                        onSubscribe={handleDownlinkSubscribe}
+                        onSendCommand={handleDownlinkSend}
+                      />
+                    </SectionCard>
+                  </div>
+
                   <SectionCard
                     icon="radio"
                     title="LoRaWAN Device Management"
@@ -2598,9 +2837,17 @@ export default function Admin() {
                     title="User Management"
                     subtitle="Add, remove, and assign operator or admin roles."
                     actions={
-                      <button type="button" className="lwAdminSecondaryBtn" onClick={beginNewUser}>
-                        Add User
-                      </button>
+                      <div className="lwAdminButtonRow">
+                        {usersLoading ? <StatusChip tone="neutral">Syncing</StatusChip> : null}
+                        <button
+                          type="button"
+                          className="lwAdminSecondaryBtn"
+                          onClick={beginNewUser}
+                          disabled={userSaving}
+                        >
+                          Add User
+                        </button>
+                      </div>
                     }
                   >
                     <div className="lwAdminTableWrap">
@@ -2656,7 +2903,7 @@ export default function Admin() {
                   <SectionCard
                     icon="settings"
                     title={userEditorMode === "create" ? "Add User" : "Edit User"}
-                    subtitle="Roles update immediately in the local admin workspace."
+                    subtitle="Invites and removals sync with Cognito."
                   >
                     <div className="lwAdminFormGrid">
                       <label className="lwAdminField">
@@ -2702,7 +2949,12 @@ export default function Admin() {
                     </div>
 
                     <div className="lwAdminButtonRow">
-                      <button type="button" className="lwAdminPrimaryBtn" onClick={handleUserSave}>
+                      <button
+                        type="button"
+                        className="lwAdminPrimaryBtn"
+                        onClick={handleUserSave}
+                        disabled={userSaving}
+                      >
                         {userEditorMode === "create" ? "Add User" : "Save User"}
                       </button>
                       {selectedUser ? (
@@ -2710,24 +2962,18 @@ export default function Admin() {
                           type="button"
                           className="lwAdminGhostBtn isDanger"
                           disabled={
-                            operator?.email &&
-                            selectedUser.email.toLowerCase() === operator.email.toLowerCase()
+                            userSaving ||
+                            (operator?.email &&
+                              selectedUser.email.toLowerCase() === operator.email.toLowerCase())
                           }
                           onClick={() =>
                             openConfirmation({
                               title: `Remove ${selectedUser.name}?`,
                               message:
-                                "This revokes access for the selected user from the local admin planner.",
+                                "This revokes access for the selected user.",
                               confirmLabel: "Remove user",
                               tone: "danger",
-                              onConfirm: () => {
-                                patchAdminState((current) => ({
-                                  ...current,
-                                  users: current.users.filter((user) => user.id !== selectedUser.id),
-                                }));
-                                setSelectedUserId(null);
-                                setUserStatus({ tone: "healthy", text: "User removed." });
-                              },
+                              onConfirm: () => handleUserRemove(selectedUser),
                             })
                           }
                         >

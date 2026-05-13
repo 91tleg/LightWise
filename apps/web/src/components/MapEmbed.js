@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Legend from "./Legend";
 import { DEFAULT_CENTER, isValidCoord, pickBestCenter } from "../utils/poleHelpers";
 import { toneForPole } from "../utils/poleState";
@@ -97,6 +97,7 @@ export default function MapEmbed({
   focusRadiusMeters = 30,
   forceNativePin = false,
 }) {
+  const [mapLoaded, setMapLoaded] = useState(false);
   const validPoles = useMemo(() => {
     return (Array.isArray(poles) ? poles : []).filter(
       (pole) => isValidCoord(pole?.lat) && isValidCoord(pole?.lng)
@@ -146,6 +147,7 @@ export default function MapEmbed({
   }, [activePole, focusLat, focusLng, motionDetected]);
   const hasMotionFocus = Boolean(motionFocusPoint);
 
+  const showMarkerOverlay = interactive;
   const explicitPinPoint = useMemo(() => {
     if (isValidCoord(lat) && isValidCoord(lng)) {
       return { lat: Number(lat), lng: Number(lng) };
@@ -171,8 +173,10 @@ export default function MapEmbed({
       return getMotionZoom(radius);
     }
 
-    if (forceNativePin) return mapPinPoint ? 18 : 15;
-    if (!interactive) return mapPinPoint ? 18 : 15;
+    if (forceNativePin || !interactive || validPoles.length <= 1) {
+      return mapPinPoint ? 18 : 15;
+    }
+
     return validPoles.length > 1 ? 13 : 16;
   }, [
     activePole?.motion_focus_radius_m,
@@ -196,21 +200,28 @@ export default function MapEmbed({
         `${center.lat},${center.lng}`
       )}&z=${zoomLevel}&output=embed`;
 
+  useEffect(() => {
+    setMapLoaded(false);
+  }, [mapSrc]);
+
   return (
-    <div className="lwMapBox lwInteractiveMap" style={mapHeightStyle}>
+    <div className="lwMapBox lwInteractiveMap isPlain" style={mapHeightStyle}>
       {validPoles.length ? (
         <>
+          {!mapLoaded ? <div className="lwMapLoadingSurface" aria-hidden="true" /> : null}
+
           <iframe
             title={title}
-            className="lwMapFrame"
+            className={`lwMapFrame${mapLoaded ? " isLoaded" : ""}`}
             src={mapSrc}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             allowFullScreen
+            onLoad={() => setMapLoaded(true)}
             style={{ pointerEvents: interactive ? "auto" : "none" }}
           />
 
-          {!nativePinMode ? (
+          {showMarkerOverlay ? (
             <div className="lwMapMarkerLayer">
               {validPoles.map((pole) => {
                 const tone = toneForPole(pole);
@@ -230,6 +241,15 @@ export default function MapEmbed({
                   </button>
                 );
               })}
+
+              {hasMotionFocus ? (
+                <div
+                  className="lwMapMotionFocus"
+                  style={getMarkerPosition(motionFocusPoint, bounds)}
+                >
+                  <span className="lwMapMotionFocusCore" />
+                </div>
+              ) : null}
             </div>
           ) : null}
 

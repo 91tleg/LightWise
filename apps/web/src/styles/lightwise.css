@@ -1726,8 +1726,8 @@ body.dark .lwThemeSwitch.isAuto .lwThemeSwitchThumb {
 }
 
 body.dark .lwMapFrame {
-  filter: grayscale(0.1) invert(0.92) hue-rotate(180deg) saturate(0.72) brightness(0.82)
-    contrast(0.96);
+  filter: invert(0.88) hue-rotate(180deg) saturate(0.68) brightness(0.78)
+    contrast(0.92);
 }
 
 .lwInteractiveMap {
