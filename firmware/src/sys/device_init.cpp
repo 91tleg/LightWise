@@ -3,7 +3,7 @@
 #include "hal_init.hpp"
 #include "hal/alspt19.h"
 #include "hal/c4001.h"
-#include "hal/dht11.h"
+#include "hal/aht20.h"
 #include "hal/led.h"
 #include "hal/lwnode.h"
 #include "utils/log/log.h"
@@ -23,7 +23,15 @@ namespace device
     constinit light::Led led { hal::led };
     constinit mmwave::C4001 c4001Primary { hal::c4001Primary };
     constinit mmwave::C4001 c001Secondary { hal::c4001Secondary };
-    constinit th::Dht11 dht11Primary { hal::dht11Primary };
+    constinit th::Aht20 aht20Primary { hal::aht20Primary };
     constinit lorawan::Lwnode lwnodePrimary { hal::lwnodePrimary };
+
+    void init()
+    {
+        if( !aht20Primary.init() )
+        {
+            LOGE( kTag, "AHT20 init failed" );
+        }
+    }
 
 } /* namespace device */

@@ -25,8 +25,6 @@ namespace board
         adc_channel_t alsPt19PrimaryChannel;
         adc_channel_t alsPt19SecondaryChannel;
 
-        gpio_num_t dht11PrimaryPin;
-
         uart_port_t c4001PrimaryUartNum;
         gpio_num_t c4001PrimaryTxPin;
         gpio_num_t c4001PrimaryRxPin;
@@ -46,10 +44,7 @@ namespace board
         gpio_num_t i2cScl;
 
         uint16_t lwnodeI2cAddr;
-
-        gpio_num_t dimmerOutPin;
-        gpio_num_t dimmerZcPin;
-        uint32_t dimmerFreqHz;
+        uint16_t aht20I2cAddr;
 
         gpio_num_t        ledPwmPin;
         ledc_channel_t    ledPwmChannel;
@@ -65,9 +60,6 @@ namespace board
         .adcUnit1 = ADC_UNIT_1,
         .alsPt19PrimaryChannel = ADC_CHANNEL_3,   /* GPIO4 */
         .alsPt19SecondaryChannel = ADC_CHANNEL_6, /* GPIO7 */
-
-        /* DHT11 Sensors */
-        .dht11PrimaryPin   = GPIO_NUM_5,
 
         /* C4001 Radar Sensor - Primary (UART1) */
         .c4001PrimaryUartNum   = UART_NUM_1,
@@ -93,10 +85,8 @@ namespace board
         /* LwNode */
         .lwnodeI2cAddr = 0x20U,
 
-        /* AC Light Dimmer */
-        .dimmerOutPin = GPIO_NUM_14,
-        .dimmerZcPin  = GPIO_NUM_13,
-        .dimmerFreqHz = 60U,
+        /* AHT20 */
+        .aht20I2cAddr = 0x38U,
 
         /* LED (PWM) for prototype */
         .ledPwmPin       = GPIO_NUM_2,
