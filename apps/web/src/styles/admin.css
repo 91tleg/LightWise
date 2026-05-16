@@ -394,6 +394,21 @@
   outline: none;
 }
 
+.lwAdminSelect {
+  color-scheme: light;
+}
+
+.lwAdminSelect option,
+.lwAdminSelect optgroup {
+  background-color: #ffffff;
+  color: #13273a;
+}
+
+.lwAdminSelect option:checked {
+  background-color: #0b63a6;
+  color: #ffffff;
+}
+
 .lwAdminTextarea {
   resize: vertical;
   min-height: 88px;
@@ -852,6 +867,10 @@
   min-width: 520px;
 }
 
+.lwAdminSectionGridCompact .lwAdminTable {
+  min-width: 0;
+}
+
 .lwAdminTable thead th {
   padding: 12px 14px;
   text-align: left;
@@ -883,6 +902,7 @@
   font-size: 13px;
   font-weight: 700;
   color: #1f3347;
+  overflow-wrap: anywhere;
 }
 
 .lwAdminTable td strong {
@@ -1157,6 +1177,21 @@ body.dark .lwAdminTimelineTrackWrap {
   color: #dce8f5;
 }
 
+body.dark .lwAdminSelect {
+  color-scheme: dark;
+}
+
+body.dark .lwAdminSelect option,
+body.dark .lwAdminSelect optgroup {
+  background-color: #0e1a29;
+  color: #eef5ff;
+}
+
+body.dark .lwAdminSelect option:checked {
+  background-color: #0b63a6;
+  color: #ffffff;
+}
+
 body.dark .lwAdminThemeToggleBtn {
   color: #c5d7e8;
 }
@@ -1166,9 +1201,34 @@ body.dark .lwAdminDayPill.isActive,
 body.dark .lwAdminSectionNavItem.isActive,
 body.dark .lwAdminRecordItem.isSelected,
 body.dark .lwAdminSecondaryBtn.isActive {
-  background: rgba(26, 118, 191, 0.28);
-  border-color: rgba(91, 197, 255, 0.24);
+  background: linear-gradient(180deg, rgba(18, 76, 118, 0.9), rgba(13, 54, 86, 0.92));
+  border-color: rgba(91, 197, 255, 0.36);
   color: #9fd6ff;
+}
+
+body.dark .lwAdminSectionNavItemTop,
+body.dark .lwAdminSectionNavItemTop span,
+body.dark .lwAdminSectionNavItem.isActive .lwAdminSectionNavItemTop,
+body.dark .lwAdminSectionNavItem.isActive .lwAdminSectionNavItemTop span {
+  color: #eef7ff;
+}
+
+body.dark .lwAdminSectionNavItem .lwAdminSectionNavDesc {
+  color: #b4c7d9;
+}
+
+body.dark .lwAdminSectionNavItem.isActive .lwAdminSectionNavDesc {
+  color: #d2e8fb;
+}
+
+body.dark .lwAdminSectionNavIcon {
+  background: rgba(14, 116, 144, 0.22);
+  color: #67d2e3;
+}
+
+body.dark .lwAdminSectionNavItem.isActive .lwAdminSectionNavIcon {
+  background: rgba(103, 210, 227, 0.18);
+  color: #9eefff;
 }
 
 body.dark .lwAdminChip {
