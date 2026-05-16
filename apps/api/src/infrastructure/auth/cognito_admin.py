@@ -42,14 +42,15 @@ def create_cognito_user(
         return sub
     except ClientError as e:
         code = e.response["Error"]["Code"]
+        message = e.response["Error"]["Message"]
         if code == "UsernameExistsException":
             raise AuthError(f"User already exists: {email}") from e
         if code == "InvalidParameterException":
             raise AuthError(
-                f"Invalid parameter creating user: {email}"
+                f"Invalid parameter creating user: {email}: {message}"
             ) from e
         raise AuthError(
-            f"Failed to create Cognito user: {email}"
+            f"Failed to create Cognito user: {email}: {message}"
         ) from e
 
 
@@ -65,12 +66,13 @@ def delete_cognito_user(user_pool_id: str, email: str) -> None:
         )
     except ClientError as e:
         code = e.response["Error"]["Code"]
+        message = e.response["Error"]["Message"]
         if code == "UserNotFoundException":
             raise AuthError(
-                f"User not found in Cognito: {email}"
+                f"User not found in Cognito: {email}: {message}"
             ) from e
         raise AuthError(
-            f"Failed to delete Cognito user: {email}"
+            f"Failed to delete Cognito user: {email}: {message}"
         ) from e
 
 
