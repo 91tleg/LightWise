@@ -42,7 +42,9 @@ namespace hal
                                        .rxBufSize = board::config.c4001SecondaryRxBufSize,
                                        .txBufSize = board::config.c4001SecondaryTxBufSize };
 
-    constinit Dht11Hw dht11Primary { .pin = board::config.dht11PrimaryPin };
+    constinit Aht20Hw aht20Primary { .bus    = &sI2cBus,
+                                     .addr   = board::config.aht20I2cAddr,
+                                     .handle = nullptr };
 
     constinit LedHw led { .pin               = board::config.ledPwmPin,
                           .pwmChannel        = board::config.ledPwmChannel,
@@ -81,11 +83,6 @@ namespace hal
             LOGE( kTag, "C4001 secondary init failed" );
         }
 
-        if( !dht11_hal_init( &dht11Primary ) )
-        {
-            LOGE( kTag, "Dht11 primary init failed" );
-        }
-
         if( !led_hal_init( &led ) )
         {
             LOGE( kTag, "Led primary init failed" );
@@ -99,6 +96,11 @@ namespace hal
         if( !lwnode_hal_init( &lwnodePrimary, &sI2cBus ) )
         {
             LOGE( kTag, "Lwnode primary init failed" );
+        }
+
+        if( !aht20_hal_init( &aht20Primary, &sI2cBus ) )
+        {
+            LOGE( kTag, "AHT20 init failed" );
         }
     }
 
