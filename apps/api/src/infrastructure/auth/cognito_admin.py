@@ -29,7 +29,6 @@ def create_cognito_user(
                 {"Name": "email", "Value": email},
                 {"Name": "email_verified", "Value": "true"},
                 {"Name": "custom:tenant_id", "Value": tenant_id},
-                {"Name": "custom:role", "Value": role},
             ],
             DesiredDeliveryMediums=["EMAIL"],
         )
