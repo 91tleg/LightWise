@@ -55,13 +55,6 @@ const DEFAULT_SCHEDULE_FORM = {
   dimLevel: 70,
   days: [0, 1, 2, 3, 4, 5, 6],
 };
-const DEFAULT_DEVICE_FORM = {
-  label: "",
-  devEui: "",
-  poleId: "",
-  gateway: "",
-  signalRssi: -92,
-};
 const DEFAULT_USER_FORM = {
   name: "",
   email: "",
@@ -82,9 +75,9 @@ const SECTION_ITEMS = [
   },
   {
     id: "lorawan",
-    label: "LoRaWAN",
+    label: "Connectivity",
     icon: "radio",
-    description: "Register field devices and monitor uplinks and signal quality.",
+    description: "Monitor field radios and send lighting commands.",
   },
   {
     id: "users",
@@ -197,10 +190,6 @@ function normalizeMapPoint(point) {
 
 function normalizeDevEui(value = "") {
   return String(value).toUpperCase().replace(/[^0-9A-F]/g, "").slice(0, 16);
-}
-
-function formatDevEui(value = "") {
-  return normalizeDevEui(value).replace(/(.{4})/g, "$1 ").trim();
 }
 
 function isValidEmail(value = "") {
@@ -384,21 +373,6 @@ function makeScheduleForm(schedule = null) {
     : { ...DEFAULT_SCHEDULE_FORM };
 }
 
-function makeDeviceForm(device = null, poleId = "") {
-  return device
-    ? {
-        label: device.label || "",
-        devEui: device.devEui || "",
-        poleId: device.poleId || poleId || "",
-        gateway: device.gateway || "",
-        signalRssi: device.signalRssi ?? DEFAULT_DEVICE_FORM.signalRssi,
-      }
-    : {
-        ...DEFAULT_DEVICE_FORM,
-        poleId: poleId || "",
-      };
-}
-
 function makeUserForm(user = null) {
   return user
     ? {
@@ -509,24 +483,6 @@ function validateScheduleForm(form) {
 
   if (!Array.isArray(form.days) || !form.days.length) {
     errors.days = "Pick at least one day.";
-  }
-
-  return errors;
-}
-
-function validateDeviceForm(form) {
-  const errors = {};
-
-  if (!String(form.label || "").trim()) {
-    errors.label = "Device label is required.";
-  }
-
-  if (!/^[0-9A-F]{16}$/.test(normalizeDevEui(form.devEui))) {
-    errors.devEui = "Enter a 16-character hexadecimal DevEUI.";
-  }
-
-  if (!String(form.poleId || "").trim()) {
-    errors.poleId = "Assign the device to a pole.";
   }
 
   return errors;
@@ -880,10 +836,6 @@ export default function Admin() {
   const [scheduleEditorMode, setScheduleEditorMode] = useState("edit");
   const [scheduleForm, setScheduleForm] = useState(DEFAULT_SCHEDULE_FORM);
   const [scheduleStatus, setScheduleStatus] = useState(null);
-  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
-  const [deviceEditorMode, setDeviceEditorMode] = useState("edit");
-  const [deviceForm, setDeviceForm] = useState(DEFAULT_DEVICE_FORM);
-  const [deviceStatus, setDeviceStatus] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [userEditorMode, setUserEditorMode] = useState("edit");
   const [userForm, setUserForm] = useState(DEFAULT_USER_FORM);
@@ -968,16 +920,12 @@ export default function Admin() {
     () => schedules.find((schedule) => schedule.id === selectedScheduleId) || null,
     [schedules, selectedScheduleId]
   );
-  const selectedDevice = useMemo(
-    () => devices.find((device) => device.id === selectedDeviceId) || null,
-    [devices, selectedDeviceId]
-  );
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) || null,
     [users, selectedUserId]
   );
   const selectedCommandStreetlightId =
-    selectedPoleId || selectedDevice?.poleId || poles[0]?.streetlight_id || "";
+    selectedPoleId || devices.find((device) => device.poleId)?.poleId || poles[0]?.streetlight_id || "";
 
   const sectionMeta = getSectionMeta(activeSection);
   const livePreviewPoint = useMemo(() => {
@@ -1035,7 +983,7 @@ export default function Admin() {
         note: "Selectable on the static map",
       },
       {
-        label: "LoRaWAN Devices",
+        label: "Field Radios",
         value: devices.length,
         note: "Registered field radios",
       },
@@ -1052,7 +1000,6 @@ export default function Admin() {
 
   const poleErrors = useMemo(() => validatePoleForm(poleForm), [poleForm]);
   const scheduleErrors = useMemo(() => validateScheduleForm(scheduleForm), [scheduleForm]);
-  const deviceErrors = useMemo(() => validateDeviceForm(deviceForm), [deviceForm]);
   const userErrors = useMemo(() => validateUserForm(userForm), [userForm]);
 
   useEffect(() => {
@@ -1090,25 +1037,6 @@ export default function Admin() {
       setScheduleForm(makeScheduleForm(selectedSchedule));
     }
   }, [scheduleEditorMode, selectedSchedule]);
-
-  useEffect(() => {
-    if (deviceEditorMode === "create") return;
-    if (!devices.length) {
-      setSelectedDeviceId(null);
-      return;
-    }
-
-    if (!selectedDeviceId || !devices.some((device) => device.id === selectedDeviceId)) {
-      setSelectedDeviceId(devices[0].id);
-    }
-  }, [deviceEditorMode, devices, selectedDeviceId]);
-
-  useEffect(() => {
-    if (deviceEditorMode === "create") return;
-    if (selectedDevice) {
-      setDeviceForm(makeDeviceForm(selectedDevice));
-    }
-  }, [deviceEditorMode, selectedDevice]);
 
   useEffect(() => {
     if (userEditorMode === "create") return;
@@ -1217,13 +1145,6 @@ export default function Admin() {
     setScheduleStatus(null);
   }
 
-  function beginNewDevice() {
-    setDeviceEditorMode("create");
-    setDeviceForm(makeDeviceForm(null, selectedPoleId || poles[0]?.streetlight_id || ""));
-    setSelectedDeviceId(null);
-    setDeviceStatus(null);
-  }
-
   function beginNewUser() {
     setUserEditorMode("create");
     setUserForm(makeUserForm());
@@ -1299,41 +1220,6 @@ export default function Admin() {
     setScheduleStatus({
       tone: "healthy",
       text: scheduleEditorMode === "edit" ? "Schedule updated." : "Schedule created.",
-    });
-  }
-
-  function handleDeviceSave() {
-    if (Object.keys(deviceErrors).length) {
-      setDeviceStatus({ tone: "critical", text: "Complete the required LoRaWAN device fields." });
-      return;
-    }
-
-    const nextDevice = {
-      id: deviceEditorMode === "edit" && selectedDevice ? selectedDevice.id : makeId("device"),
-      label: deviceForm.label.trim(),
-      devEui: normalizeDevEui(deviceForm.devEui),
-      poleId: deviceForm.poleId,
-      gateway: deviceForm.gateway.trim() || "GW-01",
-      signalRssi: clamp(Number(deviceForm.signalRssi) || -95, -120, -60),
-      lastUplink:
-        deviceEditorMode === "edit" && selectedDevice
-          ? selectedDevice.lastUplink
-          : new Date().toISOString(),
-    };
-
-    patchAdminState((current) => ({
-      ...current,
-      devices:
-        deviceEditorMode === "edit" && selectedDevice
-          ? current.devices.map((device) => (device.id === selectedDevice.id ? nextDevice : device))
-          : [nextDevice, ...current.devices],
-    }));
-
-    setDeviceEditorMode("edit");
-    setSelectedDeviceId(nextDevice.id);
-    setDeviceStatus({
-      tone: "healthy",
-      text: deviceEditorMode === "edit" ? "LoRaWAN device updated." : "LoRaWAN device registered.",
     });
   }
 
@@ -1888,13 +1774,8 @@ export default function Admin() {
 
                   <SectionCard
                     icon="radio"
-                    title="LoRaWAN Device Management"
-                    subtitle="Track registration, pole assignment, uplink recency, and signal strength."
-                    actions={
-                      <button type="button" className="lwAdminSecondaryBtn" onClick={beginNewDevice}>
-                        Register Device
-                      </button>
-                    }
+                    title="Field Radio Status"
+                    subtitle="Provisioning is managed behind the scenes; operators only see health signals."
                   >
                     <div className="lwAdminTableWrap">
                       <table className="lwAdminTable">
@@ -1913,16 +1794,16 @@ export default function Admin() {
                               return (
                                 <tr
                                   key={device.id}
-                                  className={device.id === selectedDeviceId ? "isSelected" : ""}
+                                  className={device.poleId === selectedPoleId ? "isSelected" : ""}
                                   onClick={() => {
-                                    setDeviceEditorMode("edit");
-                                    setSelectedDeviceId(device.id);
-                                    setDeviceStatus(null);
+                                    if (device.poleId) {
+                                      setSelectedPoleId(device.poleId);
+                                    }
                                   }}
                                 >
                                   <td>
-                                    <strong>{device.label}</strong>
-                                    <span>{formatDevEui(device.devEui)}</span>
+                                    <strong>{device.label || "Field radio"}</strong>
+                                    <span>Provisioned by network operations</span>
                                   </td>
                                   <td>{device.poleId || "Unassigned"}</td>
                                   <td>{formatTimestamp(device.lastUplink, "Never seen")}</td>
@@ -1937,137 +1818,13 @@ export default function Admin() {
                           ) : (
                             <tr>
                               <td colSpan="4" className="lwAdminTableEmpty">
-                                No LoRaWAN devices registered yet.
+                                No field radio status is available yet.
                               </td>
                             </tr>
                           )}
                         </tbody>
                       </table>
                     </div>
-                  </SectionCard>
-
-                  <SectionCard
-                    icon="settings"
-                    title={deviceEditorMode === "create" ? "Register Device" : "Edit Device"}
-                    subtitle="Validation runs inline while you type."
-                  >
-                    <div className="lwAdminFormGrid">
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Label</span>
-                        <input
-                          className="lwAdminInput"
-                          value={deviceForm.label}
-                          onChange={(event) =>
-                            setDeviceForm((current) => ({ ...current, label: event.target.value }))
-                          }
-                          placeholder="Main Street gateway radio"
-                        />
-                        <FieldMessage error={deviceErrors.label} />
-                      </label>
-
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">DevEUI</span>
-                        <input
-                          className="lwAdminInput"
-                          value={formatDevEui(deviceForm.devEui)}
-                          onChange={(event) =>
-                            setDeviceForm((current) => ({
-                              ...current,
-                              devEui: normalizeDevEui(event.target.value),
-                            }))
-                          }
-                          placeholder="70B3 D57E D00A 0001"
-                        />
-                        <FieldMessage error={deviceErrors.devEui} />
-                      </label>
-
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Pole</span>
-                        <select
-                          className="lwAdminSelect"
-                          value={deviceForm.poleId}
-                          onChange={(event) =>
-                            setDeviceForm((current) => ({ ...current, poleId: event.target.value }))
-                          }
-                        >
-                          <option value="">Select a pole</option>
-                          {poles.map((pole) => (
-                            <option key={pole.streetlight_id} value={pole.streetlight_id}>
-                              {pole.streetlight_id} - {pole.name || "Unnamed pole"}
-                            </option>
-                          ))}
-                        </select>
-                        <FieldMessage error={deviceErrors.poleId} />
-                      </label>
-
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Gateway</span>
-                        <input
-                          className="lwAdminInput"
-                          value={deviceForm.gateway}
-                          onChange={(event) =>
-                            setDeviceForm((current) => ({ ...current, gateway: event.target.value }))
-                          }
-                          placeholder="GW-01"
-                        />
-                      </label>
-                    </div>
-
-                    <label className="lwAdminField">
-                      <span className="lwAdminLabel">Signal strength</span>
-                      <input
-                        type="range"
-                        min="-120"
-                        max="-60"
-                        value={deviceForm.signalRssi}
-                        onChange={(event) =>
-                          setDeviceForm((current) => ({
-                            ...current,
-                            signalRssi: Number(event.target.value),
-                          }))
-                        }
-                      />
-                      <FieldMessage
-                        hint={`${describeSignal(deviceForm.signalRssi).label} signal at ${
-                          deviceForm.signalRssi
-                        } dBm`}
-                      />
-                    </label>
-
-                    <div className="lwAdminButtonRow">
-                      <button type="button" className="lwAdminPrimaryBtn" onClick={handleDeviceSave}>
-                        {deviceEditorMode === "create" ? "Register Device" : "Save Device"}
-                      </button>
-                      {selectedDevice ? (
-                        <button
-                          type="button"
-                          className="lwAdminGhostBtn isDanger"
-                          onClick={() =>
-                            openConfirmation({
-                              title: `Remove ${selectedDevice.label}?`,
-                              message:
-                                "The radio will be removed from this admin planner and its pole assignment will be cleared here.",
-                              confirmLabel: "Remove device",
-                              tone: "danger",
-                              onConfirm: () => {
-                                patchAdminState((current) => ({
-                                  ...current,
-                                  devices: current.devices.filter(
-                                    (device) => device.id !== selectedDevice.id
-                                  ),
-                                }));
-                                setSelectedDeviceId(null);
-                                setDeviceStatus({ tone: "healthy", text: "Device removed." });
-                              },
-                            })
-                          }
-                        >
-                          Remove Device
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {deviceStatus ? <StatusChip tone={deviceStatus.tone}>{deviceStatus.text}</StatusChip> : null}
                   </SectionCard>
                 </div>
               ) : null}
