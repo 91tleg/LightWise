@@ -100,9 +100,31 @@ export default function AdminWsControls({
   const [params, setParams] = useState(DEFAULT_PARAMS);
   const [flash, setFlash] = useState("idle");
 
+  const streetlightOptions = useMemo(() => {
+    const options = (Array.isArray(streetlights) ? streetlights : [])
+      .map((pole) => {
+        const id = String(pole?.streetlight_id || "").trim();
+        if (!id) return null;
+
+        const name = String(pole?.name || "").trim();
+        return {
+          id,
+          label: name ? `${name} (${id})` : id,
+        };
+      })
+      .filter(Boolean);
+
+    const selectedId = String(selectedStreetlightId || "").trim();
+    if (selectedId && !options.some((option) => option.id === selectedId)) {
+      return [{ id: selectedId, label: selectedId }, ...options];
+    }
+
+    return options;
+  }, [selectedStreetlightId, streetlights]);
+
   useEffect(() => {
-    setStreetlightId(selectedStreetlightId || "");
-  }, [selectedStreetlightId]);
+    setStreetlightId(selectedStreetlightId || streetlightOptions[0]?.id || "");
+  }, [selectedStreetlightId, streetlightOptions]);
 
   const isBusy = isSending || flash === "sending";
   const fields = useMemo(() => paramFieldsFor(command), [command]);
@@ -139,20 +161,21 @@ export default function AdminWsControls({
       <div className="lwAdminDownlinkTop">
         <label className="lwAdminField">
           <span className="lwAdminLabel">Streetlight</span>
-          <input
-            className="lwAdminInput"
-            list="lw-admin-streetlight-options"
+          <select
+            className="lwAdminSelect"
             value={streetlightId}
             onChange={(event) => setStreetlightId(event.target.value)}
-            placeholder="LW-00042"
-          />
-          <datalist id="lw-admin-streetlight-options">
-            {streetlights.map((pole) => (
-              <option key={pole.streetlight_id} value={pole.streetlight_id}>
-                {pole.name || pole.streetlight_id}
+            disabled={!streetlightOptions.length}
+          >
+            <option value="">
+              {streetlightOptions.length ? "Select a streetlight" : "No streetlights available"}
+            </option>
+            {streetlightOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
               </option>
             ))}
-          </datalist>
+          </select>
         </label>
 
         <label className="lwAdminField">

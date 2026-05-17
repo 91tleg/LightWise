@@ -29,11 +29,6 @@ const LEGACY_DEMO_USER_EMAILS = new Set([
   "avery.brooks@city.gov",
   "jules.chen@city.gov",
 ]);
-const LEGACY_DEMO_ZONE_NAMES = new Set([
-  "downtown core",
-  "waterfront",
-  "civic campus",
-]);
 const LEGACY_DEMO_SCHEDULE_NAMES = new Set([
   "day window",
   "night window",
@@ -48,32 +43,17 @@ const TIME_OPTIONS = Array.from({ length: 97 }, (_, index) => {
     label: formatMinutes(minutes),
   };
 });
-const DEFAULT_ZONE_FORM = {
-  name: "",
-  description: "",
-  motionSensitivity: 55,
-  polygon: [],
-};
 const DEFAULT_POLE_FORM = {
   name: "",
   lat: "",
   lng: "",
-  zoneId: "",
 };
 const DEFAULT_SCHEDULE_FORM = {
   name: "",
-  zoneId: "",
   startMinute: 0,
   endMinute: 12 * 60,
   dimLevel: 70,
   days: [0, 1, 2, 3, 4, 5, 6],
-};
-const DEFAULT_DEVICE_FORM = {
-  label: "",
-  devEui: "",
-  poleId: "",
-  gateway: "",
-  signalRssi: -92,
 };
 const DEFAULT_USER_FORM = {
   name: "",
@@ -82,16 +62,10 @@ const DEFAULT_USER_FORM = {
 };
 const SECTION_ITEMS = [
   {
-    id: "zones",
-    label: "Zones",
-    icon: "map",
-    description: "Draw service boundaries and tune motion sensitivity per area.",
-  },
-  {
     id: "poles",
     label: "Poles",
     icon: "pin",
-    description: "Search assets, update metadata, and bulk assign poles from the map.",
+    description: "Search assets, update metadata, and inspect pole locations.",
   },
   {
     id: "schedules",
@@ -101,9 +75,9 @@ const SECTION_ITEMS = [
   },
   {
     id: "lorawan",
-    label: "LoRaWAN",
+    label: "Connectivity",
     icon: "radio",
-    description: "Register field devices and monitor uplinks and signal quality.",
+    description: "Send lighting commands to selected poles.",
   },
   {
     id: "users",
@@ -136,10 +110,6 @@ function makeId(prefix) {
 
 function isLegacyDemoUser(user = {}) {
   return LEGACY_DEMO_USER_EMAILS.has(String(user.email || "").trim().toLowerCase());
-}
-
-function isLegacyDemoZone(zone = {}) {
-  return LEGACY_DEMO_ZONE_NAMES.has(String(zone.name || "").trim().toLowerCase());
 }
 
 function isLegacyDemoSchedule(schedule = {}) {
@@ -189,55 +159,7 @@ function summarizeDays(days = []) {
   return sortedDays.map((day) => DAY_OPTIONS[day] || "").join(", ");
 }
 
-function describeSensitivity(value) {
-  const level = clamp(Number(value) || 0, 0, 100);
-
-  if (level <= 25) {
-    return {
-      label: "Calm",
-      note: "Only large movement changes will brighten the zone.",
-    };
-  }
-
-  if (level <= 50) {
-    return {
-      label: "Balanced",
-      note: "Good default for mixed traffic streets and neighborhood edges.",
-    };
-  }
-
-  if (level <= 75) {
-    return {
-      label: "Responsive",
-      note: "Pedestrian and bike activity will trigger lighting more eagerly.",
-    };
-  }
-
-  return {
-    label: "Hyper-aware",
-    note: "Best for civic plazas, crossings, and safety-first corridors.",
-  };
-}
-
-function describeSignal(signalRssi) {
-  const value = Number(signalRssi);
-
-  if (!Number.isFinite(value)) {
-    return { label: "Unknown", tone: "neutral" };
-  }
-
-  if (value >= -90) {
-    return { label: "Strong", tone: "healthy" };
-  }
-
-  if (value >= -103) {
-    return { label: "Fair", tone: "warning" };
-  }
-
-  return { label: "Weak", tone: "critical" };
-}
-
-function normalizePoint(point) {
+function normalizeMapPoint(point) {
   if (!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lng))) {
     return null;
   }
@@ -250,10 +172,6 @@ function normalizePoint(point) {
 
 function normalizeDevEui(value = "") {
   return String(value).toUpperCase().replace(/[^0-9A-F]/g, "").slice(0, 16);
-}
-
-function formatDevEui(value = "") {
-  return normalizeDevEui(value).replace(/(.{4})/g, "$1 ").trim();
 }
 
 function isValidEmail(value = "") {
@@ -271,7 +189,6 @@ function createSeedAdminState(operator = null) {
     : null;
 
   return {
-    zones: [],
     schedules: [],
     devices: [],
     users: users ? [users] : [],
@@ -285,34 +202,11 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   }
 
   const poleIds = new Set(basePoles.map((pole) => pole.streetlight_id));
-  const zones = Array.isArray(currentState.zones)
-    ? currentState.zones
-        .filter((zone) => !isLegacyDemoZone(zone))
-        .map((zone) => {
-          const polygon = (Array.isArray(zone?.polygon) ? zone.polygon : [])
-            .map(normalizePoint)
-            .filter(Boolean);
-
-          return zone?.id
-            ? {
-                id: String(zone.id),
-                name: String(zone.name || "").trim(),
-                description: String(zone.description || "").trim(),
-                motionSensitivity: clamp(Number(zone.motionSensitivity) || 55, 0, 100),
-                polygon,
-                assignedPoleIds: dedupe(zone.assignedPoleIds).filter((id) => poleIds.has(id)),
-              }
-            : null;
-        })
-        .filter(Boolean)
-    : [];
-
-  const zoneIds = new Set(zones.map((zone) => zone.id));
   const schedules = Array.isArray(currentState.schedules)
     ? currentState.schedules
         .filter((schedule) => !isLegacyDemoSchedule(schedule))
         .map((schedule) => {
-          if (!schedule?.id || !zoneIds.has(schedule.zoneId)) return null;
+          if (!schedule?.id) return null;
 
           const startMinute = clamp(Number(schedule.startMinute) || 18 * 60, 0, 47 * 60);
           const rawEnd = Number(schedule.endMinute);
@@ -325,7 +219,6 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
           return {
             id: String(schedule.id),
             name: String(schedule.name || "").trim(),
-            zoneId: String(schedule.zoneId),
             startMinute,
             endMinute,
             dimLevel: clamp(Number(schedule.dimLevel) || 60, 10, 100),
@@ -396,24 +289,14 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   }
 
   return {
-    zones,
     schedules,
     devices,
     users: users.length ? users : fallback.users,
   };
 }
 
-function buildPoleZoneMap(zones = []) {
-  return zones.reduce((map, zone) => {
-    zone.assignedPoleIds.forEach((poleId) => {
-      map[poleId] = zone.id;
-    });
-    return map;
-  }, {});
-}
-
 function buildMapBoundsFromPoints(points = [], center = DEFAULT_CENTER) {
-  const validPoints = points.map(normalizePoint).filter(Boolean);
+  const validPoints = points.map(normalizeMapPoint).filter(Boolean);
   const coords = validPoints.length ? validPoints : [center];
   const minLat = Math.min(...coords.map((item) => item.lat));
   const maxLat = Math.max(...coords.map((item) => item.lat));
@@ -442,25 +325,6 @@ function getPercentPosition(lat, lng, bounds) {
   };
 }
 
-function getPointFromPercent(xPercent, yPercent, bounds) {
-  const lat = bounds.maxLat - ((bounds.maxLat - bounds.minLat) * yPercent) / 100;
-  const lng = bounds.minLng + ((bounds.maxLng - bounds.minLng) * xPercent) / 100;
-
-  return {
-    lat: Number(lat.toFixed(6)),
-    lng: Number(lng.toFixed(6)),
-  };
-}
-
-function polygonToSvgPoints(points = [], bounds) {
-  return points
-    .map((point) => {
-      const pos = getPercentPosition(point.lat, point.lng, bounds);
-      return `${pos.left} ${pos.top}`;
-    })
-    .join(" ");
-}
-
 function getSectionMeta(id) {
   return SECTION_ITEMS.find((item) => item.id === id) || SECTION_ITEMS[0];
 }
@@ -469,57 +333,26 @@ function getRoleTone(role) {
   return role === "admin" ? "warning" : "neutral";
 }
 
-function makeZoneForm(zone = null) {
-  return zone
-    ? {
-        name: zone.name || "",
-        description: zone.description || "",
-        motionSensitivity: zone.motionSensitivity ?? 55,
-        polygon: Array.isArray(zone.polygon) ? zone.polygon : [],
-      }
-    : { ...DEFAULT_ZONE_FORM };
-}
-
-function makePoleForm(pole = null, zoneId = "") {
+function makePoleForm(pole = null) {
   return pole
     ? {
         name: pole.name || "",
         lat: pole.lat != null ? String(pole.lat) : "",
         lng: pole.lng != null ? String(pole.lng) : "",
-        zoneId: zoneId || "",
       }
     : { ...DEFAULT_POLE_FORM };
 }
 
-function makeScheduleForm(schedule = null, zoneId = "") {
+function makeScheduleForm(schedule = null) {
   return schedule
     ? {
         name: schedule.name || "",
-        zoneId: schedule.zoneId || zoneId || "",
         startMinute: schedule.startMinute ?? DEFAULT_SCHEDULE_FORM.startMinute,
         endMinute: schedule.endMinute ?? DEFAULT_SCHEDULE_FORM.endMinute,
         dimLevel: schedule.dimLevel ?? DEFAULT_SCHEDULE_FORM.dimLevel,
         days: Array.isArray(schedule.days) ? schedule.days : DEFAULT_SCHEDULE_FORM.days,
       }
-    : {
-        ...DEFAULT_SCHEDULE_FORM,
-        zoneId: zoneId || "",
-      };
-}
-
-function makeDeviceForm(device = null, poleId = "") {
-  return device
-    ? {
-        label: device.label || "",
-        devEui: device.devEui || "",
-        poleId: device.poleId || poleId || "",
-        gateway: device.gateway || "",
-        signalRssi: device.signalRssi ?? DEFAULT_DEVICE_FORM.signalRssi,
-      }
-    : {
-        ...DEFAULT_DEVICE_FORM,
-        poleId: poleId || "",
-      };
+    : { ...DEFAULT_SCHEDULE_FORM };
 }
 
 function makeUserForm(user = null) {
@@ -603,20 +436,6 @@ function normalizeCommandAck(message) {
   };
 }
 
-function validateZoneForm(form) {
-  const errors = {};
-
-  if (!String(form.name || "").trim()) {
-    errors.name = "Zone name is required.";
-  }
-
-  if ((Array.isArray(form.polygon) ? form.polygon.length : 0) < 3) {
-    errors.polygon = "Add at least three boundary points to save a zone.";
-  }
-
-  return errors;
-}
-
 function validatePoleForm(form) {
   const errors = {};
 
@@ -640,34 +459,12 @@ function validateScheduleForm(form) {
     errors.name = "Schedule name is required.";
   }
 
-  if (!String(form.zoneId || "").trim()) {
-    errors.zoneId = "Select a zone for this schedule.";
-  }
-
   if (Number(form.endMinute) <= Number(form.startMinute)) {
     errors.timeline = "The schedule must end after it starts.";
   }
 
   if (!Array.isArray(form.days) || !form.days.length) {
     errors.days = "Pick at least one day.";
-  }
-
-  return errors;
-}
-
-function validateDeviceForm(form) {
-  const errors = {};
-
-  if (!String(form.label || "").trim()) {
-    errors.label = "Device label is required.";
-  }
-
-  if (!/^[0-9A-F]{16}$/.test(normalizeDevEui(form.devEui))) {
-    errors.devEui = "Enter a 16-character hexadecimal DevEUI.";
-  }
-
-  if (!String(form.poleId || "").trim()) {
-    errors.poleId = "Assign the device to a pole.";
   }
 
   return errors;
@@ -892,15 +689,8 @@ function ConfirmModal({ state, onClose }) {
 
 function AdminMapSurface({
   poles,
-  zones,
-  selectedZoneId,
   selectedPoleId,
-  selectedPoleIds,
   previewPoint = null,
-  draftPolygon = [],
-  drawingEnabled = false,
-  bulkMode = false,
-  onAddPoint,
   onPoleClick,
 }) {
   const validPoles = useMemo(
@@ -930,28 +720,16 @@ function AdminMapSurface({
     return pickBestCenter(validPoles);
   }, [previewPoint, selectedPoleId, validPoles]);
   const pointsForBounds = useMemo(() => {
-    const polygonPoints = zones.flatMap((zone) => zone.polygon);
     return [
       ...validPoles.map((pole) => ({ lat: Number(pole.lat), lng: Number(pole.lng) })),
-      ...polygonPoints,
-      ...draftPolygon,
       ...(previewPoint ? [previewPoint] : []),
       center,
     ];
-  }, [center, draftPolygon, previewPoint, validPoles, zones]);
+  }, [center, previewPoint, validPoles]);
   const bounds = useMemo(
     () => buildMapBoundsFromPoints(pointsForBounds, center),
     [center, pointsForBounds]
   );
-
-  function handleOverlayClick(event) {
-    if (!drawingEnabled) return;
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const xPercent = ((event.clientX - rect.left) / rect.width) * 100;
-    const yPercent = ((event.clientY - rect.top) / rect.height) * 100;
-    onAddPoint?.(getPointFromPercent(xPercent, yPercent, bounds));
-  }
 
   return (
     <div className="lwAdminMapSurface">
@@ -971,55 +749,23 @@ function AdminMapSurface({
       <div className="lwAdminMapBadgeRow">
         <StatusChip tone="neutral">Static picker</StatusChip>
         <StatusChip tone="neutral">No live updates</StatusChip>
-        {drawingEnabled ? <StatusChip tone="warning">Boundary drawing active</StatusChip> : null}
-        {bulkMode ? <StatusChip tone="warning">Bulk select active</StatusChip> : null}
       </div>
 
       <div
-        className={`lwAdminMapOverlay${drawingEnabled ? " isDrawing" : ""}`}
-        onClick={handleOverlayClick}
+        className="lwAdminMapOverlay"
         role="presentation"
       >
-        <svg className="lwAdminMapSvg" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {zones.map((zone) =>
-            zone.polygon.length >= 3 ? (
-              <polygon
-                key={zone.id}
-                className={`lwAdminMapPolygon${zone.id === selectedZoneId ? " isSelected" : ""}`}
-                points={polygonToSvgPoints(zone.polygon, bounds)}
-              />
-            ) : null
-          )}
-
-          {draftPolygon.length >= 2 ? (
-            <polyline
-              className="lwAdminMapDraft"
-              points={polygonToSvgPoints(draftPolygon, bounds)}
-            />
-          ) : null}
-
-          {draftPolygon.length >= 3 ? (
-            <polygon
-              className="lwAdminMapDraftFill"
-              points={polygonToSvgPoints(draftPolygon, bounds)}
-            />
-          ) : null}
-        </svg>
-
         {validPoles.map((pole) => {
           const tone = toneForHealth(pole.health);
           const isActive = pole.streetlight_id === selectedPoleId;
-          const isBulkSelected = selectedPoleIds.includes(pole.streetlight_id);
           const position = getPercentPosition(pole.lat, pole.lng, bounds);
-          const showLabel = isActive || isBulkSelected;
+          const showLabel = isActive;
 
           return (
             <button
               key={pole.streetlight_id}
               type="button"
-              className={`lwAdminMapMarker ${tone}${isActive ? " isActive" : ""}${
-                isBulkSelected ? " isBulkSelected" : ""
-              }`}
+              className={`lwAdminMapMarker ${tone}${isActive ? " isActive" : ""}`}
               style={position}
               onClick={(event) => {
                 event.stopPropagation();
@@ -1046,11 +792,7 @@ function AdminMapSurface({
       </div>
 
       <div className="lwAdminMapFooter">
-        {drawingEnabled
-          ? "Click on the map to place each zone vertex. Use three or more points to close a valid boundary."
-          : bulkMode
-          ? "Click pole markers to add or remove them from the bulk selection set."
-          : "This map is intentionally static so administrative edits stay deliberate and stable."}
+        This map is intentionally static so administrative edits stay deliberate and stable.
       </div>
     </div>
   );
@@ -1067,27 +809,15 @@ export default function Admin() {
   } = useLightWise();
   const [metaMap, setMetaMap] = useState(() => loadPoleMetaMap());
   const [adminState, setAdminState] = useState(null);
-  const [activeSection, setActiveSection] = useState("zones");
-  const [selectedZoneId, setSelectedZoneId] = useState(null);
-  const [zoneEditorMode, setZoneEditorMode] = useState("edit");
-  const [zoneForm, setZoneForm] = useState(DEFAULT_ZONE_FORM);
-  const [isDrawingZone, setIsDrawingZone] = useState(false);
-  const [zoneStatus, setZoneStatus] = useState(null);
+  const [activeSection, setActiveSection] = useState("poles");
   const [selectedPoleId, setSelectedPoleId] = useState(null);
   const [poleForm, setPoleForm] = useState(DEFAULT_POLE_FORM);
   const [poleSearch, setPoleSearch] = useState("");
   const [poleStatus, setPoleStatus] = useState(null);
-  const [bulkZoneId, setBulkZoneId] = useState("");
-  const [bulkMapMode, setBulkMapMode] = useState(false);
-  const [selectedPoleIds, setSelectedPoleIds] = useState([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState(null);
   const [scheduleEditorMode, setScheduleEditorMode] = useState("edit");
   const [scheduleForm, setScheduleForm] = useState(DEFAULT_SCHEDULE_FORM);
   const [scheduleStatus, setScheduleStatus] = useState(null);
-  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
-  const [deviceEditorMode, setDeviceEditorMode] = useState("edit");
-  const [deviceForm, setDeviceForm] = useState(DEFAULT_DEVICE_FORM);
-  const [deviceStatus, setDeviceStatus] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [userEditorMode, setUserEditorMode] = useState("edit");
   const [userForm, setUserForm] = useState(DEFAULT_USER_FORM);
@@ -1158,25 +888,10 @@ export default function Admin() {
     }
   }, [adminState]);
 
-  const zones = useMemo(() => adminState?.zones ?? [], [adminState?.zones]);
   const schedules = useMemo(() => adminState?.schedules ?? [], [adminState?.schedules]);
-  const devices = useMemo(() => adminState?.devices ?? [], [adminState?.devices]);
   const users = useMemo(
     () => (adminState?.users ?? []).filter((user) => !isLegacyDemoUser(user)),
     [adminState?.users]
-  );
-  const poleZoneMap = useMemo(() => buildPoleZoneMap(zones), [zones]);
-  const zoneLookup = useMemo(
-    () =>
-      zones.reduce((map, zone) => {
-        map[zone.id] = zone;
-        return map;
-      }, {}),
-    [zones]
-  );
-  const selectedZone = useMemo(
-    () => zones.find((zone) => zone.id === selectedZoneId) || null,
-    [selectedZoneId, zones]
   );
   const selectedPole = useMemo(
     () => poles.find((pole) => pole.streetlight_id === selectedPoleId) || null,
@@ -1186,30 +901,14 @@ export default function Admin() {
     () => schedules.find((schedule) => schedule.id === selectedScheduleId) || null,
     [schedules, selectedScheduleId]
   );
-  const selectedDevice = useMemo(
-    () => devices.find((device) => device.id === selectedDeviceId) || null,
-    [devices, selectedDeviceId]
-  );
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) || null,
     [users, selectedUserId]
   );
   const selectedCommandStreetlightId =
-    selectedPoleId || selectedDevice?.poleId || poles[0]?.streetlight_id || "";
+    selectedPoleId || poles[0]?.streetlight_id || "";
 
   const sectionMeta = getSectionMeta(activeSection);
-  const editableZones = useMemo(() => {
-    if (!selectedZone || zoneEditorMode === "create") return zones;
-
-    return zones.map((zone) =>
-      zone.id === selectedZone.id
-        ? {
-            ...zone,
-            polygon: zoneForm.polygon,
-          }
-      : zone
-    );
-  }, [selectedZone, zoneEditorMode, zoneForm.polygon, zones]);
   const livePreviewPoint = useMemo(() => {
     if (!selectedPoleId) return null;
 
@@ -1245,11 +944,9 @@ export default function Admin() {
     if (!query) return poles;
 
     return poles.filter((pole) => {
-      const zone = zoneLookup[poleZoneMap[pole.streetlight_id]];
       const haystack = [
         pole.streetlight_id,
         pole.name || "",
-        zone?.name || "",
         pole.health || "",
       ]
         .join(" ")
@@ -1257,24 +954,14 @@ export default function Admin() {
 
       return haystack.includes(query);
     });
-  }, [deferredPoleSearch, poleZoneMap, poles, zoneLookup]);
+  }, [deferredPoleSearch, poles]);
 
   const stats = useMemo(
     () => [
       {
-        label: "Zones",
-        value: zones.length,
-        note: "Configured service areas",
-      },
-      {
         label: "Mapped Poles",
         value: poles.filter((pole) => isValidCoord(pole.lat) && isValidCoord(pole.lng)).length,
         note: "Selectable on the static map",
-      },
-      {
-        label: "LoRaWAN Devices",
-        value: devices.length,
-        note: "Registered field radios",
       },
       {
         label: "Users",
@@ -1284,33 +971,12 @@ export default function Admin() {
         } operators`,
       },
     ],
-    [devices.length, poles, users, zones.length]
+    [poles, users]
   );
 
-  const zoneErrors = useMemo(() => validateZoneForm(zoneForm), [zoneForm]);
   const poleErrors = useMemo(() => validatePoleForm(poleForm), [poleForm]);
   const scheduleErrors = useMemo(() => validateScheduleForm(scheduleForm), [scheduleForm]);
-  const deviceErrors = useMemo(() => validateDeviceForm(deviceForm), [deviceForm]);
   const userErrors = useMemo(() => validateUserForm(userForm), [userForm]);
-
-  useEffect(() => {
-    if (zoneEditorMode === "create") return;
-    if (!zones.length) {
-      setSelectedZoneId(null);
-      return;
-    }
-
-    if (!selectedZoneId || !zones.some((zone) => zone.id === selectedZoneId)) {
-      setSelectedZoneId(zones[0].id);
-    }
-  }, [selectedZoneId, zoneEditorMode, zones]);
-
-  useEffect(() => {
-    if (zoneEditorMode === "create") return;
-    if (selectedZone) {
-      setZoneForm(makeZoneForm(selectedZone));
-    }
-  }, [selectedZone, zoneEditorMode]);
 
   useEffect(() => {
     if (!poles.length) {
@@ -1325,16 +991,9 @@ export default function Admin() {
 
   useEffect(() => {
     if (selectedPole) {
-      setPoleForm(makePoleForm(selectedPole, poleZoneMap[selectedPole.streetlight_id] || ""));
+      setPoleForm(makePoleForm(selectedPole));
     }
-  }, [poleZoneMap, selectedPole]);
-
-  useEffect(() => {
-    if (!bulkMapMode && selectedPoleId) {
-      setSelectedPoleIds([selectedPoleId]);
-      setBulkZoneId(poleZoneMap[selectedPoleId] || "");
-    }
-  }, [bulkMapMode, poleZoneMap, selectedPoleId]);
+  }, [selectedPole]);
 
   useEffect(() => {
     if (scheduleEditorMode === "create") return;
@@ -1351,28 +1010,9 @@ export default function Admin() {
   useEffect(() => {
     if (scheduleEditorMode === "create") return;
     if (selectedSchedule) {
-      setScheduleForm(makeScheduleForm(selectedSchedule, selectedZoneId || zones[0]?.id || ""));
+      setScheduleForm(makeScheduleForm(selectedSchedule));
     }
-  }, [scheduleEditorMode, selectedSchedule, selectedZoneId, zones]);
-
-  useEffect(() => {
-    if (deviceEditorMode === "create") return;
-    if (!devices.length) {
-      setSelectedDeviceId(null);
-      return;
-    }
-
-    if (!selectedDeviceId || !devices.some((device) => device.id === selectedDeviceId)) {
-      setSelectedDeviceId(devices[0].id);
-    }
-  }, [deviceEditorMode, devices, selectedDeviceId]);
-
-  useEffect(() => {
-    if (deviceEditorMode === "create") return;
-    if (selectedDevice) {
-      setDeviceForm(makeDeviceForm(selectedDevice));
-    }
-  }, [deviceEditorMode, selectedDevice]);
+  }, [scheduleEditorMode, selectedSchedule]);
 
   useEffect(() => {
     if (userEditorMode === "create") return;
@@ -1470,53 +1110,15 @@ export default function Admin() {
     });
   }
 
-  function assignPolesToZone(poleIds, nextZoneId) {
-    const ids = dedupe(poleIds);
-    if (!ids.length) return;
-
-    patchAdminState((current) => ({
-      ...current,
-      zones: current.zones.map((zone) => {
-        const remaining = zone.assignedPoleIds.filter((poleId) => !ids.includes(poleId));
-        if (zone.id !== nextZoneId) {
-          return {
-            ...zone,
-            assignedPoleIds: remaining,
-          };
-        }
-
-        return {
-          ...zone,
-          assignedPoleIds: dedupe([...remaining, ...ids]),
-        };
-      }),
-    }));
-  }
-
   function openConfirmation(nextState) {
     setConfirmState(nextState);
   }
 
-  function beginNewZone() {
-    setZoneEditorMode("create");
-    setZoneForm(makeZoneForm());
-    setSelectedZoneId(null);
-    setZoneStatus(null);
-    setIsDrawingZone(true);
-  }
-
   function beginNewSchedule() {
     setScheduleEditorMode("create");
-    setScheduleForm(makeScheduleForm(null, selectedZoneId || zones[0]?.id || ""));
+    setScheduleForm(makeScheduleForm());
     setSelectedScheduleId(null);
     setScheduleStatus(null);
-  }
-
-  function beginNewDevice() {
-    setDeviceEditorMode("create");
-    setDeviceForm(makeDeviceForm(null, selectedPoleId || poles[0]?.streetlight_id || ""));
-    setSelectedDeviceId(null);
-    setDeviceStatus(null);
   }
 
   function beginNewUser() {
@@ -1526,57 +1128,9 @@ export default function Admin() {
     setUserStatus(null);
   }
 
-  function handleZonePointAdd(point) {
-    setZoneForm((current) => ({
-      ...current,
-      polygon: [...current.polygon, point],
-    }));
-  }
-
   function handlePoleMapClick(pole) {
-    if (bulkMapMode) {
-      setSelectedPoleIds((current) =>
-        current.includes(pole.streetlight_id)
-          ? current.filter((id) => id !== pole.streetlight_id)
-          : [...current, pole.streetlight_id]
-      );
-      return;
-    }
-
     setSelectedPoleId(pole.streetlight_id);
     setPoleStatus(null);
-  }
-
-  function handleZoneSave() {
-    if (Object.keys(zoneErrors).length) {
-      setZoneStatus({ tone: "critical", text: "Fix the highlighted issues before saving the zone." });
-      return;
-    }
-
-    const nextZone = {
-      id: zoneEditorMode === "edit" && selectedZone ? selectedZone.id : makeId("zone"),
-      name: zoneForm.name.trim(),
-      description: zoneForm.description.trim(),
-      motionSensitivity: clamp(Number(zoneForm.motionSensitivity) || 55, 0, 100),
-      polygon: zoneForm.polygon.map(normalizePoint).filter(Boolean),
-      assignedPoleIds: zoneEditorMode === "edit" && selectedZone ? selectedZone.assignedPoleIds : [],
-    };
-
-    patchAdminState((current) => ({
-      ...current,
-      zones:
-        zoneEditorMode === "edit" && selectedZone
-          ? current.zones.map((zone) => (zone.id === selectedZone.id ? nextZone : zone))
-          : [nextZone, ...current.zones],
-    }));
-
-    setZoneEditorMode("edit");
-    setSelectedZoneId(nextZone.id);
-    setZoneStatus({
-      tone: "healthy",
-      text: zoneEditorMode === "edit" ? "Zone updated." : "Zone created.",
-    });
-    setIsDrawingZone(false);
   }
 
   function handlePoleSave() {
@@ -1598,7 +1152,6 @@ export default function Admin() {
 
     upsertPoleMeta(selectedPoleId, patch);
     applyStreetlightLocalPatch(selectedPoleId, patch);
-    assignPolesToZone([selectedPoleId], poleForm.zoneId || null);
     setMetaMap(loadPoleMetaMap());
 
     updateStreetlightMetadata(selectedPoleId, patch)
@@ -1613,25 +1166,6 @@ export default function Admin() {
       });
   }
 
-  function handleBulkZoneAssign() {
-    if (!selectedPoleIds.length) {
-      setPoleStatus({ tone: "critical", text: "Select one or more poles on the map first." });
-      return;
-    }
-
-    assignPolesToZone(selectedPoleIds, bulkZoneId || null);
-    setPoleStatus({
-      tone: "healthy",
-      text: bulkZoneId
-        ? `Assigned ${selectedPoleIds.length} pole${selectedPoleIds.length === 1 ? "" : "s"} to ${
-            zoneLookup[bulkZoneId]?.name || "the selected zone"
-          }.`
-        : `Removed zone assignments from ${selectedPoleIds.length} selected pole${
-            selectedPoleIds.length === 1 ? "" : "s"
-          }.`,
-    });
-  }
-
   function handleScheduleSave() {
     if (Object.keys(scheduleErrors).length) {
       setScheduleStatus({ tone: "critical", text: "Resolve the schedule validation issues before saving." });
@@ -1641,7 +1175,6 @@ export default function Admin() {
     const nextSchedule = {
       id: scheduleEditorMode === "edit" && selectedSchedule ? selectedSchedule.id : makeId("schedule"),
       name: scheduleForm.name.trim(),
-      zoneId: scheduleForm.zoneId,
       startMinute: Number(scheduleForm.startMinute),
       endMinute: Number(scheduleForm.endMinute),
       dimLevel: clamp(Number(scheduleForm.dimLevel) || 60, 10, 100),
@@ -1663,41 +1196,6 @@ export default function Admin() {
     setScheduleStatus({
       tone: "healthy",
       text: scheduleEditorMode === "edit" ? "Schedule updated." : "Schedule created.",
-    });
-  }
-
-  function handleDeviceSave() {
-    if (Object.keys(deviceErrors).length) {
-      setDeviceStatus({ tone: "critical", text: "Complete the required LoRaWAN device fields." });
-      return;
-    }
-
-    const nextDevice = {
-      id: deviceEditorMode === "edit" && selectedDevice ? selectedDevice.id : makeId("device"),
-      label: deviceForm.label.trim(),
-      devEui: normalizeDevEui(deviceForm.devEui),
-      poleId: deviceForm.poleId,
-      gateway: deviceForm.gateway.trim() || "GW-01",
-      signalRssi: clamp(Number(deviceForm.signalRssi) || -95, -120, -60),
-      lastUplink:
-        deviceEditorMode === "edit" && selectedDevice
-          ? selectedDevice.lastUplink
-          : new Date().toISOString(),
-    };
-
-    patchAdminState((current) => ({
-      ...current,
-      devices:
-        deviceEditorMode === "edit" && selectedDevice
-          ? current.devices.map((device) => (device.id === selectedDevice.id ? nextDevice : device))
-          : [nextDevice, ...current.devices],
-    }));
-
-    setDeviceEditorMode("edit");
-    setSelectedDeviceId(nextDevice.id);
-    setDeviceStatus({
-      tone: "healthy",
-      text: deviceEditorMode === "edit" ? "LoRaWAN device updated." : "LoRaWAN device registered.",
     });
   }
 
@@ -1889,358 +1387,19 @@ export default function Admin() {
             />
 
             <div className="lwAdminSectionBody">
-              {activeSection === "zones" ? (
-                <div className="lwAdminSectionGrid">
-                  <SectionCard
-                    icon="map"
-                    title="Zone Management"
-                    subtitle="Draw district boundaries directly on the planning map."
-                    actions={
-                      <div className="lwAdminButtonRow">
-                        <button type="button" className="lwAdminSecondaryBtn" onClick={beginNewZone}>
-                          New Zone
-                        </button>
-                        <button
-                          type="button"
-                          className={`lwAdminSecondaryBtn${isDrawingZone ? " isActive" : ""}`}
-                          onClick={() => setIsDrawingZone((current) => !current)}
-                        >
-                          {isDrawingZone ? "Stop Drawing" : "Draw Boundary"}
-                        </button>
-                      </div>
-                    }
-                  >
-                    <AdminMapSurface
-                      poles={previewPoles}
-                      zones={editableZones}
-                      selectedZoneId={selectedZoneId}
-                      selectedPoleId={selectedPoleId}
-                      selectedPoleIds={selectedPoleIds}
-                      previewPoint={livePreviewPoint}
-                      draftPolygon={zoneEditorMode === "create" ? zoneForm.polygon : []}
-                      drawingEnabled={isDrawingZone}
-                      onAddPoint={handleZonePointAdd}
-                      onPoleClick={(pole) => setSelectedPoleId(pole.streetlight_id)}
-                    />
-
-                    <div className="lwAdminButtonRow">
-                      <button
-                        type="button"
-                        className="lwAdminGhostBtn"
-                        onClick={() =>
-                          setZoneForm((current) => ({
-                            ...current,
-                            polygon: current.polygon.slice(0, -1),
-                          }))
-                        }
-                        disabled={!zoneForm.polygon.length}
-                      >
-                        Undo Point
-                      </button>
-                      <button
-                        type="button"
-                        className="lwAdminGhostBtn"
-                        onClick={() =>
-                          openConfirmation({
-                            title: "Clear boundary draft?",
-                            message:
-                              "This removes the current polygon from the editor but does not delete any saved zone until you confirm a delete action.",
-                            confirmLabel: "Clear boundary",
-                            tone: "warning",
-                            onConfirm: () =>
-                              setZoneForm((current) => ({
-                                ...current,
-                                polygon: [],
-                              })),
-                          })
-                        }
-                        disabled={!zoneForm.polygon.length}
-                      >
-                        Clear Boundary
-                      </button>
-                    </div>
-                  </SectionCard>
-
-                  <div className="lwAdminStack">
-                    <SectionCard
-                      icon="settings"
-                      title={zoneEditorMode === "create" ? "Create Zone" : "Edit Zone"}
-                      subtitle="Boundary points and motion sensitivity save together."
-                    >
-                      <div className="lwAdminRecordList">
-                        {zones.map((zone) => (
-                          <button
-                            key={zone.id}
-                            type="button"
-                            className={`lwAdminRecordItem${
-                              zone.id === selectedZoneId && zoneEditorMode !== "create" ? " isSelected" : ""
-                            }`}
-                            onClick={() => {
-                              setZoneEditorMode("edit");
-                              setSelectedZoneId(zone.id);
-                              setIsDrawingZone(false);
-                              setZoneStatus(null);
-                            }}
-                          >
-                            <div>
-                              <strong>{zone.name}</strong>
-                              <span>{zone.assignedPoleIds.length} poles assigned</span>
-                            </div>
-                            <StatusChip tone="neutral">
-                              {describeSensitivity(zone.motionSensitivity).label}
-                            </StatusChip>
-                          </button>
-                        ))}
-                      </div>
- 
-                      <div className="lwAdminFormGrid">
-                        <label className="lwAdminField">
-                          <span className="lwAdminLabel">Zone name</span>
-                          <input
-                            className="lwAdminInput"
-                            value={zoneForm.name}
-                            onChange={(event) =>
-                              setZoneForm((current) => ({ ...current, name: event.target.value }))
-                            }
-                            placeholder="Zone name"
-                          />
-                          <FieldMessage error={zoneErrors.name} />
-                        </label>
-
-                        <label className="lwAdminField lwAdminFieldFull">
-                          <span className="lwAdminLabel">Description</span>
-                          <textarea
-                            className="lwAdminTextarea"
-                            value={zoneForm.description}
-                            onChange={(event) =>
-                              setZoneForm((current) => ({
-                                ...current,
-                                description: event.target.value,
-                              }))
-                            }
-                            placeholder="Describe the lighting and pedestrian behavior in this zone."
-                            rows={3}
-                          />
-                        </label>
-
-                        <label className="lwAdminField lwAdminFieldFull">
-                          <span className="lwAdminLabel">Boundary status</span>
-                          <div className="lwAdminInlineSurface">
-                            <strong>{zoneForm.polygon.length} points placed</strong>
-                            <span>
-                              {zoneForm.polygon.length >= 3
-                                ? "Boundary is ready to save."
-                                : "Add at least three map points."}
-                            </span>
-                          </div>
-                          <FieldMessage error={zoneErrors.polygon} />
-                        </label>
-
-                        <div className="lwAdminField lwAdminFieldFull">
-                          <span className="lwAdminLabel">Boundary points</span>
-                          <div className="lwAdminPointList">
-                            {zoneForm.polygon.length ? (
-                              zoneForm.polygon.map((point, index) => (
-                                <div key={`${point.lat}-${point.lng}-${index}`} className="lwAdminPointRow">
-                                  <strong>P{index + 1}</strong>
-                                  <span>
-                                    {point.lat}, {point.lng}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="lwAdminGhostBtn"
-                                    onClick={() =>
-                                      setZoneForm((current) => ({
-                                        ...current,
-                                        polygon: current.polygon.filter((_, pointIndex) => pointIndex !== index),
-                                      }))
-                                    }
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="lwAdminInlineSurface">
-                                <strong>No points yet</strong>
-                                <span>Turn on boundary drawing and click the map to place points.</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="lwAdminButtonRow">
-                        <button type="button" className="lwAdminPrimaryBtn" onClick={handleZoneSave}>
-                          {zoneEditorMode === "create" ? "Create Zone" : "Save Zone"}
-                        </button>
-                        <button
-                          type="button"
-                          className="lwAdminSecondaryBtn"
-                          onClick={() => {
-                            setZoneEditorMode("edit");
-                            setZoneStatus(null);
-                            if (selectedZone) {
-                              setZoneForm(makeZoneForm(selectedZone));
-                            } else {
-                              setZoneForm(makeZoneForm());
-                            }
-                            setIsDrawingZone(false);
-                          }}
-                        >
-                          Discard Changes
-                        </button>
-                        {selectedZone ? (
-                          <button
-                            type="button"
-                            className="lwAdminGhostBtn isDanger"
-                            onClick={() =>
-                              openConfirmation({
-                                title: `Delete ${selectedZone.name}?`,
-                                message: `This removes the zone, unassigns ${
-                                  selectedZone.assignedPoleIds.length
-                                } pole${selectedZone.assignedPoleIds.length === 1 ? "" : "s"}, and deletes ${
-                                  schedules.filter((schedule) => schedule.zoneId === selectedZone.id).length
-                                } linked schedule(s).`,
-                                confirmLabel: "Delete zone",
-                                tone: "danger",
-                                onConfirm: () => {
-                                  patchAdminState((current) => ({
-                                    ...current,
-                                    zones: current.zones.filter((zone) => zone.id !== selectedZone.id),
-                                    schedules: current.schedules.filter(
-                                      (schedule) => schedule.zoneId !== selectedZone.id
-                                    ),
-                                  }));
-                                  setZoneEditorMode("edit");
-                                  setSelectedZoneId(null);
-                                  setZoneStatus({ tone: "healthy", text: "Zone deleted." });
-                                },
-                              })
-                            }
-                          >
-                            Delete Zone
-                          </button>
-                        ) : null}
-                      </div>
-
-                      {zoneStatus ? <StatusChip tone={zoneStatus.tone}>{zoneStatus.text}</StatusChip> : null}
-                    </SectionCard>
-
-                    <SectionCard
-                      icon="spark"
-                      title="Motion Sensitivity"
-                      subtitle="Plain-English tuning for each zone."
-                    >
-                      <div className="lwAdminSliderList">
-                        {zones.map((zone) => {
-                          const descriptor = describeSensitivity(zone.motionSensitivity);
-                          return (
-                            <div key={zone.id} className="lwAdminSliderRow">
-                              <div className="lwAdminSliderMeta">
-                                <strong>{zone.name}</strong>
-                                <span>{descriptor.note}</span>
-                              </div>
-                              <div className="lwAdminSliderControl">
-                                <div className="lwAdminSliderValue">{descriptor.label}</div>
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="100"
-                                  value={zone.motionSensitivity}
-                                  onChange={(event) => {
-                                    const nextValue = Number(event.target.value);
-                                    patchAdminState((current) => ({
-                                      ...current,
-                                      zones: current.zones.map((item) =>
-                                        item.id === zone.id
-                                          ? { ...item, motionSensitivity: nextValue }
-                                          : item
-                                      ),
-                                    }));
-                                    if (zone.id === selectedZoneId && zoneEditorMode !== "create") {
-                                      setZoneForm((current) => ({
-                                        ...current,
-                                        motionSensitivity: nextValue,
-                                      }));
-                                    }
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </SectionCard>
-                  </div>
-                </div>
-              ) : null}
-
               {activeSection === "poles" ? (
                 <div className="lwAdminSectionGrid">
                   <SectionCard
                     icon="pin"
                     title="Pole Management"
-                    subtitle="Select individual poles or switch into bulk selection mode."
-                    actions={
-                      <div className="lwAdminButtonRow">
-                        <button
-                          type="button"
-                          className={`lwAdminSecondaryBtn${bulkMapMode ? " isActive" : ""}`}
-                          onClick={() => setBulkMapMode((current) => !current)}
-                        >
-                          {bulkMapMode ? "Single Select" : "Bulk Select"}
-                        </button>
-                        <button
-                          type="button"
-                          className="lwAdminGhostBtn"
-                          onClick={() => setSelectedPoleIds([])}
-                          disabled={!selectedPoleIds.length}
-                        >
-                          Clear Selection
-                        </button>
-                      </div>
-                    }
+                    subtitle="Select individual poles and keep their display details current."
                   >
                     <AdminMapSurface
-                      poles={poles}
-                      zones={editableZones}
-                      selectedZoneId={selectedZoneId}
+                      poles={previewPoles}
                       selectedPoleId={selectedPoleId}
-                      selectedPoleIds={selectedPoleIds}
                       previewPoint={livePreviewPoint}
-                      bulkMode={bulkMapMode}
                       onPoleClick={handlePoleMapClick}
                     />
-
-                    <div className="lwAdminBulkRow">
-                      <div className="lwAdminInlineSurface">
-                        <strong>{selectedPoleIds.length} pole(s) selected</strong>
-                        <span>
-                          {bulkMapMode
-                            ? "Use the selector below to bulk assign the highlighted poles."
-                            : "Switch to bulk select to assign a zone from the map."}
-                        </span>
-                      </div>
-
-                      <div className="lwAdminBulkActions">
-                        <select
-                          className="lwAdminSelect"
-                          value={bulkZoneId}
-                          onChange={(event) => setBulkZoneId(event.target.value)}
-                        >
-                          <option value="">Unassigned</option>
-                          {zones.map((zone) => (
-                            <option key={zone.id} value={zone.id}>
-                              {zone.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button type="button" className="lwAdminPrimaryBtn" onClick={handleBulkZoneAssign}>
-                          Apply to Selected
-                        </button>
-                      </div>
-                    </div>
                   </SectionCard>
 
                   <div className="lwAdminStack">
@@ -2261,24 +1420,6 @@ export default function Admin() {
                             placeholder="Civic Plaza / 5th Ave"
                           />
                           <FieldMessage error={poleErrors.name} />
-                        </label>
-
-                        <label className="lwAdminField">
-                          <span className="lwAdminLabel">Zone</span>
-                          <select
-                            className="lwAdminSelect"
-                            value={poleForm.zoneId}
-                            onChange={(event) =>
-                              setPoleForm((current) => ({ ...current, zoneId: event.target.value }))
-                            }
-                          >
-                            <option value="">Unassigned</option>
-                            {zones.map((zone) => (
-                              <option key={zone.id} value={zone.id}>
-                                {zone.name}
-                              </option>
-                            ))}
-                          </select>
                         </label>
 
                         <label className="lwAdminField">
@@ -2327,7 +1468,7 @@ export default function Admin() {
                     <SectionCard
                       icon="analytics"
                       title="Pole Table"
-                      subtitle="Search by pole ID, name, zone, or health. Click a row to edit."
+                      subtitle="Search by pole ID, name, or health. Click a row to edit."
                     >
                       <label className="lwAdminField">
                         <span className="lwAdminLabel">Search</span>
@@ -2344,45 +1485,39 @@ export default function Admin() {
                           <thead>
                             <tr>
                               <th>Pole</th>
-                              <th>Zone</th>
                               <th>Health</th>
                               <th>Coordinates</th>
                             </tr>
                           </thead>
                           <tbody>
                             {filteredPoles.length ? (
-                              filteredPoles.map((pole) => {
-                                const zone = zoneLookup[poleZoneMap[pole.streetlight_id]];
-                                return (
-                                  <tr
-                                    key={pole.streetlight_id}
-                                    className={pole.streetlight_id === selectedPoleId ? "isSelected" : ""}
-                                    onClick={() => {
-                                      setSelectedPoleId(pole.streetlight_id);
-                                      setBulkMapMode(false);
-                                    }}
-                                  >
-                                    <td>
-                                      <strong>{pole.streetlight_id}</strong>
-                                      <span>{pole.name || "Unnamed pole"}</span>
-                                    </td>
-                                    <td>{zone?.name || "Unassigned"}</td>
-                                    <td>
-                                      <StatusChip tone={toneForHealth(pole.health)}>
-                                        {pole.health || "Unknown"}
-                                      </StatusChip>
-                                    </td>
-                                    <td>
-                                      {isValidCoord(pole.lat) && isValidCoord(pole.lng)
-                                        ? `${pole.lat}, ${pole.lng}`
-                                        : "Needs coordinates"}
-                                    </td>
-                                  </tr>
-                                );
-                              })
+                              filteredPoles.map((pole) => (
+                                <tr
+                                  key={pole.streetlight_id}
+                                  className={pole.streetlight_id === selectedPoleId ? "isSelected" : ""}
+                                  onClick={() => {
+                                    setSelectedPoleId(pole.streetlight_id);
+                                  }}
+                                >
+                                  <td>
+                                    <strong>{pole.streetlight_id}</strong>
+                                    <span>{pole.name || "Unnamed pole"}</span>
+                                  </td>
+                                  <td>
+                                    <StatusChip tone={toneForHealth(pole.health)}>
+                                      {pole.health || "Unknown"}
+                                    </StatusChip>
+                                  </td>
+                                  <td>
+                                    {isValidCoord(pole.lat) && isValidCoord(pole.lng)
+                                      ? `${pole.lat}, ${pole.lng}`
+                                      : "Needs coordinates"}
+                                  </td>
+                                </tr>
+                              ))
                             ) : (
                               <tr>
-                                <td colSpan="4" className="lwAdminTableEmpty">
+                                <td colSpan="3" className="lwAdminTableEmpty">
                                   No poles match the current search.
                                 </td>
                               </tr>
@@ -2400,7 +1535,7 @@ export default function Admin() {
                   <SectionCard
                     icon="chart"
                     title="Visual Schedule Editor"
-                    subtitle="Drag the timeline to shape each zone's runtime window."
+                    subtitle="Drag the timeline to shape lighting runtime windows."
                     actions={
                       <button type="button" className="lwAdminSecondaryBtn" onClick={beginNewSchedule}>
                         New Schedule
@@ -2426,7 +1561,6 @@ export default function Admin() {
                           <div>
                             <strong>{schedule.name}</strong>
                             <span>
-                              {zoneLookup[schedule.zoneId]?.name || "Unassigned zone"} ·{" "}
                               {formatMinutes(schedule.startMinute)} to {formatMinutes(schedule.endMinute)}
                             </span>
                           </div>
@@ -2454,31 +1588,12 @@ export default function Admin() {
                         />
                         <FieldMessage error={scheduleErrors.name} />
                       </label>
-
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Zone</span>
-                        <select
-                          className="lwAdminSelect"
-                          value={scheduleForm.zoneId}
-                          onChange={(event) =>
-                            setScheduleForm((current) => ({ ...current, zoneId: event.target.value }))
-                          }
-                        >
-                          <option value="">Select a zone</option>
-                          {zones.map((zone) => (
-                            <option key={zone.id} value={zone.id}>
-                              {zone.name}
-                            </option>
-                          ))}
-                        </select>
-                        <FieldMessage error={scheduleErrors.zoneId} />
-                      </label>
                     </div>
 
                     <div className="lwAdminInlineSurface lwAdminScheduleHint">
                       <strong>Each saved schedule is one time block.</strong>
                       <span>
-                        Save multiple rows if a zone needs separate daytime, evening, and overnight windows.
+                        Save multiple rows for separate daytime, evening, and overnight windows.
                       </span>
                     </div>
 
@@ -2588,7 +1703,7 @@ export default function Admin() {
                             openConfirmation({
                               title: `Delete ${selectedSchedule.name}?`,
                               message:
-                                "This removes the schedule from the active zone and cannot be undone from the local planner.",
+                                "This removes the schedule and cannot be undone from the local planner.",
                               confirmLabel: "Delete schedule",
                               tone: "danger",
                               onConfirm: () => {
@@ -2633,189 +1748,6 @@ export default function Admin() {
                       </SectionCard>
                   </div>
 
-                  <SectionCard
-                    icon="radio"
-                    title="LoRaWAN Device Management"
-                    subtitle="Track registration, pole assignment, uplink recency, and signal strength."
-                    actions={
-                      <button type="button" className="lwAdminSecondaryBtn" onClick={beginNewDevice}>
-                        Register Device
-                      </button>
-                    }
-                  >
-                    <div className="lwAdminTableWrap">
-                      <table className="lwAdminTable">
-                        <thead>
-                          <tr>
-                            <th>Device</th>
-                            <th>Pole</th>
-                            <th>Last uplink</th>
-                            <th>Signal</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {devices.length ? (
-                            devices.map((device) => {
-                              const signal = describeSignal(device.signalRssi);
-                              return (
-                                <tr
-                                  key={device.id}
-                                  className={device.id === selectedDeviceId ? "isSelected" : ""}
-                                  onClick={() => {
-                                    setDeviceEditorMode("edit");
-                                    setSelectedDeviceId(device.id);
-                                    setDeviceStatus(null);
-                                  }}
-                                >
-                                  <td>
-                                    <strong>{device.label}</strong>
-                                    <span>{formatDevEui(device.devEui)}</span>
-                                  </td>
-                                  <td>{device.poleId || "Unassigned"}</td>
-                                  <td>{formatTimestamp(device.lastUplink, "Never seen")}</td>
-                                  <td>
-                                    <StatusChip tone={signal.tone}>
-                                      {signal.label} ({device.signalRssi} dBm)
-                                    </StatusChip>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          ) : (
-                            <tr>
-                              <td colSpan="4" className="lwAdminTableEmpty">
-                                No LoRaWAN devices registered yet.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard
-                    icon="settings"
-                    title={deviceEditorMode === "create" ? "Register Device" : "Edit Device"}
-                    subtitle="Validation runs inline while you type."
-                  >
-                    <div className="lwAdminFormGrid">
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Label</span>
-                        <input
-                          className="lwAdminInput"
-                          value={deviceForm.label}
-                          onChange={(event) =>
-                            setDeviceForm((current) => ({ ...current, label: event.target.value }))
-                          }
-                          placeholder="Main Street gateway radio"
-                        />
-                        <FieldMessage error={deviceErrors.label} />
-                      </label>
-
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">DevEUI</span>
-                        <input
-                          className="lwAdminInput"
-                          value={formatDevEui(deviceForm.devEui)}
-                          onChange={(event) =>
-                            setDeviceForm((current) => ({
-                              ...current,
-                              devEui: normalizeDevEui(event.target.value),
-                            }))
-                          }
-                          placeholder="70B3 D57E D00A 0001"
-                        />
-                        <FieldMessage error={deviceErrors.devEui} />
-                      </label>
-
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Pole</span>
-                        <select
-                          className="lwAdminSelect"
-                          value={deviceForm.poleId}
-                          onChange={(event) =>
-                            setDeviceForm((current) => ({ ...current, poleId: event.target.value }))
-                          }
-                        >
-                          <option value="">Select a pole</option>
-                          {poles.map((pole) => (
-                            <option key={pole.streetlight_id} value={pole.streetlight_id}>
-                              {pole.streetlight_id} - {pole.name || "Unnamed pole"}
-                            </option>
-                          ))}
-                        </select>
-                        <FieldMessage error={deviceErrors.poleId} />
-                      </label>
-
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Gateway</span>
-                        <input
-                          className="lwAdminInput"
-                          value={deviceForm.gateway}
-                          onChange={(event) =>
-                            setDeviceForm((current) => ({ ...current, gateway: event.target.value }))
-                          }
-                          placeholder="GW-01"
-                        />
-                      </label>
-                    </div>
-
-                    <label className="lwAdminField">
-                      <span className="lwAdminLabel">Signal strength</span>
-                      <input
-                        type="range"
-                        min="-120"
-                        max="-60"
-                        value={deviceForm.signalRssi}
-                        onChange={(event) =>
-                          setDeviceForm((current) => ({
-                            ...current,
-                            signalRssi: Number(event.target.value),
-                          }))
-                        }
-                      />
-                      <FieldMessage
-                        hint={`${describeSignal(deviceForm.signalRssi).label} signal at ${
-                          deviceForm.signalRssi
-                        } dBm`}
-                      />
-                    </label>
-
-                    <div className="lwAdminButtonRow">
-                      <button type="button" className="lwAdminPrimaryBtn" onClick={handleDeviceSave}>
-                        {deviceEditorMode === "create" ? "Register Device" : "Save Device"}
-                      </button>
-                      {selectedDevice ? (
-                        <button
-                          type="button"
-                          className="lwAdminGhostBtn isDanger"
-                          onClick={() =>
-                            openConfirmation({
-                              title: `Remove ${selectedDevice.label}?`,
-                              message:
-                                "The radio will be removed from this admin planner and its pole assignment will be cleared here.",
-                              confirmLabel: "Remove device",
-                              tone: "danger",
-                              onConfirm: () => {
-                                patchAdminState((current) => ({
-                                  ...current,
-                                  devices: current.devices.filter(
-                                    (device) => device.id !== selectedDevice.id
-                                  ),
-                                }));
-                                setSelectedDeviceId(null);
-                                setDeviceStatus({ tone: "healthy", text: "Device removed." });
-                              },
-                            })
-                          }
-                        >
-                          Remove Device
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {deviceStatus ? <StatusChip tone={deviceStatus.tone}>{deviceStatus.text}</StatusChip> : null}
-                  </SectionCard>
                 </div>
               ) : null}
 
