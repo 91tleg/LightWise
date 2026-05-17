@@ -291,7 +291,6 @@
 
 .lwAdminCardActions,
 .lwAdminButtonRow,
-.lwAdminBulkActions,
 .lwAdminPillRow {
   display: flex;
   align-items: center;
@@ -608,31 +607,6 @@
   pointer-events: none;
 }
 
-.lwAdminMapPolygon,
-.lwAdminMapDraftFill,
-.lwAdminMapDraft {
-  fill: rgba(11, 99, 166, 0.14);
-  stroke: rgba(11, 99, 166, 0.64);
-  stroke-width: 0.6;
-}
-
-.lwAdminMapPolygon.isSelected {
-  fill: rgba(20, 145, 201, 0.18);
-  stroke: rgba(20, 145, 201, 0.94);
-}
-
-.lwAdminMapDraft {
-  fill: none;
-  stroke: rgba(34, 197, 94, 0.96);
-  stroke-width: 0.8;
-  stroke-dasharray: 1.4 1;
-}
-
-.lwAdminMapDraftFill {
-  fill: rgba(34, 197, 94, 0.12);
-  stroke: rgba(34, 197, 94, 0.4);
-}
-
 .lwAdminMapMarker {
   position: absolute;
   transform: translate(-50%, -100%);
@@ -668,14 +642,9 @@
   background: #ef4444;
 }
 
-.lwAdminMapMarker.isActive .lwAdminMapMarkerDot,
-.lwAdminMapMarker.isBulkSelected .lwAdminMapMarkerDot {
+.lwAdminMapMarker.isActive .lwAdminMapMarkerDot {
   transform: scale(1.16);
   box-shadow: 0 0 0 7px rgba(11, 99, 166, 0.18), 0 10px 18px rgba(15, 23, 42, 0.24);
-}
-
-.lwAdminMapMarker.isBulkSelected .lwAdminMapMarkerDot {
-  box-shadow: 0 0 0 7px rgba(20, 145, 201, 0.14), 0 10px 18px rgba(15, 23, 42, 0.24);
 }
 
 .lwAdminMapMarkerLabel {
@@ -734,35 +703,12 @@
   color: #617285;
 }
 
-.lwAdminRecordList,
-.lwAdminSliderList,
-.lwAdminPointList {
+.lwAdminRecordList {
   display: grid;
   gap: 10px;
   margin-bottom: 14px;
   min-height: 0;
   overflow: auto;
-}
-
-.lwAdminPointRow {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(247, 250, 253, 0.98), rgba(238, 244, 249, 0.96));
-  border: 1px solid rgba(207, 220, 232, 0.98);
-}
-
-.lwAdminPointRow strong {
-  color: #102133;
-}
-
-.lwAdminPointRow span {
-  font-size: 12px;
-  font-weight: 700;
-  color: #617285;
 }
 
 .lwAdminRecordItem {
@@ -779,46 +725,19 @@
   gap: 12px;
 }
 
-.lwAdminRecordItem strong,
-.lwAdminSliderMeta strong {
+.lwAdminRecordItem strong {
   display: block;
   color: #13273a;
   font-size: 14px;
 }
 
-.lwAdminRecordItem span,
-.lwAdminSliderMeta span {
+.lwAdminRecordItem span {
   display: block;
   margin-top: 4px;
   color: #617285;
   font-size: 12px;
   font-weight: 700;
   line-height: 1.45;
-}
-
-.lwAdminSliderRow,
-.lwAdminBulkRow {
-  display: grid;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(247, 250, 253, 0.98), rgba(238, 244, 249, 0.96));
-  border: 1px solid rgba(207, 220, 232, 0.98);
-}
-
-.lwAdminSliderControl {
-  display: grid;
-  gap: 8px;
-}
-
-.lwAdminSliderValue {
-  font-size: 13px;
-  font-weight: 900;
-  color: #0b63a6;
-}
-
-.lwAdminBulkActions {
-  justify-content: flex-start;
 }
 
 .lwAdminTableWrap {
@@ -1092,7 +1011,6 @@ body.dark .lwAdminTable td strong,
 body.dark .lwAdminModalTitle,
 body.dark .lwAdminInlineSurface strong,
 body.dark .lwAdminRecordItem strong,
-body.dark .lwAdminSliderMeta strong,
 body.dark .lwAdminCommandRow strong {
   color: #eef5ff;
 }
@@ -1104,7 +1022,6 @@ body.dark .lwAdminCardSubtitle,
 body.dark .lwAdminFieldHint,
 body.dark .lwAdminMapFooter,
 body.dark .lwAdminRecordItem span,
-body.dark .lwAdminSliderMeta span,
 body.dark .lwAdminTimelineHours,
 body.dark .lwAdminModalCopy,
 body.dark .lwAdminInlineSurface span,
@@ -1128,8 +1045,6 @@ body.dark .lwAdminSelect,
 body.dark .lwAdminInlineSurface,
 body.dark .lwAdminCommandRow,
 body.dark .lwAdminRecordItem,
-body.dark .lwAdminSliderRow,
-body.dark .lwAdminBulkRow,
 body.dark .lwAdminTableWrap,
 body.dark .lwAdminTable thead th,
 body.dark .lwAdminSectionNavItem,
@@ -1246,27 +1161,8 @@ body.dark .lwAdminMapMarkerLabel {
   color: #eef5ff;
 }
 
-body.dark .lwAdminMapPolygon {
-  fill: rgba(20, 145, 201, 0.12);
-  stroke: rgba(103, 210, 227, 0.46);
-}
-
-body.dark .lwAdminMapPolygon.isSelected {
-  fill: rgba(20, 145, 201, 0.2);
-  stroke: rgba(103, 210, 227, 0.88);
-}
-
 body.dark .lwAdminMapBadgeRow .lwAdminChip {
   background: rgba(8, 18, 30, 0.76);
-}
-
-body.dark .lwAdminMapDraft {
-  stroke: rgba(74, 222, 128, 0.92);
-}
-
-body.dark .lwAdminMapDraftFill {
-  fill: rgba(74, 222, 128, 0.12);
-  stroke: rgba(74, 222, 128, 0.3);
 }
 
 body.dark .lwAdminMapPreviewDot {
@@ -1274,19 +1170,6 @@ body.dark .lwAdminMapPreviewDot {
   box-shadow:
     0 0 0 8px rgba(91, 197, 255, 0.18),
     0 12px 22px rgba(0, 0, 0, 0.32);
-}
-
-body.dark .lwAdminPointRow {
-  background: linear-gradient(180deg, rgba(14, 26, 41, 0.98), rgba(10, 21, 35, 0.96));
-  border-color: rgba(148, 163, 184, 0.14);
-}
-
-body.dark .lwAdminPointRow strong {
-  color: #eef5ff;
-}
-
-body.dark .lwAdminPointRow span {
-  color: #95a8bc;
 }
 
 @media (max-width: 1180px) {
@@ -1329,7 +1212,6 @@ body.dark .lwAdminPointRow span {
   }
 
   .lwAdminModalActions,
-  .lwAdminBulkActions,
   .lwAdminButtonRow,
   .lwAdminCardActions {
     flex-direction: column;
