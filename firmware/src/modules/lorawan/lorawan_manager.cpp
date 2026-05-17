@@ -234,4 +234,13 @@ namespace lorawan
         return result;
     }
 
+    void Manager::poll() noexcept
+    {
+        const MutexGuard guard { mutex_ };
+        if( guard.locked() && state_ == State::READY )
+        {
+            device_.run();
+        }
+    }
+
 } /* namespace lorawan */
