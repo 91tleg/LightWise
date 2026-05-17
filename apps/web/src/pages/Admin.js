@@ -1098,7 +1098,6 @@ export default function Admin() {
   const [commandStatus, setCommandStatus] = useState(null);
   const [commandSending, setCommandSending] = useState(false);
   const [commandHistory, setCommandHistory] = useState([]);
-  const [lastCommandAck, setLastCommandAck] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
   const deferredPoleSearch = useDeferredValue(poleSearch);
@@ -1398,10 +1397,9 @@ export default function Admin() {
     const ack = normalizeCommandAck(lastMessage);
     if (!ack) return;
 
-    setLastCommandAck(ack);
     setCommandStatus({
       tone: ack.response_code === "ACK" ? "healthy" : "critical",
-      text: `${ack.command || "Command"} ${ack.response_code || "response"}`,
+      text: ack.response_code === "ACK" ? "Command completed." : "Command rejected.",
     });
     setCommandHistory((current) => {
       const updated = current.map((item) =>
@@ -1811,12 +1809,6 @@ export default function Admin() {
     } finally {
       setUserSaving(false);
     }
-  }
-
-  async function handleDownlinkSubscribe(streetlightId) {
-    const id = String(streetlightId || "").trim();
-    if (!id) return false;
-    return Boolean(subscribe?.(id));
   }
 
   async function handleDownlinkSend(streetlightId, envelope) {
@@ -2625,23 +2617,20 @@ export default function Admin() {
               {activeSection === "lorawan" ? (
                 <div className="lwAdminSectionGrid lwAdminSectionGridCompact">
                   <div className="lwAdminDownlinkCard">
-                    <SectionCard
-                      icon="bolt"
-                      title="Downlink Control"
-                      subtitle="Dispatch LoRaWAN commands and watch command ACKs on the active WebSocket."
-                    >
-                      <AdminWsControls
-                        wsStatus={wsStatus}
-                        streetlights={poles}
-                        selectedStreetlightId={selectedCommandStreetlightId}
-                        commandHistory={commandHistory}
-                        commandStatus={commandStatus}
-                        isSending={commandSending}
-                        lastAck={lastCommandAck}
-                        onSubscribe={handleDownlinkSubscribe}
-                        onSendCommand={handleDownlinkSend}
-                      />
-                    </SectionCard>
+                      <SectionCard
+                        icon="bolt"
+                        title="Downlink Control"
+                        subtitle="Send lighting commands and review recent command results."
+                      >
+                        <AdminWsControls
+                          streetlights={poles}
+                          selectedStreetlightId={selectedCommandStreetlightId}
+                          commandHistory={commandHistory}
+                          commandStatus={commandStatus}
+                          isSending={commandSending}
+                          onSendCommand={handleDownlinkSend}
+                        />
+                      </SectionCard>
                   </div>
 
                   <SectionCard
