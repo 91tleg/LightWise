@@ -5,7 +5,6 @@
 #include "utils/str/num_fmt.h"
 #include "utils/str/str_ext.h"
 #include "utils/time/delay.h"
-#include "utils/log/log.h"
 #include "hal/lwnode.h"
 
 namespace lorawan
@@ -490,6 +489,17 @@ namespace lorawan
         return result;
     }
 
+    void Lwnode::run() noexcept
+    {
+        uint16_t rxLen { 0U };
+
+        /* Class C: never sleep the radio */
+        if (readLoraData(&rxLen))
+        {
+            static_cast< void >( processRecvFrames( rxBuf_, rxLen ) );
+        }
+    }
+
     bool Lwnode::setPacketType( PacketType type ) noexcept
     {
         bool result { false };
@@ -659,7 +669,6 @@ namespace lorawan
 
                     if( sendAtCmd( cmd, ack, sizeof( ack ) ) )
                     {
-                        LOGI("lwnode", "ACK received: %s", ack);
                         if( ackEquals( ack, "+SEND=OK\r\n" ) ||
                             ackEquals( ack, "AT+SEND=OK\r\n" ) ||
                             ackEquals( ack, "+SEND=QUEUE\r\n" ) )

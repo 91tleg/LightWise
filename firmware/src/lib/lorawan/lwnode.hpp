@@ -249,6 +249,11 @@ namespace lorawan
          */
         [[nodiscard]] int8_t lastSnr() const noexcept;
 
+        /**
+         * @brief Poll radio for incoming data, class C so it never sleeps.
+         */
+        void run() noexcept override;
+
         /** @} */
 
     private:
