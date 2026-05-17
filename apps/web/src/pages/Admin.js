@@ -77,7 +77,7 @@ const SECTION_ITEMS = [
     id: "lorawan",
     label: "Connectivity",
     icon: "radio",
-    description: "Monitor field radios and send lighting commands.",
+    description: "Send lighting commands to selected poles.",
   },
   {
     id: "users",
@@ -157,24 +157,6 @@ function summarizeDays(days = []) {
     return "Weekend";
   }
   return sortedDays.map((day) => DAY_OPTIONS[day] || "").join(", ");
-}
-
-function describeSignal(signalRssi) {
-  const value = Number(signalRssi);
-
-  if (!Number.isFinite(value)) {
-    return { label: "Unknown", tone: "neutral" };
-  }
-
-  if (value >= -90) {
-    return { label: "Strong", tone: "healthy" };
-  }
-
-  if (value >= -103) {
-    return { label: "Fair", tone: "warning" };
-  }
-
-  return { label: "Weak", tone: "critical" };
 }
 
 function normalizeMapPoint(point) {
@@ -907,7 +889,6 @@ export default function Admin() {
   }, [adminState]);
 
   const schedules = useMemo(() => adminState?.schedules ?? [], [adminState?.schedules]);
-  const devices = useMemo(() => adminState?.devices ?? [], [adminState?.devices]);
   const users = useMemo(
     () => (adminState?.users ?? []).filter((user) => !isLegacyDemoUser(user)),
     [adminState?.users]
@@ -925,7 +906,7 @@ export default function Admin() {
     [users, selectedUserId]
   );
   const selectedCommandStreetlightId =
-    selectedPoleId || devices.find((device) => device.poleId)?.poleId || poles[0]?.streetlight_id || "";
+    selectedPoleId || poles[0]?.streetlight_id || "";
 
   const sectionMeta = getSectionMeta(activeSection);
   const livePreviewPoint = useMemo(() => {
@@ -983,11 +964,6 @@ export default function Admin() {
         note: "Selectable on the static map",
       },
       {
-        label: "Field Radios",
-        value: devices.length,
-        note: "Registered field radios",
-      },
-      {
         label: "Users",
         value: users.length,
         note: `${users.filter((user) => user.role === "admin").length} admins, ${
@@ -995,7 +971,7 @@ export default function Admin() {
         } operators`,
       },
     ],
-    [devices.length, poles, users]
+    [poles, users]
   );
 
   const poleErrors = useMemo(() => validatePoleForm(poleForm), [poleForm]);
@@ -1772,60 +1748,6 @@ export default function Admin() {
                       </SectionCard>
                   </div>
 
-                  <SectionCard
-                    icon="radio"
-                    title="Field Radio Status"
-                    subtitle="Provisioning is managed behind the scenes; operators only see health signals."
-                  >
-                    <div className="lwAdminTableWrap">
-                      <table className="lwAdminTable">
-                        <thead>
-                          <tr>
-                            <th>Device</th>
-                            <th>Pole</th>
-                            <th>Last uplink</th>
-                            <th>Signal</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {devices.length ? (
-                            devices.map((device) => {
-                              const signal = describeSignal(device.signalRssi);
-                              return (
-                                <tr
-                                  key={device.id}
-                                  className={device.poleId === selectedPoleId ? "isSelected" : ""}
-                                  onClick={() => {
-                                    if (device.poleId) {
-                                      setSelectedPoleId(device.poleId);
-                                    }
-                                  }}
-                                >
-                                  <td>
-                                    <strong>{device.label || "Field radio"}</strong>
-                                    <span>Provisioned by network operations</span>
-                                  </td>
-                                  <td>{device.poleId || "Unassigned"}</td>
-                                  <td>{formatTimestamp(device.lastUplink, "Never seen")}</td>
-                                  <td>
-                                    <StatusChip tone={signal.tone}>
-                                      {signal.label} ({device.signalRssi} dBm)
-                                    </StatusChip>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          ) : (
-                            <tr>
-                              <td colSpan="4" className="lwAdminTableEmpty">
-                                No field radio status is available yet.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </SectionCard>
                 </div>
               ) : null}
 
