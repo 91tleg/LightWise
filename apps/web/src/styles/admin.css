@@ -467,53 +467,21 @@
 }
 
 .lwAdminDownlinkTop,
-.lwAdminCommandParams,
-.lwAdminDownlinkMeta {
+.lwAdminCommandParams {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
+}
+
+.lwAdminDownlinkMeta {
+  display: grid;
+  gap: 8px;
 }
 
 .lwAdminCommandParams {
   grid-template-columns: repeat(2, minmax(0, 180px));
   justify-content: start;
-}
-
-.lwAdminConnectionChip {
-  min-height: 47px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(247, 250, 253, 0.98), rgba(238, 244, 249, 0.96));
-  border: 1px solid rgba(207, 220, 232, 0.98);
-}
-
-.lwStatusDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #94a3b8;
-  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.14);
-}
-
-.lwStatusDot.connected {
-  background: #22c55e;
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
-}
-
-.lwStatusDot.idle {
-  background: #f59e0b;
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
-}
-
-.lwAdminConnectionValue {
-  margin-top: 2px;
-  font-size: 13px;
-  font-weight: 900;
-  color: #102133;
 }
 
 .lwAdminDownlinkActions {
@@ -531,7 +499,6 @@
 }
 
 .lwAdminCommandHistory {
-  grid-column: span 2;
   display: grid;
   gap: 8px;
 }
@@ -1126,8 +1093,7 @@ body.dark .lwAdminModalTitle,
 body.dark .lwAdminInlineSurface strong,
 body.dark .lwAdminRecordItem strong,
 body.dark .lwAdminSliderMeta strong,
-body.dark .lwAdminCommandRow strong,
-body.dark .lwAdminConnectionValue {
+body.dark .lwAdminCommandRow strong {
   color: #eef5ff;
 }
 
@@ -1160,7 +1126,6 @@ body.dark .lwAdminInput,
 body.dark .lwAdminTextarea,
 body.dark .lwAdminSelect,
 body.dark .lwAdminInlineSurface,
-body.dark .lwAdminConnectionChip,
 body.dark .lwAdminCommandRow,
 body.dark .lwAdminRecordItem,
 body.dark .lwAdminSliderRow,
@@ -1342,14 +1307,10 @@ body.dark .lwAdminPointRow span {
     grid-template-columns: 1fr;
   }
 
-  .lwAdminDownlinkTop,
-  .lwAdminDownlinkMeta {
+  .lwAdminDownlinkTop {
     grid-template-columns: 1fr;
   }
 
-  .lwAdminCommandHistory {
-    grid-column: auto;
-  }
 }
 
 @media (max-width: 760px) {

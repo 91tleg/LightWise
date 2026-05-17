@@ -65,15 +65,34 @@ function formatCommandTime(value) {
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+function commandStatusTone(status) {
+  const value = String(status || "pending").trim().toLowerCase();
+  if (value === "acked" || value === "acknowledged" || value === "completed") return "healthy";
+  if (value === "nacked" || value === "failed" || value === "rejected") return "critical";
+  if (value === "timeout" || value === "timed_out") return "warning";
+  return "neutral";
+}
+
+function commandStatusLabel(status) {
+  const value = String(status || "pending").trim().toLowerCase();
+  if (value === "acked" || value === "acknowledged" || value === "completed") return "Completed";
+  if (value === "nacked" || value === "failed" || value === "rejected") return "Rejected";
+  if (value === "timeout" || value === "timed_out") return "Timed out";
+  if (value === "sent") return "Sent";
+  if (value === "pending") return "Pending";
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export default function AdminWsControls({
-  wsStatus,
   streetlights = [],
   selectedStreetlightId,
   commandHistory = [],
   commandStatus,
   isSending = false,
-  lastAck = null,
-  onSubscribe,
   onSendCommand,
 }) {
   const [streetlightId, setStreetlightId] = useState(selectedStreetlightId || "");
@@ -85,7 +104,6 @@ export default function AdminWsControls({
     setStreetlightId(selectedStreetlightId || "");
   }, [selectedStreetlightId]);
 
-  const isConnected = wsStatus === "connected";
   const isBusy = isSending || flash === "sending";
   const fields = useMemo(() => paramFieldsFor(command), [command]);
   const selectedCommand = COMMANDS.find((item) => item.value === command) || COMMANDS[0];
@@ -94,22 +112,7 @@ export default function AdminWsControls({
   const statusTone = commandStatus?.tone || (flash === "err" ? "critical" : flash === "ok" ? "healthy" : "neutral");
   const statusText =
     commandStatus?.text ||
-    (flash === "err" ? "Command failed." : flash === "ok" ? "Command accepted." : "Ready");
-
-  const handleSubscribeClick = async () => {
-    const id = streetlightId.trim();
-    if (!id) return;
-
-    setFlash("sending");
-    try {
-      const ok = await Promise.resolve(onSubscribe?.(id));
-      setFlash(ok ? "ok" : "err");
-    } catch {
-      setFlash("err");
-    } finally {
-      setTimeout(() => setFlash("idle"), 1100);
-    }
-  };
+    (flash === "err" ? "Command failed." : flash === "ok" ? "Command sent." : "Ready");
 
   const handleSendClick = async () => {
     const id = streetlightId.trim();
@@ -166,14 +169,6 @@ export default function AdminWsControls({
             ))}
           </select>
         </label>
-
-        <div className="lwAdminConnectionChip">
-          <span className={`lwStatusDot ${isConnected ? "connected" : "idle"}`} />
-          <div>
-            <div className="lwAdminLabel">WebSocket</div>
-            <div className="lwAdminConnectionValue">{wsStatus || "idle"}</div>
-          </div>
-        </div>
       </div>
 
       {fields.length ? (
@@ -201,14 +196,6 @@ export default function AdminWsControls({
 
       <div className="lwAdminDownlinkActions">
         <button
-          className="lwAdminSecondaryBtn"
-          onClick={handleSubscribeClick}
-          disabled={!isConnected || !streetlightId.trim() || isBusy}
-          type="button"
-        >
-          Subscribe
-        </button>
-        <button
           className="lwAdminPrimaryBtn"
           onClick={handleSendClick}
           disabled={!streetlightId.trim() || isBusy}
@@ -221,15 +208,6 @@ export default function AdminWsControls({
       </div>
 
       <div className="lwAdminDownlinkMeta">
-        <div className="lwAdminInlineSurface">
-          <strong>{lastAck?.response_code || "No ACK"}</strong>
-          <span>
-            {lastAck?.command_id
-              ? `${lastAck.command || "Command"} ${lastAck.reason_code || ""}`
-              : "Awaiting device response"}
-          </span>
-        </div>
-
         <div className="lwAdminCommandHistory">
           {recentCommands.length ? (
             recentCommands.map((item) => (
@@ -238,8 +216,8 @@ export default function AdminWsControls({
                   <strong>{item.command || "Command"}</strong>
                   <span>{item.command_id || "Pending correlation"}</span>
                 </div>
-                <span className={`lwAdminChip ${item.status === "acked" ? "healthy" : item.status === "nacked" ? "critical" : "neutral"}`}>
-                  {item.status || "pending"}
+                <span className={`lwAdminChip ${commandStatusTone(item.status)}`}>
+                  {commandStatusLabel(item.status)}
                 </span>
                 <span>{formatCommandTime(item.dispatched_at)}</span>
               </div>
