@@ -75,6 +75,7 @@ namespace lorawan
         [[nodiscard]] virtual bool setPacketType( PacketType type ) noexcept = 0;
         [[nodiscard]] virtual bool sendPacket( const uint8_t * data, uint8_t len ) noexcept = 0;
         [[nodiscard]] virtual bool setRxCb( RxCallback callback ) noexcept = 0;
+        [[nodiscard]] virtual void run() noexcept = 0;
 
     protected:
         LorawanSensor()                                    = default;
