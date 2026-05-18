@@ -46,6 +46,30 @@ describe("mergeTelemetrySnapshot", () => {
       light_level: 72,
     });
   });
+
+  test("ignores an older incoming snapshot when existing state is newer", () => {
+    expect(
+      mergeTelemetrySnapshot(
+        {
+          timestamp: "2026-04-25T14:08:00Z",
+          health: "OK",
+          motion_detected: true,
+          light_level: 64,
+        },
+        {
+          timestamp: "2026-04-25T14:05:00Z",
+          health: "CRITICAL",
+          motion_detected: false,
+          light_level: 11,
+        }
+      )
+    ).toEqual({
+      timestamp: "2026-04-25T14:08:00Z",
+      health: "OK",
+      motion_detected: true,
+      light_level: 64,
+    });
+  });
 });
 
 describe("mergePoleSnapshot", () => {

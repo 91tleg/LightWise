@@ -28,6 +28,12 @@ function compactObject(obj = {}) {
   );
 }
 
+function parseTimestampMs(value) {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
 export function validateCoordinate(value, type) {
   if (!String(value || "").trim()) return "";
 
@@ -170,9 +176,20 @@ export function snapshotFromWsMessage(message) {
 export function mergeTelemetrySnapshot(existing = {}, snapshot = {}) {
   if (!snapshot || typeof snapshot !== "object") return { ...(existing || {}) };
 
+  const existingTimestampMs = parseTimestampMs(existing?.timestamp);
+  const nextTimestampMs = parseTimestampMs(snapshot?.timestamp);
+
+  if (
+    existingTimestampMs !== null &&
+    nextTimestampMs !== null &&
+    nextTimestampMs < existingTimestampMs
+  ) {
+    return { ...(existing || {}) };
+  }
+
   return {
     ...(existing || {}),
-    ...(snapshot.timestamp ? { timestamp: snapshot.timestamp } : {}),
+    ...(nextTimestampMs !== null ? { timestamp: snapshot.timestamp } : {}),
     ...(snapshot.health != null ? { health: snapshot.health } : {}),
     ...(typeof snapshot.motion_detected === "boolean"
       ? { motion_detected: snapshot.motion_detected }
