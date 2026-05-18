@@ -38,6 +38,8 @@ export default function Overview() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const {
     availablePoles,
+    selectedId,
+    selectedPole,
     setSelectedId,
     setSnapshotMap,
     mapPoles,
@@ -51,7 +53,21 @@ export default function Overview() {
     () => getOverviewPoleList(availablePoles),
     [availablePoles]
   );
-  const overviewSelectedPole = overviewPoles[0] || null;
+  const overviewSelectedPole = useMemo(() => {
+    const selectedFromList = overviewPoles.find(
+      (pole) => pole.streetlight_id === selectedId
+    );
+    if (selectedFromList) return selectedFromList;
+
+    if (
+      selectedPole &&
+      overviewPoles.some((pole) => pole.streetlight_id === selectedPole.streetlight_id)
+    ) {
+      return selectedPole;
+    }
+
+    return overviewPoles[0] || null;
+  }, [overviewPoles, selectedId, selectedPole]);
   const overviewMapPoles = useMemo(() => {
     const visibleIds = new Set(
       overviewPoles.map((pole) => pole?.streetlight_id).filter(Boolean)
@@ -73,12 +89,6 @@ export default function Overview() {
 
     return mapCenter;
   }, [mapCenter, overviewSelectedPole]);
-
-  useEffect(() => {
-    if (overviewSelectedPole?.streetlight_id) {
-      setSelectedId(overviewSelectedPole.streetlight_id);
-    }
-  }, [overviewSelectedPole?.streetlight_id, setSelectedId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 30000);
@@ -363,7 +373,8 @@ export default function Overview() {
               selectedId={overviewSelectedPole?.streetlight_id}
               onSelectPole={(pole) => setSelectedId(pole.streetlight_id)}
               interactive
-              forceNativePin
+              useOverlayMarkers
+              showMotionFocus={false}
               showLegend
             />
           </Card>

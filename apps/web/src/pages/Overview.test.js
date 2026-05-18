@@ -5,20 +5,23 @@ import {
 } from "./overview.helpers";
 
 describe("getOverviewPoleList", () => {
-  test("keeps only the working overview pole when it is present", () => {
+  test("returns every pole with an id", () => {
     const poles = [
       { streetlight_id: "LW-00043" },
       { streetlight_id: "LW-00100" },
       { streetlight_id: "LW-00044" },
+      { streetlight_id: "" },
     ];
 
-    expect(getOverviewPoleList(poles)).toEqual([{ streetlight_id: "LW-00100" }]);
+    expect(getOverviewPoleList(poles)).toEqual([
+      { streetlight_id: "LW-00043" },
+      { streetlight_id: "LW-00100" },
+      { streetlight_id: "LW-00044" },
+    ]);
   });
 
-  test("falls back to one pole when the working pole is unavailable", () => {
-    const poles = [{ streetlight_id: "LW-00043" }, { streetlight_id: "LW-00044" }];
-
-    expect(getOverviewPoleList(poles)).toEqual([{ streetlight_id: "LW-00043" }]);
+  test("returns an empty list when no poles are available", () => {
+    expect(getOverviewPoleList(null)).toEqual([]);
   });
 });
 

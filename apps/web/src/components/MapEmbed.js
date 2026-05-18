@@ -96,6 +96,8 @@ export default function MapEmbed({
   focusLng = null,
   focusRadiusMeters = 30,
   forceNativePin = false,
+  useOverlayMarkers = false,
+  showMotionFocus = true,
 }) {
   const validPoles = useMemo(() => {
     return (Array.isArray(poles) ? poles : []).filter(
@@ -141,9 +143,9 @@ export default function MapEmbed({
     null;
 
   const motionFocusPoint = useMemo(() => {
-    if (!motionDetected || !activePole) return null;
+    if (!showMotionFocus || !motionDetected || !activePole) return null;
     return getMotionFocusPoint(activePole, focusLat, focusLng);
-  }, [activePole, focusLat, focusLng, motionDetected]);
+  }, [activePole, focusLat, focusLng, motionDetected, showMotionFocus]);
   const hasMotionFocus = Boolean(motionFocusPoint);
 
   const explicitPinPoint = useMemo(() => {
@@ -163,7 +165,10 @@ export default function MapEmbed({
   }, [activePole, explicitPinPoint, motionFocusPoint]);
 
   const nativePinMode =
-    forceNativePin || !interactive || hasMotionFocus || validPoles.length <= 1;
+    forceNativePin ||
+    !interactive ||
+    hasMotionFocus ||
+    (!useOverlayMarkers && validPoles.length <= 1);
 
   const zoomLevel = useMemo(() => {
     if (hasMotionFocus) {
