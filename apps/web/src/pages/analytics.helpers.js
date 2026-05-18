@@ -13,7 +13,7 @@ const DEFAULT_CENTER = {
 const FIXTURE_KWH_PER_HOUR = 0.16;
 const DAYLIGHT_LUX_THRESHOLD = 180;
 const DEFAULT_LIGHT_LEVEL = 68;
-const LIVE_RANGE_MS = 60 * 60 * 1000;
+const LIVE_RANGE_MS = 60 * 1000;
 const TELEMETRY_INTERVALS = new Set([
   "5s", "10s", "30s",
   "1m", "5m", "10m", "15m", "30m",
