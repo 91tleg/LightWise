@@ -161,6 +161,9 @@ export default function Overview() {
   }, [nowMs, overviewPoles]);
 
   const selectedPoleIsStale = isPoleTelemetryStale(overviewSelectedPole, nowMs);
+  const selectedPoleHasTelemetry = hasPoleTelemetry(overviewSelectedPole);
+  const selectedPoleIsLive = selectedPoleHasTelemetry && !selectedPoleIsStale;
+  const showLiveReadings = wsStatus === "connected" && selectedPoleIsLive;
   const selectedPoleHasMotion =
     !selectedPoleIsStale && overviewSelectedPole?.motion_detected === true;
   const overviewMotionMapPoles = useMemo(() => {

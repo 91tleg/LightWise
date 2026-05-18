@@ -103,6 +103,7 @@ export default function MapEmbed({
   focusRadiusMeters = 30,
   forceNativePin = false,
   showPoleMarkers = true,
+  showMotionFocus = true,
 }) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const validPoles = useMemo(() => {
