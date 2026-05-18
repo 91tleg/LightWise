@@ -328,6 +328,39 @@ describe("buildAnalyticsReport", () => {
     expect(report.hourlyMotion.some((bucket) => bucket.samples > 0)).toBe(false);
   });
 
+  test("keeps live second-level energy values above zero", () => {
+    const report = buildAnalyticsReport(
+      [
+        {
+          streetlight_id: "LW-00001",
+          name: "Main",
+          health: "OK",
+        },
+      ],
+      {
+        "LW-00001": {
+          data: [
+            {
+              time: "2026-03-10T00:00:00",
+              lux: 14,
+              motion: true,
+              light_level_pct: 80,
+              health: "OK",
+            },
+          ],
+        },
+      },
+      {
+        from: "2026-03-10T00:00:00",
+        to: "2026-03-10T00:01:00",
+        interval: "5s",
+      }
+    );
+
+    expect(report.energySeries[0].actualKwh).toBeGreaterThan(0);
+    expect(report.energySeries[0].actualKwh).toBeLessThan(0.01);
+  });
+
   test("exports raw telemetry csv with analytics columns", () => {
     const report = buildAnalyticsReport(streetlights, telemetry, {
       from: "2026-03-10T00:00:00",

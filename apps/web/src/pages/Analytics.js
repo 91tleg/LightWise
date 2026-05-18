@@ -106,7 +106,9 @@ const CHART_METRIC_ORDER = [
   "motion",
 ];
 
-const LIVE_REFRESH_MS = 30000;
+const LIVE_RANGE_REFRESH_MS = 30000;
+const LIVE_SAMPLE_MS = 5000;
+const LIVE_POLL_LOOKBACK_MS = 2 * 60 * 1000;
 const LIVE_MAX_ROWS_PER_POLE = 240;
 
 function readStoredRange() {
@@ -169,11 +171,12 @@ function compactTelemetryRow(row) {
   );
 }
 
-function liveRowFromPole(pole) {
-  if (!pole?.streetlight_id || !pole?.last_seen) return null;
+function liveRowFromPole(pole, { timestamp } = {}) {
+  const rowTimestamp = timestamp || pole?.last_seen;
+  if (!pole?.streetlight_id || !rowTimestamp) return null;
 
   const row = compactTelemetryRow({
-    timestamp: pole.last_seen,
+    timestamp: rowTimestamp,
     lux: toNumberOrNull(pole.lux),
     temp_c: toNumberOrNull(pole.temp_c),
     humidity: toNumberOrNull(pole.humidity),
@@ -294,9 +297,16 @@ function formatPoleCount(count) {
 function formatEnergy(value) {
   if (value === null || value === undefined) return "--";
 
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "--";
+
+  const absValue = Math.abs(numericValue);
+  const maximumFractionDigits =
+    absValue >= 100 ? 0 : absValue >= 1 ? 1 : absValue >= 0.01 ? 4 : 6;
+
   return `${new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: Number(value) >= 100 ? 0 : 1,
-  }).format(Number(value))} kWh`;
+    maximumFractionDigits,
+  }).format(numericValue)} kWh`;
 }
 
 function formatPercent(value) {
@@ -341,11 +351,19 @@ function compareValues(left, right, direction = "desc") {
   return String(left || "").localeCompare(String(right || "")) * factor;
 }
 
-function formatChartLabel(timestamp, condensed = false) {
+function formatChartLabel(timestamp, condensed = false, live = false) {
   if (!timestamp) return "";
 
   const date = new Date(timestamp);
   if (!Number.isFinite(date.getTime())) return String(timestamp);
+
+  if (live) {
+    return date.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
 
   return date.toLocaleString(
     undefined,
@@ -794,7 +812,7 @@ function AnalyticsPoleList({ poles, selectedId, onSelect }) {
   );
 }
 
-function TrendChart({ metricId, energySeries, metricSeries, loading }) {
+function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = false }) {
   const meta = CHART_METRICS[metricId] || CHART_METRICS.energy;
   const width = 1180;
   const height = 360;
@@ -809,6 +827,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
 
   if (metricId === "energy") {
     const series = energySeries;
+    const latestPoint = series[series.length - 1] || null;
 
     if (!series.length) {
       return (
@@ -825,10 +844,12 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
     const chartBottom = height - bottomPad;
     const chartWidth = chartRight - chartLeft;
     const chartHeight = chartBottom - chartTop;
-    const maxValue = Math.max(
-      1,
-      ...series.flatMap((point) => [point.actualKwh, point.baselineKwh])
+    const seriesMax = Math.max(
+      ...series.flatMap((point) => [point.actualKwh, point.baselineKwh]).map(Number)
     );
+    const maxValue = isLive
+      ? Math.max(0.0005, Number.isFinite(seriesMax) ? seriesMax * 1.2 : 0)
+      : Math.max(1, Number.isFinite(seriesMax) ? seriesMax : 0);
 
     const toX = (index) =>
       chartLeft + (index / Math.max(series.length - 1, 1)) * chartWidth;
@@ -873,6 +894,11 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
             <span className="analyticsLegendSwatch isBaseline" />
             Baseline
           </span>
+          {isLive && latestPoint ? (
+            <span className="analyticsLiveReadout">
+              Live actual {formatEnergy(latestPoint.actualKwh)}
+            </span>
+          ) : null}
         </div>
 
         <svg viewBox={`0 0 ${width} ${height}`} className="analyticsViz">
@@ -891,7 +917,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
                 textAnchor="end"
                 className="analyticsVizAxis"
               >
-                {Math.round(tick.value)}
+                {isLive ? formatEnergy(tick.value) : Math.round(tick.value)}
               </text>
             </g>
           ))}
@@ -911,7 +937,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
                 textAnchor="middle"
                 className="analyticsVizAxis"
               >
-                {formatChartLabel(series[tick]?.timestamp, series.length > 45)}
+                {formatChartLabel(series[tick]?.timestamp, series.length > 45, isLive)}
               </text>
             </g>
           ))}
@@ -939,6 +965,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
   }
 
   const series = metricSeries?.[metricId] || [];
+  const latestPoint = series[series.length - 1] || null;
 
   if (!series.length) {
     return (
@@ -1020,6 +1047,11 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
           />
           {meta.label}
         </span>
+        {isLive && latestPoint ? (
+          <span className="analyticsLiveReadout">
+            Live {formatMetricValue(metricId, latestPoint.value)}
+          </span>
+        ) : null}
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} className="analyticsViz">
@@ -1058,7 +1090,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
               textAnchor="middle"
               className="analyticsVizAxis"
             >
-              {formatChartLabel(series[tick]?.timestamp, series.length > 45)}
+              {formatChartLabel(series[tick]?.timestamp, series.length > 45, isLive)}
             </text>
           </g>
         ))}
@@ -1249,7 +1281,7 @@ function AnalyticsSurface() {
     () =>
       aggregation === "auto"
         ? isLiveRange
-          ? "1m"
+          ? "5s"
           : inferTelemetryInterval(from, to)
         : resolveTelemetryInterval(aggregation, from, to),
     [aggregation, from, isLiveRange, to]
@@ -1311,9 +1343,57 @@ function AnalyticsSurface() {
     }
 
     syncLiveRange();
-    const timer = window.setInterval(syncLiveRange, LIVE_REFRESH_MS);
+    const timer = window.setInterval(syncLiveRange, LIVE_RANGE_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [isLiveRange]);
+
+  useEffect(() => {
+    if (!isLiveRange || !selectedReportPoleId || rangeError) return undefined;
+
+    let active = true;
+    let inFlight = false;
+
+    async function pollLiveTelemetry() {
+      if (inFlight) return;
+      inFlight = true;
+
+      const toIso = new Date().toISOString();
+      const fromIso = new Date(Date.now() - LIVE_POLL_LOOKBACK_MS).toISOString();
+
+      try {
+        const result = await getStreetlightTelemetry(selectedReportPoleId, {
+          from: fromIso,
+          to: toIso,
+          interval: "5s",
+          allowMockFallback: false,
+        });
+        const rows = normalizeTelemetryRows(result);
+
+        if (!active || !rows.length) return;
+
+        setLiveTelemetryByPole((current) => ({
+          ...current,
+          [selectedReportPoleId]: mergeTelemetryRows(
+            current[selectedReportPoleId] || [],
+            rows
+          ),
+        }));
+        setLastLoadedAt(rows[rows.length - 1]?.timestamp || toIso);
+      } catch {
+        // Live polling is opportunistic; the existing range loader handles errors.
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    pollLiveTelemetry();
+    const timer = window.setInterval(pollLiveTelemetry, LIVE_SAMPLE_MS);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [isLiveRange, rangeError, selectedReportPoleId]);
 
   useEffect(() => {
     const poleId = String(lastMessage?.streetlight_id || "").trim();
@@ -1342,6 +1422,29 @@ function AnalyticsSurface() {
         [row]
       ),
     }));
+  }, [isLiveRange, selectedPole]);
+
+  useEffect(() => {
+    if (!isLiveRange || !selectedPole) return undefined;
+
+    function sampleLatestPoleSnapshot() {
+      const row = liveRowFromPole(selectedPole, {
+        timestamp: new Date().toISOString(),
+      });
+      if (!row) return;
+
+      setLiveTelemetryByPole((current) => ({
+        ...current,
+        [selectedPole.streetlight_id]: mergeTelemetryRows(
+          current[selectedPole.streetlight_id] || [],
+          [row]
+        ),
+      }));
+    }
+
+    sampleLatestPoleSnapshot();
+    const timer = window.setInterval(sampleLatestPoleSnapshot, LIVE_SAMPLE_MS);
+    return () => window.clearInterval(timer);
   }, [isLiveRange, selectedPole]);
 
   useEffect(() => {
@@ -1735,6 +1838,7 @@ function AnalyticsSurface() {
               energySeries={report.energySeries}
               metricSeries={report.metricSeries}
               loading={showInitialSkeleton}
+              isLive={isLiveRange}
             />
           </Card>
 

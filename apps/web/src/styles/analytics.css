@@ -515,6 +515,28 @@
   background: linear-gradient(135deg, #94a3b8, #64748b);
 }
 
+.analyticsLiveReadout {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.22);
+  color: #16703d;
+  font-size: 12px;
+  font-weight: 1000;
+}
+
+.analyticsLiveReadout::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.14);
+}
+
 .analyticsViz {
   width: 100%;
   min-width: 720px;
@@ -1226,6 +1248,12 @@ body.dark .analyticsPoleHealth {
 
 body.dark .analyticsPoleHealth.healthy {
   background: rgba(34, 197, 94, 0.16);
+  color: #7ee2a8;
+}
+
+body.dark .analyticsLiveReadout {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.26);
   color: #7ee2a8;
 }
 
