@@ -51,6 +51,8 @@ const AGGREGATION_OPTIONS = [
   { id: "1d", label: "1 day" },
 ];
 
+const LIVE_AGGREGATION_OPTIONS = [{ id: "auto", label: "Instant" }];
+
 const FAULT_FILTERS = [
   { id: "all", label: "All" },
   { id: "active", label: "Active" },
@@ -107,8 +109,11 @@ const CHART_METRIC_ORDER = [
 ];
 
 const LIVE_RANGE_REFRESH_MS = 30000;
-const LIVE_SAMPLE_MS = 5000;
+const LIVE_POLL_MS = 5000;
+const LIVE_SNAPSHOT_SAMPLE_MS = 1000;
 const LIVE_POLL_LOOKBACK_MS = 2 * 60 * 1000;
+const LIVE_REQUEST_INTERVAL = "5s";
+const LIVE_GRAPH_INTERVAL = "1s";
 const LIVE_MAX_ROWS_PER_POLE = 240;
 
 function readStoredRange() {
@@ -1278,14 +1283,18 @@ function AnalyticsSurface() {
   const deferredFaultSearch = useDeferredValue(faultSearch);
   const isLiveRange = preset === "live";
   const interval = useMemo(
-    () =>
-      aggregation === "auto"
-        ? isLiveRange
-          ? "5s"
-          : inferTelemetryInterval(from, to)
-        : resolveTelemetryInterval(aggregation, from, to),
+    () => {
+      if (isLiveRange) return LIVE_REQUEST_INTERVAL;
+      return aggregation === "auto"
+        ? inferTelemetryInterval(from, to)
+        : resolveTelemetryInterval(aggregation, from, to);
+    },
     [aggregation, from, isLiveRange, to]
   );
+  const graphInterval = isLiveRange ? LIVE_GRAPH_INTERVAL : interval;
+  const intervalLabel = isLiveRange ? "Instant" : interval;
+  const aggregationOptions = isLiveRange ? LIVE_AGGREGATION_OPTIONS : AGGREGATION_OPTIONS;
+  const aggregationValue = isLiveRange ? "auto" : aggregation;
   const rangeLabel = useMemo(
     () => (isLiveRange ? "Live telemetry" : buildReportDateLabel(from, to)),
     [from, isLiveRange, to]
@@ -1364,7 +1373,7 @@ function AnalyticsSurface() {
         const result = await getStreetlightTelemetry(selectedReportPoleId, {
           from: fromIso,
           to: toIso,
-          interval: "5s",
+          interval: LIVE_REQUEST_INTERVAL,
           allowMockFallback: false,
         });
         const rows = normalizeTelemetryRows(result);
@@ -1387,7 +1396,7 @@ function AnalyticsSurface() {
     }
 
     pollLiveTelemetry();
-    const timer = window.setInterval(pollLiveTelemetry, LIVE_SAMPLE_MS);
+    const timer = window.setInterval(pollLiveTelemetry, LIVE_POLL_MS);
 
     return () => {
       active = false;
@@ -1443,7 +1452,7 @@ function AnalyticsSurface() {
     }
 
     sampleLatestPoleSnapshot();
-    const timer = window.setInterval(sampleLatestPoleSnapshot, LIVE_SAMPLE_MS);
+    const timer = window.setInterval(sampleLatestPoleSnapshot, LIVE_SNAPSHOT_SAMPLE_MS);
     return () => window.clearInterval(timer);
   }, [isLiveRange, selectedPole]);
 
@@ -1548,9 +1557,9 @@ function AnalyticsSurface() {
       buildAnalyticsReport(reportPoles, reportTelemetryByPole, {
         from,
         to,
-        interval,
+        interval: graphInterval,
       }),
-    [from, interval, reportPoles, reportTelemetryByPole, to]
+    [from, graphInterval, reportPoles, reportTelemetryByPole, to]
   );
   const hasTelemetryRows = report.summary.telemetryRows > 0;
 
@@ -1663,7 +1672,7 @@ function AnalyticsSurface() {
   function exportFullPdf() {
     openPrintableReport(
       "LightWise Analytics Report",
-      `${rangeLabel} • ${formatPoleCount(report.summary.totalPoles)} • Interval ${interval}`,
+      `${rangeLabel} • ${formatPoleCount(report.summary.totalPoles)} • Interval ${intervalLabel}`,
       buildFullReportSections(report, rangeLabel)
     );
   }
@@ -1738,13 +1747,13 @@ function AnalyticsSurface() {
           />
           <SelectField
             label="Aggregation"
-            value={aggregation}
-            options={AGGREGATION_OPTIONS}
+            value={aggregationValue}
+            options={aggregationOptions}
             onChange={(event) => setAggregation(event.target.value)}
           />
           <div className="analyticsRangeMeta">
             <span className="analyticsRangeMetaLabel">Using</span>
-            <strong>{interval}</strong>
+            <strong>{intervalLabel}</strong>
           </div>
         </div>
       </section>
