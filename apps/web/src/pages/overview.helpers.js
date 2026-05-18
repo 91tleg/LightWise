@@ -14,27 +14,14 @@ function isSensorWarning(value) {
   return normalizeSensorHealth(value) === "DEGRADED";
 }
 
-export const OVERVIEW_WORKING_POLE_ID = "LW-00100";
 export const POLE_OFFLINE_THRESHOLD_MS = 180 * 1000;
 
-export function getOverviewPoleList(
-  poles,
-  preferredId = OVERVIEW_WORKING_POLE_ID
-) {
+export function getOverviewPoleList(poles) {
   const rows = Array.isArray(poles) ? poles : [];
-  const targetId = String(preferredId || "").trim();
 
   if (!rows.length) return [];
 
-  if (targetId) {
-    const preferredPole = rows.find(
-      (pole) => String(pole?.streetlight_id || "").trim() === targetId
-    );
-
-    if (preferredPole) return [preferredPole];
-  }
-
-  return rows.slice(0, 1);
+  return rows.filter((pole) => String(pole?.streetlight_id || "").trim());
 }
 
 export function isPoleTelemetryStale(
