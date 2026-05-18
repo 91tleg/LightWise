@@ -955,12 +955,14 @@
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(520px, 1.28fr) minmax(360px, 0.82fr);
+  grid-template-columns: minmax(0, 1.85fr) minmax(280px, 0.5fr);
+  grid-template-areas: "map rail";
   gap: 12px;
   align-items: stretch;
 }
 
 .lwOverviewLeftRail {
+  grid-area: rail;
   min-height: 0;
   height: 100%;
   overflow: hidden;
@@ -971,7 +973,8 @@
   overflow-y: auto;
   padding-right: 2px;
   display: grid;
-  gap: 12px;
+  gap: 8px;
+  align-content: start;
 }
 
 .lwOverviewLeftRailScroll::-webkit-scrollbar,
@@ -986,8 +989,9 @@
 }
 
 .lwOverviewMapShell {
+  grid-area: map;
   height: 100%;
-  min-height: 0;
+  min-height: 620px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1000,12 +1004,155 @@
   flex: 1 1 auto;
 }
 
+.lwOverviewLeftRail .lwOperatorCard {
+  padding: 9px;
+}
+
+.lwOverviewLeftRail .lwCardTitle {
+  margin-bottom: 6px;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
 .lwSelectedPoleSurface {
   background: linear-gradient(180deg, rgba(248, 251, 254, 0.98), rgba(239, 245, 250, 0.96));
   border: 1px solid rgba(207, 220, 233, 0.98);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.76),
     0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.lwOverviewLeftRail .lwSelectedPoleSurface {
+  padding: 10px;
+  border-radius: 14px;
+}
+
+.lwOverviewLeftRail .lwSelectedHeaderCompact {
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.lwOverviewLeftRail .lwSelectedPoleId {
+  font-size: 18px;
+}
+
+.lwOverviewLeftRail .lwSelectedPoleName {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.lwOverviewLeftRail .lwMetricGridCompact {
+  gap: 6px;
+}
+
+.lwOverviewLeftRail .lwMetricRow {
+  padding: 7px 9px;
+  border-radius: 11px;
+  font-size: 11px;
+  min-height: 34px;
+}
+
+.lwOverviewLeftRail .lwMetricBadge {
+  max-width: 58%;
+  padding: 3px 7px;
+  font-size: 10px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lwOverviewLeftRail .lwPoleList {
+  max-height: 144px;
+  gap: 6px;
+}
+
+.lwOverviewLeftRail .lwPoleListItem {
+  padding: 8px 9px;
+  border-radius: 12px;
+  gap: 8px;
+}
+
+.lwOverviewLeftRail .lwPoleListItem strong {
+  font-size: 11px;
+}
+
+.lwOverviewLeftRail .lwPoleListItem small {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.lwOverviewLeftRail .lwActivityFeed {
+  gap: 7px;
+}
+
+.lwOverviewLeftRail .lwActivityFeedTitleRow {
+  gap: 6px;
+}
+
+.lwOverviewLeftRail .lwActivityFeedStatus,
+.lwOverviewLeftRail .lwActivityFeedHint {
+  font-size: 10px;
+}
+
+.lwOverviewLeftRail .lwActivityFeedStatus {
+  padding: 3px 7px;
+}
+
+.lwOverviewLeftRail .lwActivityList {
+  gap: 7px;
+}
+
+.lwOverviewLeftRail .lwActivityItem {
+  grid-template-columns: 28px 1fr;
+  gap: 7px;
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.lwOverviewLeftRail .lwActivityIcon,
+.lwOverviewLeftRail .lwActivityEmptyIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+}
+
+.lwOverviewLeftRail .lwActivityTopRow {
+  gap: 6px;
+}
+
+.lwOverviewLeftRail .lwActivityLabel {
+  font-size: 11px;
+}
+
+.lwOverviewLeftRail .lwActivityTime {
+  font-size: 9px;
+}
+
+.lwOverviewLeftRail .lwActivityMetaRow {
+  gap: 5px;
+}
+
+.lwOverviewLeftRail .lwActivityPole,
+.lwOverviewLeftRail .lwActivityValue {
+  padding: 3px 6px;
+  font-size: 9px;
+}
+
+.lwOverviewLeftRail .lwActivityNote,
+.lwOverviewLeftRail .lwActivityEmptySub {
+  display: none;
+}
+
+.lwOverviewLeftRail .lwActivityEmpty {
+  gap: 8px;
+  padding: 9px;
+  border-radius: 12px;
+}
+
+.lwOverviewLeftRail .lwActivityEmptyTitle {
+  font-size: 11px;
 }
 
 .lwMetricRow,
@@ -1344,7 +1491,11 @@ body.dark .lwLegendCompact .lwLegendRow {
 
 @media (max-width: 1200px) {
   .lwOverviewMainGrid.lwOverviewMainGridRebuild {
-    grid-template-columns: minmax(440px, 1.12fr) minmax(320px, 0.88fr);
+    grid-template-columns: minmax(0, 1.6fr) minmax(260px, 0.55fr);
+  }
+
+  .lwOverviewMapShell {
+    min-height: 560px;
   }
 }
 
@@ -1355,11 +1506,49 @@ body.dark .lwLegendCompact .lwLegendRow {
 
   .lwOverviewMainGrid.lwOverviewMainGridRebuild {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "map"
+      "rail";
   }
 
   .lwOverviewLeftRail,
   .lwOverviewLeftRailScroll {
     height: auto;
     overflow: visible;
+  }
+
+  .lwOverviewMapShell {
+    min-height: min(62vh, 560px);
+  }
+
+  .lwOverviewLeftRailScroll {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .lwSummaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lwSummaryCard {
+    min-height: 78px;
+    padding: 11px 12px;
+  }
+
+  .lwSummaryCardValue {
+    font-size: 18px;
+  }
+
+  .lwSummaryCardNote {
+    font-size: 10px;
+  }
+
+  .lwOverviewMapShell {
+    min-height: 420px;
+  }
+
+  .lwOverviewLeftRailScroll {
+    grid-template-columns: 1fr;
   }
 }
