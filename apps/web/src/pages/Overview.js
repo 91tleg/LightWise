@@ -296,20 +296,6 @@ export default function Overview() {
                         )}
                       />
                       <MetricRow
-                        label="Latitude"
-                        value={cleanDisplay(
-                          overviewSelectedPole.lat,
-                          "Waiting for coordinate"
-                        )}
-                      />
-                      <MetricRow
-                        label="Longitude"
-                        value={cleanDisplay(
-                          overviewSelectedPole.lng,
-                          "Waiting for coordinate"
-                        )}
-                      />
-                      <MetricRow
                         label="Last Seen"
                         value={formatTimestamp(overviewSelectedPole.last_seen)}
                       />
