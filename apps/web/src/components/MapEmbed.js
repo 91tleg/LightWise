@@ -1,15 +1,21 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Legend from "./Legend";
 import { DEFAULT_CENTER, isValidCoord, pickBestCenter } from "../utils/poleHelpers";
 import { toneForPole } from "../utils/poleState";
 
-function buildMapBounds(validPoles, center) {
+function buildMapBounds(validPoles, center, extraPoints = []) {
   const coords = [
     ...validPoles.map((pole) => ({
       lat: Number(pole.lat),
       lng: Number(pole.lng),
     })),
     center,
+    ...extraPoints
+      .map((point) => ({
+        lat: Number(point?.lat),
+        lng: Number(point?.lng),
+      }))
+      .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)),
   ];
 
   const minLat = Math.min(...coords.map((item) => item.lat));
@@ -96,9 +102,9 @@ export default function MapEmbed({
   focusLng = null,
   focusRadiusMeters = 30,
   forceNativePin = false,
-  useOverlayMarkers = false,
-  showMotionFocus = true,
+  showPoleMarkers = true,
 }) {
+  const [mapLoaded, setMapLoaded] = useState(false);
   const validPoles = useMemo(() => {
     return (Array.isArray(poles) ? poles : []).filter(
       (pole) => isValidCoord(pole?.lat) && isValidCoord(pole?.lng)
@@ -134,8 +140,6 @@ export default function MapEmbed({
     };
   }, [fallbackCenter.lat, fallbackCenter.lng, selectedPole]);
 
-  const bounds = useMemo(() => buildMapBounds(validPoles, center), [validPoles, center]);
-
   const activePole =
     selectedPole ||
     validPoles.find((pole) => pole?.streetlight_id === fallbackCenter.selectedId) ||
@@ -147,7 +151,14 @@ export default function MapEmbed({
     return getMotionFocusPoint(activePole, focusLat, focusLng);
   }, [activePole, focusLat, focusLng, motionDetected, showMotionFocus]);
   const hasMotionFocus = Boolean(motionFocusPoint);
+  const bounds = useMemo(
+    () => buildMapBounds(validPoles, center, motionFocusPoint ? [motionFocusPoint] : []),
+    [validPoles, center, motionFocusPoint]
+  );
 
+  const markerPoles = showPoleMarkers ? validPoles : [];
+  const showMarkerOverlay = interactive && (markerPoles.length > 0 || hasMotionFocus);
+  const showPoleInfo = showInfo && (showPoleMarkers || hasMotionFocus);
   const explicitPinPoint = useMemo(() => {
     if (isValidCoord(lat) && isValidCoord(lng)) {
       return { lat: Number(lat), lng: Number(lng) };
@@ -164,11 +175,9 @@ export default function MapEmbed({
     return null;
   }, [activePole, explicitPinPoint, motionFocusPoint]);
 
+  const allowNativePin = showPoleMarkers || !interactive || hasMotionFocus;
   const nativePinMode =
-    forceNativePin ||
-    !interactive ||
-    hasMotionFocus ||
-    (!useOverlayMarkers && validPoles.length <= 1);
+    allowNativePin && (forceNativePin || !interactive || hasMotionFocus || validPoles.length <= 1);
 
   const zoomLevel = useMemo(() => {
     if (hasMotionFocus) {
@@ -176,8 +185,10 @@ export default function MapEmbed({
       return getMotionZoom(radius);
     }
 
-    if (forceNativePin) return mapPinPoint ? 18 : 15;
-    if (!interactive) return mapPinPoint ? 18 : 15;
+    if (forceNativePin || !interactive || validPoles.length <= 1) {
+      return mapPinPoint ? 18 : 15;
+    }
+
     return validPoles.length > 1 ? 13 : 16;
   }, [
     activePole?.motion_focus_radius_m,
@@ -201,23 +212,30 @@ export default function MapEmbed({
         `${center.lat},${center.lng}`
       )}&z=${zoomLevel}&output=embed`;
 
+  useEffect(() => {
+    setMapLoaded(false);
+  }, [mapSrc]);
+
   return (
-    <div className="lwMapBox lwInteractiveMap" style={mapHeightStyle}>
+    <div className="lwMapBox lwInteractiveMap isPlain" style={mapHeightStyle}>
       {validPoles.length ? (
         <>
+          {!mapLoaded ? <div className="lwMapLoadingSurface" aria-hidden="true" /> : null}
+
           <iframe
             title={title}
-            className="lwMapFrame"
+            className={`lwMapFrame${mapLoaded ? " isLoaded" : ""}`}
             src={mapSrc}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             allowFullScreen
-            style={{ pointerEvents: interactive ? "auto" : "none" }}
+            onLoad={() => setMapLoaded(true)}
+            style={{ pointerEvents: showMarkerOverlay ? "none" : interactive ? "auto" : "none" }}
           />
 
-          {!nativePinMode ? (
+          {showMarkerOverlay ? (
             <div className="lwMapMarkerLayer">
-              {validPoles.map((pole) => {
+              {markerPoles.map((pole) => {
                 const tone = toneForPole(pole);
                 const isSelected = pole?.streetlight_id === activePole?.streetlight_id;
 
@@ -235,10 +253,19 @@ export default function MapEmbed({
                   </button>
                 );
               })}
+
+              {hasMotionFocus ? (
+                <div
+                  className="lwMapMotionFocus"
+                  style={getMarkerPosition(motionFocusPoint, bounds)}
+                >
+                  <span className="lwMapMotionFocusCore" />
+                </div>
+              ) : null}
             </div>
           ) : null}
 
-          {showInfo && activePole ? (
+          {showPoleInfo && activePole ? (
             <div className="lwMapInfoWindow">
               <strong>{activePole.streetlight_id}</strong>
               <span>{activePole.name || "Unnamed pole"}</span>

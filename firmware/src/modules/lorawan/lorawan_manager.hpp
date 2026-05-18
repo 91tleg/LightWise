@@ -119,6 +119,11 @@ namespace lorawan
          */
         [[nodiscard]] bool send( std::span< const uint8_t > buf ) noexcept;
 
+        /**
+         * @brief Polls the  device for incoming data.
+         */
+        void poll() noexcept;
+
     private:
 
         /**

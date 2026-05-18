@@ -24,6 +24,7 @@
 
 #include "sys/nvs_init.hpp"
 #include "sys/hal_init.hpp"
+#include "sys/device_init.hpp"
 #include "sys/manager_init.hpp"
 #include "sys/task_init.hpp"
 
@@ -31,6 +32,7 @@ extern "C" void app_main( void )
 {
     nvs::init();
     hal::init();
+    device::init();
     mgr::init();
     task::init();
 }

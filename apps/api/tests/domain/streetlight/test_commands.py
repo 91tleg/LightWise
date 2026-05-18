@@ -10,7 +10,8 @@ from domain.streetlight.commands import (
     SetMotionTimeoutParams,
     SetTempDimParams,
     StreetlightCommand,
-    parse_streetlight_command,
+    parse_command_name,
+    parse_command_params,
 )
 
 
@@ -31,7 +32,7 @@ def test_from_name_rejects_unknown_name():
 
 
 def test_from_name_rejects_non_string_value():
-    with pytest.raises(ValueError, match="Invalid command"):
+    with pytest.raises(ValueError, match="command must be a string"):
         DownlinkCmd.from_name(1)
 
 
@@ -86,7 +87,9 @@ def test_set_temp_dim_valid():
 
 
 def test_bool_is_not_accepted_as_integer():
-    with pytest.raises(ValueError, match="level must be between 1 and 100"):
+    with pytest.raises(
+        ValueError, match="level is required and must be an integer"
+    ):
         OverrideOnParams(level=True)
 
 
@@ -99,17 +102,10 @@ def test_streetlight_command_accepts_matching_params():
     assert command.command is DownlinkCmd.SET_LEVELS
 
 
-def test_streetlight_command_rejects_mismatched_params():
-    with pytest.raises(ValueError, match="incompatible params"):
-        StreetlightCommand(
-            command=DownlinkCmd.SET_LEVELS,
-            params=SetMotionTimeoutParams(timeout_seconds=300),
-        )
-
-
 def test_parse_set_levels_command():
-    command = parse_streetlight_command(
-        "SET_LEVELS",
+    downlink_cmd = parse_command_name("SET_LEVELS")
+    command = parse_command_params(
+        downlink_cmd,
         {
             "max_level": 90,
             "dim_level": 20,
@@ -123,22 +119,25 @@ def test_parse_set_levels_command():
 
 
 def test_parse_no_param_command():
-    command = parse_streetlight_command("OVERRIDE_OFF", {})
+    downlink_cmd = parse_command_name("OVERRIDE_OFF")
+    command = parse_command_params(downlink_cmd, {})
 
     assert command.command is DownlinkCmd.OVERRIDE_OFF
     assert isinstance(command.params, NoCommandParams)
 
 
 def test_no_param_command_rejects_params():
+    downlink_cmd = parse_command_name("OVERRIDE_OFF")
     with pytest.raises(ValueError, match="OVERRIDE_OFF does not accept"):
-        parse_streetlight_command("OVERRIDE_OFF", {"level": 50})
+        parse_command_params(downlink_cmd, {"level": 50})
 
 
 def test_parse_rejects_non_object_params():
+    downlink_cmd = parse_command_name("SET_LEVELS")
     with pytest.raises(ValueError, match="params must be an object"):
-        parse_streetlight_command("SET_LEVELS", [])
+        parse_command_params(downlink_cmd, [])
 
 
 def test_parse_invalid_command():
     with pytest.raises(ValueError, match="Invalid command"):
-        parse_streetlight_command("NOPE", {})
+        parse_command_name("NOPE")

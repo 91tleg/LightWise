@@ -14,13 +14,14 @@ from typing import Protocol
 
 from domain.streetlight.commands import (
     StreetlightCommand,
-    parse_streetlight_command,
+    parse_command_name,
+    parse_command_params,
 )
 from domain.streetlight.models import StreetlightMetadata
 
 
 class InvalidCommandError(ValueError):
-    """The requested command is not supported."""
+    """The requested command name is not recognised."""
 
 
 class InvalidCommandParamsError(ValueError):
@@ -32,15 +33,20 @@ class StreetlightNotFoundError(ValueError):
 
 
 class MissingWirelessDeviceIdError(ValueError):
-    """The streetlight cannot receive downlinks without a wireless id."""
+    """The streetlight cannot receive downlink without wireless device id."""
 
 
 @dataclass(frozen=True)
-class SentStreetlightCommand:
+class DispatchedCommand:
+    """
+    Result of a successfully dispatched command.
+    Status is always 'pending' at dispatch time — the device ACK/NACK
+    arrives later via WebSocket command.ack push.
+    """
     command_id: str
     streetlight_id: str
     command: str
-    status: str = "sent"
+    status: str = "pending"
 
 
 class StreetlightMetadataRepo(Protocol):
@@ -105,12 +111,15 @@ class SendStreetlightCommand:
         streetlight_id: str,
         command: str,
         params: object,
-    ) -> SentStreetlightCommand:
+    ) -> DispatchedCommand:
         try:
-            streetlight_command = parse_streetlight_command(command, params)
+            downlink_cmd = parse_command_name(command)
         except ValueError as exc:
-            if str(exc) == "Invalid command":
-                raise InvalidCommandError(str(exc)) from exc
+            raise InvalidCommandError(str(exc)) from exc
+
+        try:
+            streetlight_command = parse_command_params(downlink_cmd, params)
+        except ValueError as exc:
             raise InvalidCommandParamsError(str(exc)) from exc
 
         metadata = self._metadata_repo.get(tenant_id, streetlight_id)
@@ -120,12 +129,13 @@ class SendStreetlightCommand:
         wireless_device_id = metadata.wireless_device_id
         if not wireless_device_id:
             raise MissingWirelessDeviceIdError(
-                "wireless_device_id is missing"
+                "wireless_device_id is missing for this streetlight"
             )
+
+        payload = self._payload_encoder.encode(streetlight_command)
 
         command_id = self._command_id_factory()
         ttl = self._epoch_seconds() + self._pending_ttl_seconds
-        payload = self._payload_encoder.encode(streetlight_command)
 
         self._command_repo.write(
             streetlight_id=streetlight_id,
@@ -135,10 +145,12 @@ class SendStreetlightCommand:
             command=streetlight_command,
             ttl=ttl,
         )
+
         self._downlink_sender.send(wireless_device_id, payload)
+
         self._command_repo.mark_sent(streetlight_id, command_id)
 
-        return SentStreetlightCommand(
+        return DispatchedCommand(
             command_id=command_id,
             streetlight_id=streetlight_id,
             command=streetlight_command.command.name,
