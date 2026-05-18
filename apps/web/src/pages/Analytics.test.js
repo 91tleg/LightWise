@@ -123,11 +123,11 @@ describe("normalizeTelemetryRows", () => {
 });
 
 describe("getPresetRange", () => {
-  test("live preset covers the last hour", () => {
+  test("live preset covers the last minute", () => {
     const range = getPresetRange("live", new Date("2026-04-21T20:00:00Z"));
 
     expect(new Date(range.to).getTime() - new Date(range.from).getTime()).toBe(
-      60 * 60 * 1000
+      60 * 1000
     );
   });
 });
@@ -326,6 +326,39 @@ describe("buildAnalyticsReport", () => {
     expect(report.faults).toEqual([]);
     expect(report.motionMap).toEqual([]);
     expect(report.hourlyMotion.some((bucket) => bucket.samples > 0)).toBe(false);
+  });
+
+  test("keeps live second-level energy values above zero", () => {
+    const report = buildAnalyticsReport(
+      [
+        {
+          streetlight_id: "LW-00001",
+          name: "Main",
+          health: "OK",
+        },
+      ],
+      {
+        "LW-00001": {
+          data: [
+            {
+              time: "2026-03-10T00:00:00",
+              lux: 14,
+              motion: true,
+              light_level_pct: 80,
+              health: "OK",
+            },
+          ],
+        },
+      },
+      {
+        from: "2026-03-10T00:00:00",
+        to: "2026-03-10T00:01:00",
+        interval: "5s",
+      }
+    );
+
+    expect(report.energySeries[0].actualKwh).toBeGreaterThan(0);
+    expect(report.energySeries[0].actualKwh).toBeLessThan(0.01);
   });
 
   test("exports raw telemetry csv with analytics columns", () => {

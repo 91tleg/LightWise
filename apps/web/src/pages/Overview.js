@@ -38,6 +38,8 @@ export default function Overview() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const {
     availablePoles,
+    selectedId,
+    selectedPole,
     setSelectedId,
     setSnapshotMap,
     mapPoles,
@@ -51,7 +53,21 @@ export default function Overview() {
     () => getOverviewPoleList(availablePoles),
     [availablePoles]
   );
-  const overviewSelectedPole = overviewPoles[0] || null;
+  const overviewSelectedPole = useMemo(() => {
+    const selectedFromList = overviewPoles.find(
+      (pole) => pole.streetlight_id === selectedId
+    );
+    if (selectedFromList) return selectedFromList;
+
+    if (
+      selectedPole &&
+      overviewPoles.some((pole) => pole.streetlight_id === selectedPole.streetlight_id)
+    ) {
+      return selectedPole;
+    }
+
+    return overviewPoles[0] || null;
+  }, [overviewPoles, selectedId, selectedPole]);
   const overviewMapPoles = useMemo(() => {
     const visibleIds = new Set(
       overviewPoles.map((pole) => pole?.streetlight_id).filter(Boolean)
@@ -73,12 +89,6 @@ export default function Overview() {
 
     return mapCenter;
   }, [mapCenter, overviewSelectedPole]);
-
-  useEffect(() => {
-    if (overviewSelectedPole?.streetlight_id) {
-      setSelectedId(overviewSelectedPole.streetlight_id);
-    }
-  }, [overviewSelectedPole?.streetlight_id, setSelectedId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 30000);
@@ -265,7 +275,7 @@ export default function Overview() {
                       </span>
                     </div>
 
-                    <div className="lwMetricGridCompact" style={{ marginTop: 12, gap: 10 }}>
+                    <div className="lwMetricGridCompact">
                       <MetricRow label="Motion" value={motionValue} tone={motionTone} />
                       <MetricRow
                         label="Brightness"
@@ -294,20 +304,6 @@ export default function Overview() {
                           selectedPoleIsStale ? null : overviewSelectedPole.lux,
                           (value) => `${Math.round(value)}`,
                           liveMetricFallback
-                        )}
-                      />
-                      <MetricRow
-                        label="Latitude"
-                        value={cleanDisplay(
-                          overviewSelectedPole.lat,
-                          "Waiting for coordinate"
-                        )}
-                      />
-                      <MetricRow
-                        label="Longitude"
-                        value={cleanDisplay(
-                          overviewSelectedPole.lng,
-                          "Waiting for coordinate"
                         )}
                       />
                       <MetricRow
@@ -358,7 +354,7 @@ export default function Overview() {
               </Card>
 
               <Card title="Recent Activity" className="lwOperatorCard">
-                <ActivityFeed events={selectedPoleEvents} wsStatus={wsStatus} maxItems={5} />
+                <ActivityFeed events={selectedPoleEvents} wsStatus={wsStatus} maxItems={3} />
               </Card>
             </div>
           </aside>

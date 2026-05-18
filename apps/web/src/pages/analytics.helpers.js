@@ -13,7 +13,7 @@ const DEFAULT_CENTER = {
 const FIXTURE_KWH_PER_HOUR = 0.16;
 const DAYLIGHT_LUX_THRESHOLD = 180;
 const DEFAULT_LIGHT_LEVEL = 68;
-const LIVE_RANGE_MS = 60 * 60 * 1000;
+const LIVE_RANGE_MS = 60 * 1000;
 const TELEMETRY_INTERVALS = new Set([
   "5s", "10s", "30s",
   "1m", "5m", "10m", "15m", "30m",
@@ -43,6 +43,16 @@ function roundWhole(value) {
 function roundOneDecimal(value) {
   if (value === null || value === undefined || value === "") return null;
   return roundValue(value, 1);
+}
+
+function roundEnergyValue(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+
+  const abs = Math.abs(num);
+  if (abs >= 1) return roundValue(num, 2) ?? 0;
+  if (abs >= 0.01) return roundValue(num, 4) ?? 0;
+  return roundValue(num, 6) ?? 0;
 }
 
 function toBoolean(value) {
@@ -200,9 +210,9 @@ function estimateEnergyForRow(row, intervalHours) {
   const actualKwh = baselineKwh * outputFactor;
 
   return {
-    baselineKwh: roundValue(baselineKwh, 3) ?? 0,
-    actualKwh: roundValue(actualKwh, 3) ?? 0,
-    savedKwh: roundValue(Math.max(0, baselineKwh - actualKwh), 3) ?? 0,
+    baselineKwh: roundEnergyValue(baselineKwh),
+    actualKwh: roundEnergyValue(actualKwh),
+    savedKwh: roundEnergyValue(Math.max(0, baselineKwh - actualKwh)),
   };
 }
 
@@ -438,9 +448,9 @@ function buildEnergySeries(poleSummaries = []) {
     .map((point) => ({
       timestamp: point.timestamp,
       timestampValue: point.timestampValue,
-      actualKwh: roundValue(point.actualKwh, 2) ?? 0,
-      baselineKwh: roundValue(point.baselineKwh, 2) ?? 0,
-      savedKwh: roundValue(Math.max(0, point.baselineKwh - point.actualKwh), 2) ?? 0,
+      actualKwh: roundEnergyValue(point.actualKwh),
+      baselineKwh: roundEnergyValue(point.baselineKwh),
+      savedKwh: roundEnergyValue(Math.max(0, point.baselineKwh - point.actualKwh)),
     }));
 }
 
