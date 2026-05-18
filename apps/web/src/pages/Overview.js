@@ -264,7 +264,7 @@ export default function Overview() {
                       </span>
                     </div>
 
-                    <div className="lwMetricGridCompact" style={{ marginTop: 12, gap: 10 }}>
+                    <div className="lwMetricGridCompact">
                       <MetricRow label="Motion" value={motionValue} tone={motionTone} />
                       <MetricRow
                         label="Brightness"
@@ -357,7 +357,7 @@ export default function Overview() {
               </Card>
 
               <Card title="Recent Activity" className="lwOperatorCard">
-                <ActivityFeed events={selectedPoleEvents} wsStatus={wsStatus} maxItems={5} />
+                <ActivityFeed events={selectedPoleEvents} wsStatus={wsStatus} maxItems={3} />
               </Card>
             </div>
           </aside>
