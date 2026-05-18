@@ -29,8 +29,7 @@ namespace mmwave
 
     }
 
-    bool Manager::setupSensor( MmwaveSensor & sensor,
-                               bool hasKeepSensitivity ) noexcept
+    bool Manager::setupSensor( MmwaveSensor & sensor ) noexcept
     {
         bool connected { false };
 
@@ -51,31 +50,23 @@ namespace mmwave
             }
         }
 
-        bool result { connected };
-
-        if( result )
+        if( connected )
         {
-            result = result && sensor.setSensorMode( kSensorMode );
-            result = result && sensor.setDetectionRange( kDetectionRangeMin,
-                                                         kDetectionRangeMax,
-                                                         kTrigRange );
-            result = result && sensor.setTrigSensitivity( kTrigSensitivity );
-
-            if( hasKeepSensitivity )
-            {
-                result = result && sensor.setKeepSensitivity( kKeepSensitivity );
-            }
-
-            result = result && sensor.setDelay( kTrigDelay, kKeepDelay );
+            connected = sensor.setSensorMode( kSensorMode )
+                    && sensor.setDetectionRange( kDetectionRangeMin,
+                                                 kDetectionRangeMax,
+                                                 kTrigRange )
+                    && sensor.setTrigSensitivity( kTrigSensitivity )
+                    && sensor.setKeepSensitivity( kKeepSensitivity )
+                    && sensor.setDelay( kTrigDelay, kKeepDelay );
         }
-
-        return result;
+        return connected;
     }
 
     bool Manager::setup() noexcept
     {
-        const bool primaryOk   { setupSensor( primary_.get(),   false ) };
-        const bool secondaryOk { setupSensor( secondary_.get(), true  ) };
+        const bool primaryOk   { setupSensor( primary_ ) };
+        const bool secondaryOk { setupSensor( secondary_ ) };
 
         LOGI( kTag, "Primary setup:   %s", primaryOk   ? "success" : "failed" );
         LOGI( kTag, "Secondary setup: %s", secondaryOk ? "success" : "failed" );
@@ -87,94 +78,56 @@ namespace mmwave
     {
         bool pMotion { false };
         bool sMotion { false };
+        const bool pReadOk { primary_.motionDetected( pMotion ) };
+        const bool sReadOk { secondary_.motionDetected( sMotion ) };
+        LOGI( kTag, "pREAD:%s, sREAD:%s", pReadOk ? "OK" : "fail", sReadOk ? "OK" : "fail" );
 
-        const bool pReadOk { primary_.get().motionDetected( pMotion ) };
-        const bool sReadOk { secondary_.get().motionDetected( sMotion ) };
+        primaryFailCount_ = pReadOk
+                            ? 0U
+                            : std::min( static_cast< uint8_t >( primaryFailCount_ + 1U ), kFailureThreshold );
+        secondaryFailCount_ = sReadOk
+                            ? 0U
+                            : std::min( static_cast< uint8_t >( secondaryFailCount_ + 1U ), kFailureThreshold );
 
-        if( pReadOk )
-        {
-            primaryFailCount_  = 0U;
-            lastPrimaryMotion_ = pMotion;
-        }
-        else
-        {
-            primaryFailCount_ = std::min(
-                static_cast< uint8_t >( primaryFailCount_ + 1U ),
-                kFailureThreshold );
-        }
-
-        if( sReadOk )
-        {
-            secondaryFailCount_  = 0U;
-            lastSecondaryMotion_ = sMotion;
-        }
-        else
-        {
-            secondaryFailCount_ = std::min(
-                static_cast< uint8_t >( secondaryFailCount_ + 1U ),
-                kFailureThreshold );
-        }
+        if( pReadOk ) { lastPrimaryMotion_   = pMotion; }
+        if( sReadOk ) { lastSecondaryMotion_ = sMotion; }
 
         /* Both sensors read OK and disagree: increment disagree counter.      */
         /* Both sensors read OK and agree:    reset disagree counter.          */
         /* One or both failed:                counter unchanged this cycle.    */
         if( pReadOk && sReadOk )
         {
-            if( pMotion != sMotion )
-            {
-                disagreeCount_ = std::min(
-                    static_cast< uint8_t >( disagreeCount_ + 1U ),
-                    kDegradedDisagreeThreshold );
-            }
-            else
-            {
-                disagreeCount_ = 0U;
-            }
+            disagreeCount_ = ( pMotion != sMotion )
+                             ? std::min( static_cast< uint8_t >( disagreeCount_ + 1U ), kDegradedDisagreeThreshold )
+                             : 0U;
         }
+
+        const bool primaryHardFail   { primaryFailCount_   >= kFailureThreshold };
+        const bool secondaryHardFail { secondaryFailCount_ >= kFailureThreshold };
+        const bool sustained         { disagreeCount_      >= kDegradedDisagreeThreshold };
 
         SensorHealth health { SensorHealth::TOTAL_FAILURE };
 
-        if( pReadOk && sReadOk )
-        {
-            health = SensorHealth::SYSTEM_OK;
-        }
-        else if( pReadOk )
-        {
-            health = SensorHealth::SECONDARY_FAIL;
-        }
-        else if( sReadOk )
-        {
-            health = SensorHealth::PRIMARY_FAIL;
-        }
-        else
+        if( primaryHardFail && secondaryHardFail )
         {
             health = SensorHealth::TOTAL_FAILURE;
         }
-
-        /* Sensor disagreement over N consecutive cycles. */
-        if( ( health == SensorHealth::SYSTEM_OK ) &&
-            ( disagreeCount_ >= kDegradedDisagreeThreshold ) )
+        else if( primaryHardFail )
         {
+            health = SensorHealth::PRIMARY_FAIL;
+        }
+        else if( secondaryHardFail )
+        {
+            health = SensorHealth::SECONDARY_FAIL;
+        }
+        else if( sustained )
+        {
+            /* Both responding but disagreeing */
             health = SensorHealth::DEGRADED;
         }
-
-        /* Soft degradation: consecutive failures below hard-fail threshold.    */
-        /* Does not override TOTAL_FAILURE — the FSM needs to see hard failure. */
-        if( ( health != SensorHealth::TOTAL_FAILURE ) &&
-            ( ( primaryFailCount_   > 0U ) ||
-            ( secondaryFailCount_ > 0U ) ) )
+        else
         {
-            /* Only degrade if below the hard-fail threshold — above it the  */
-            /* PRIMARY_FAIL / SECONDARY_FAIL classification already applies. */
-            const bool primarySoft { primaryFailCount_   > 0U &&
-                                     primaryFailCount_   < kFailureThreshold };
-            const bool secondarySoft { secondaryFailCount_ > 0U &&
-                                       secondaryFailCount_ < kFailureThreshold };
-
-            if( primarySoft || secondarySoft )
-            {
-                health = SensorHealth::DEGRADED;
-            }
+            health = SensorHealth::SYSTEM_OK;
         }
 
         /* OR fusion — any confirmed detection triggers the output.             */
@@ -183,9 +136,7 @@ namespace mmwave
         const bool effectivePrimary   { pReadOk ? pMotion : lastPrimaryMotion_   };
         const bool effectiveSecondary { sReadOk ? sMotion : lastSecondaryMotion_ };
 
-        const bool motionDetected { effectivePrimary || effectiveSecondary };
-
-        data.motionDetected = motionDetected;
+        data.motionDetected = effectivePrimary || effectiveSecondary;
         data.health         = health;
 
         return ( pReadOk || sReadOk );

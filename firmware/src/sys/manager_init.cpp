@@ -39,7 +39,7 @@ namespace mgr
                                            sAmbientFilterA,
                                            sAmbientFilterB };
 
-        th::Manager sThManager { device::dht11Primary,
+        th::Manager sThManager { device::aht20Primary,
                                  sTempFilter,
                                  sHumFilter };
 

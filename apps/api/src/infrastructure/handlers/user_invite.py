@@ -14,11 +14,9 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 
-from apps.api.src.application.tenant.invite_user import InviteUser
+from application.tenant.invite_user import InviteUser
 from domain.errors import AuthError
-from apps.api.src.infrastructure.auth.cognito_admin import (
-    create_cognito_user
-)
+from infrastructure.auth.cognito_admin import create_cognito_user
 from infrastructure.auth.identity import resolve_identity
 from infrastructure.persistence.dynamo.user_tenant_repo import (
     get_user_tenant_repo,
@@ -57,7 +55,7 @@ def _use_case() -> InviteUser:
 
 def handler(event: dict, context: object) -> dict:
     try:
-        requesting_user_id, _ = resolve_identity(event)
+        tenant_id, requesting_user_id = resolve_identity(event)
     except AuthError:
         return error(401, "Unauthorized")
 
@@ -75,8 +73,6 @@ def handler(event: dict, context: object) -> dict:
         return error(400, "role is required")
     if role not in ("admin", "operator"):
         return error(400, "role must be admin or operator")
-
-    tenant_id, _ = resolve_identity(event)
 
     try:
         user = _use_case().execute(
@@ -130,13 +126,12 @@ def handler(event: dict, context: object) -> dict:
             "role": user.role,
         },
     )
-    return success(
-        {
-            "user_id": user.user_id,
-            "email": user.email,
-            "role": user.role,
-            "tenant_id": user.tenant_id,
-            "created_at": user.created_at,
-        },
-        status_code=201,
-    )
+    response = success({
+        "user_id": user.user_id,
+        "email": user.email,
+        "role": user.role,
+        "tenant_id": user.tenant_id,
+        "created_at": user.created_at,
+    })
+    response["statusCode"] = 201
+    return response

@@ -137,7 +137,7 @@ namespace lorawan
         const MutexGuard guard { mutex_ };
         if( guard.locked() )
         {
-            device_.setRxCb( cb );
+            static_cast< void >( device_.setRxCb( cb ) );
         }
     }
 
@@ -146,7 +146,7 @@ namespace lorawan
         /* Called from setup() which holds mutex_ — do not acquire here */
         bool ok { true };
 
-        if( ok && !device_.setRegion( kRegion ) )
+        if( !device_.setRegion( kRegion ) )
         {
             LOGE( kTag, "setRegion failed" );
             ok = false;
@@ -232,6 +232,15 @@ namespace lorawan
             }
         }
         return result;
+    }
+
+    void Manager::poll() noexcept
+    {
+        const MutexGuard guard { mutex_ };
+        if( guard.locked() && state_ == State::READY )
+        {
+            device_.run();
+        }
     }
 
 } /* namespace lorawan */

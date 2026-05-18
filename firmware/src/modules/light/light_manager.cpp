@@ -62,7 +62,7 @@ namespace light
             if( ramping_ )
             {
                 /* Attempt to apply the new level to hardware. */
-                if( led_.get().setLevel( next ) )
+                if( led_.setLevel( next ) )
                 {
                     /* Write succeeded: advance current_ and re-evaluate ramp. */
                     current_ = next;

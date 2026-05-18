@@ -161,12 +161,20 @@ export default function Overview() {
   }, [nowMs, overviewPoles]);
 
   const selectedPoleIsStale = isPoleTelemetryStale(overviewSelectedPole, nowMs);
-  const selectedPoleHasTelemetry = hasPoleTelemetry(overviewSelectedPole);
-  const selectedPoleIsLive = selectedPoleHasTelemetry && !selectedPoleIsStale;
-  const showLiveReadings = wsStatus === "connected" && selectedPoleIsLive;
-  const combinedSensorHealth = showLiveReadings
-    ? getCombinedSensorHealth(overviewSelectedPole)
-    : { label: "Waiting for data", tone: "neutral" };
+  const selectedPoleHasMotion =
+    !selectedPoleIsStale && overviewSelectedPole?.motion_detected === true;
+  const overviewMotionMapPoles = useMemo(() => {
+    if (!selectedPoleHasMotion || !overviewSelectedPole?.streetlight_id) {
+      return overviewMapPoles;
+    }
+
+    return overviewMapPoles.filter(
+      (pole) => pole?.streetlight_id === overviewSelectedPole.streetlight_id
+    );
+  }, [overviewMapPoles, overviewSelectedPole?.streetlight_id, selectedPoleHasMotion]);
+  const combinedSensorHealth = selectedPoleIsStale
+    ? { label: "Waiting for data", tone: "neutral" }
+    : getCombinedSensorHealth(overviewSelectedPole);
   const motionValue =
     showLiveReadings && typeof overviewSelectedPole?.motion_detected === "boolean"
       ? motionLabel(overviewSelectedPole.motion_detected)
@@ -379,11 +387,17 @@ export default function Overview() {
               fillHeight
               lat={overviewMapCenter.lat}
               lng={overviewMapCenter.lng}
-              poles={overviewMapPoles}
+              poles={overviewMotionMapPoles}
               selectedId={overviewSelectedPole?.streetlight_id}
               onSelectPole={(pole) => setSelectedId(pole.streetlight_id)}
               interactive
-              forceNativePin
+              forceNativePin={selectedPoleHasMotion}
+              showInfo={selectedPoleHasMotion}
+              showPoleMarkers={selectedPoleHasMotion}
+              motionDetected={selectedPoleHasMotion}
+              focusLat={overviewSelectedPole?.motion_focus_lat}
+              focusLng={overviewSelectedPole?.motion_focus_lng}
+              focusRadiusMeters={overviewSelectedPole?.motion_focus_radius_m ?? 30}
               showLegend
             />
           </Card>

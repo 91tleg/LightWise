@@ -2,35 +2,44 @@
 
 [![Firmware CI](https://github.com/91tleg/lightwise/actions/workflows/firmware-ci.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/firmware-ci.yml)
 [![Web CI](https://github.com/91tleg/lightwise/actions/workflows/web-ci.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/web-ci.yml)
-<!--[![Web Deploy](https://github.com/91tleg/lightwise/actions/workflows/web-deploy.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/web-deploy.yml)-->
 [![API CI](https://github.com/91tleg/lightwise/actions/workflows/api-ci.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/api-ci.yml)
 [![API Deploy](https://github.com/91tleg/lightwise/actions/workflows/api-deploy.yml/badge.svg)](https://github.com/91tleg/lightwise/actions/workflows/api-deploy.yml)
 
-LightWise is a comprehensive, fault-tolerant telemetry platform designed to manage distributed, sensor-rich lighting infrastructure at scale. By bridging the gap between autonomous embedded firmware and cloud-based analytics, LightWise enables municipalities to transform standard streetlights into intelligent, self-healing edge nodes.
+LightWise is a fault-tolerant telemetry platform designed to manage distributed, sensor-rich lighting infrastructure at scale. By bridging the gap between autonomous embedded firmware and cloud-based analytics, LightWise enables municipalities to transform standard streetlights into intelligent, self-healing edge nodes.
+
+---
+
+## The Problem: "Truck Rolls"
+
+Traditional streetlight management is reactive and costly. Municipalities have **no visibility** into infrastructure health until a bulb burns out, a sensor fails, or a citizen complains. When problems occur, technicians must physically drive to each location to diagnose and repair—creating expensive, inefficient "truck rolls."
+
+LightWise eliminates truck rolls through:
+
+- **Remote Diagnostics**: Real-time telemetry streams from every streetlight, enabling operations teams to diagnose issues from the office
+
+- **Autonomous Health Monitoring**: Embedded fault detection automatically identifies failures and enters graceful degraded modes
+
+- **Visibility-Driven Decisions**: Dashboard insights mean technicians are dispatched only when remote diagnostics confirm actual hardware issues
+
+**Impact**: 30–50% reduction in maintenance costs, faster response to critical failures, and better asset utilization across thousands of streetlights.
 
 ---
 
 ## Key Features
 
 ### Intelligent Edge Nodes
-
-- Autonomous Operation: Each streetlight functions as a real-time embedded node capable of local decision-making.
-
-- Fault Tolerance: Built-in logic for detecting partial or total sensor failures. The system automatically enters degraded operation modes to maintain core functionality during hardware faults.
+- **Autonomous Operation**: Local decision-making allows each streetlight to function independently
+- **Fault Tolerance**: Automatic degradation modes maintain core functionality during partial sensor failure
+- **Health Self-Assessment**: Device-side validation ensures data quality before transmission
 
 ### Robust Connectivity
+- **LoRaWAN Integration**: Long-range, low-power communication optimized for dense urban coverage
+- **Hybrid Telemetry**: Event-driven alerts for critical issues + periodic heartbeats for health monitoring
+- **Graceful Degradation**: System remains operational even during cloud connectivity loss
 
-- LoRaWAN Integration: Optimized for long-range, low-power communication in dense urban environments.
-
-- Hybrid Telemetry: Supports both event-driven triggers (for immediate alerts) and periodic heartbeats (for health monitoring).
-
-- Data Integrity: Device-side health assessments validate telemetry quality before transmission.
-
-### Cloud & Analytics Dashboard
-
-- Real-time Visualization: A unified web dashboard for fleet-wide monitoring and diagnostics.
-
-- Aggregated Analytics: Backend processing converts raw sensor data into actionable insights regarding energy usage and maintenance cycles.
+### Cloud & Analytics
+- **Real-time Dashboard**: Unified view of entire fleet health with drill-down capabilities
+- **Predictive Analytics**: Historical trend analysis supports proactive maintenance scheduling
 
 ---
 
@@ -65,7 +74,7 @@ LightWise/
 │   └── web/          # Web dashboard (React frontend)
 │
 ├── docs/             # System-level documentation
-├── firmware/     # Embedded firmware (ESP32, device drivers, RTOS)
+├── firmware/         # Embedded firmware (device drivers, RTOS)
 ├── scripts/          # Build, deployment, and automation scripts
 │
 ├── .gitignore
@@ -74,12 +83,16 @@ LightWise/
 └── CONTRIBUTING.md   # Contributing guideline
 ```
 
+---
+
 ## Quick Links
 
 - [Firmware](firmware/)
-- [Lambda](apps/api/)
+- [Backend](apps/api/)
 - [Frontend](apps/web/)
 - [Documentation](docs/)
+
+---
 
 ## Project Setup Guide
 
@@ -95,21 +108,19 @@ Follow the section for the component you want to run.
 
 ### Prerequisites
 
-#### Common
-- Git
-- [Node.js](https://nodejs.org)
-- [Python](https://python.org)
+- **Git**
+- **Node.js** 16+ (for frontend)
+- **Python 3.8+** (for backend)
+- **PlatformIO CLI** (for firmware; or use VSCode extension)
 
-#### Firmware Development
+#### Embedded Firmware
 
-Install the **PlatformIO IDE extension** for VSCode:
-
-1. Install VSCode  
-   https://code.visualstudio.com
-
-2. Open Extensions Marketplace  
-3. Search for **PlatformIO IDE**  
-4. Install and reload VSCode  
+```bash
+cd firmware
+pio run
+pio run -t upload  # Flash firmware to device
+pio device monitor # Monitor logs
+```
 
 ---
 #### React Web Application
@@ -155,5 +166,5 @@ Install the **PlatformIO IDE extension** for VSCode:
 
 ---
 
-**Version:** 1.3  
-**Last Updated:** April 1, 2026
+**Version:** 1.4  
+**Last Updated:** May 6, 2026

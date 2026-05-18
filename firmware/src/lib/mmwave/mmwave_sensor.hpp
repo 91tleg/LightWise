@@ -65,6 +65,8 @@ namespace mmwave
 
         [[nodiscard]] virtual bool motionDetected( bool & moiton ) = 0;
 
+        [[nodiscard]] virtual bool setGpioPolarity( uint8_t value ) = 0;
+
     protected:
         MmwaveSensor()                                  = default;
         MmwaveSensor( const MmwaveSensor & )            = default;

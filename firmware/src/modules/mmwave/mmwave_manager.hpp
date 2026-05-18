@@ -1,3 +1,6 @@
+#ifndef SRC_MODULES_MMWAVE_MMWAVE_MANAGER_HPP
+#define SRC_MODULES_MMWAVE_MMWAVE_MANAGER_HPP
+
 /**
  * @file  src/modules/mmwave/mmwave_manager.hpp
  * @brief Dual mmWave presence sensor manager with cross-check and hysteresis.
@@ -24,11 +27,7 @@
  *  is set when a count reaches kFailureThreshold.
  */
 
-#ifndef SRC_MODULES_MMWAVE_MMWAVE_MANAGER_HPP
-#define SRC_MODULES_MMWAVE_MMWAVE_MANAGER_HPP
-
 #include <cstdint>
-#include <functional>
 
 #include "lib/mmwave/mmwave_sensor.hpp"
 
@@ -49,11 +48,11 @@ namespace mmwave
         Manager( MmwaveSensor & primary,
                  MmwaveSensor & secondary ) noexcept;
 
-        ~Manager()                            = default;
-        Manager( const Manager & )            = delete;
-        Manager &operator=( const Manager & ) = delete;
-        Manager( Manager && )                 = delete;
-        Manager &operator=( Manager && )      = delete;
+        ~Manager()                             = default;
+        Manager( const Manager & )             = delete;
+        Manager & operator=( const Manager & ) = delete;
+        Manager( Manager && )                  = delete;
+        Manager & operator=( Manager && )      = delete;
 
         /**
          * @brief  Connect and configure both sensors.
@@ -78,11 +77,10 @@ namespace mmwave
         [[nodiscard]] bool update( Data & data ) noexcept;
 
     private:
-        [[nodiscard]] bool setupSensor( MmwaveSensor & sensor,
-                                        bool hasKeepSensitivity ) noexcept;
+        [[nodiscard]] static bool setupSensor( MmwaveSensor & sensor ) noexcept;
 
-        std::reference_wrapper< MmwaveSensor > primary_;
-        std::reference_wrapper< MmwaveSensor > secondary_;
+        MmwaveSensor & primary_;
+        MmwaveSensor & secondary_;
 
         uint8_t primaryFailCount_   { 0U };
         uint8_t secondaryFailCount_ { 0U };
@@ -95,16 +93,19 @@ namespace mmwave
         static constexpr uint16_t kDetectionRangeMin   { 30U   };
         static constexpr uint16_t kDetectionRangeMax   { 1000U };
         static constexpr uint16_t kTrigRange           { 1000U };
-        static constexpr uint8_t  kTrigSensitivity     { 5U    };
+        static constexpr uint8_t  kTrigSensitivity     { 8U    };
         static constexpr uint8_t  kKeepSensitivity     { 3U    };
         static constexpr uint16_t kTrigDelay           { 100U  };
         static constexpr uint16_t kKeepDelay           { 4U    };
         static constexpr uint8_t  kMaxConnectAttempts  { 5U    };
         static constexpr uint32_t kConnectRetryDelayMs { 1000U };
 
-        static constexpr uint8_t kDegradedFailureThreshold  { 3U };
         static constexpr uint8_t kFailureThreshold          { 10U };
         static constexpr uint8_t kDegradedDisagreeThreshold { 3U };
+        static constexpr uint8_t kMaxConsecutiveFails       { 10U }; /* 10 × 150ms = 1.5s */
+
+        uint8_t primaryFails_   { 0U };
+        uint8_t secondaryFails_ { 0U };
     };
 
 } /* namespace mmwave */

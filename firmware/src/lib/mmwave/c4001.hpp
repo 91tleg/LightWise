@@ -134,7 +134,7 @@ namespace mmwave
          * @return true  If command sent and sensor accepted configuration.
          * @return false On invalid parameter or write failure.
          */
-        [[nodiscard]] bool setGpioPolarity( uint8_t value );
+        [[nodiscard]] bool setGpioPolarity( uint8_t value ) override;
 
     private:
         C4001Hw & sensor_;
