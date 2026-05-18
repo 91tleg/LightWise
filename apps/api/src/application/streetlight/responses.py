@@ -8,7 +8,11 @@ from dataclasses import dataclass
 
 from domain.streetlight.events import Heartbeat, TelemetryReport
 from domain.streetlight.health import HealthStatus
-from domain.streetlight.models import StreetlightState, StreetlightMetadata
+from domain.streetlight.models import (
+    StreetlightState,
+    StreetlightMetadata,
+    DownlinkCommandRecord,
+)
 
 
 @dataclass(frozen=True)
@@ -117,4 +121,20 @@ def streetlight_to_list_item(
             "lat": metadata.lat if metadata else None,
             "lng": metadata.lng if metadata else None,
         },
+    }
+    def command_to_response(
+        record: DownlinkCommandRecord,
+    ) -> dict:
+        return {
+        "streetlight_id": record.streetlight_id,
+        "command_id": record.command_id,
+        "tenant_id": record.tenant_id,
+        "issued_by": record.issued_by,
+        "command_type": record.command_type,
+        "payload": record.payload,
+        "status": record.status,
+        "created_at": record.created_at,
+        "sent_at": record.sent_at,
+        "acknowledged_at": record.acknowledged_at,
+        "reason": record.reason,
     }

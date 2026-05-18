@@ -84,3 +84,23 @@ class StreetlightMetadata:
             raise ValueError(f"Invalid longitude: {self.lng}")
         if self.installed_at.tzinfo is None:
             raise ValueError("installed_at must be timezone aware")
+
+
+@dataclass(frozen=True)
+class DownlinkCommandRecord:
+    """
+    Read model for downlink command history.
+
+    Represents previously issued commands stored in DynamoDB.
+    """
+    streetlight_id: str
+    command_id: str
+    tenant_id: str
+    issued_by: str
+    command_type: str
+    payload: dict
+    status: str
+    created_at: str
+    sent_at: str | None
+    acknowledged_at: str | None
+    reason: str | None = None

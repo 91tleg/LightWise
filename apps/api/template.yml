@@ -449,6 +449,21 @@ Resources:
             Path: /streetlights/{id}/commands
             Method: post
 
+  StreetlightsListCommandsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.streetlights_commands_list.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DownlinkCommands
+
+      Events:
+        ListCommands:
+          Type: Api
+          Properties:
+            Path: /streetlights/{id}/commands
+            Method: get
+
   Streetlights:
     Type: AWS::DynamoDB::Table
     Properties:
