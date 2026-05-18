@@ -111,7 +111,8 @@ const CHART_METRIC_ORDER = [
 const LIVE_RANGE_REFRESH_MS = 30000;
 const LIVE_POLL_MS = 5000;
 const LIVE_SNAPSHOT_SAMPLE_MS = 1000;
-const LIVE_POLL_LOOKBACK_MS = 2 * 60 * 1000;
+const LIVE_WINDOW_MS = 60 * 1000;
+const LIVE_POLL_LOOKBACK_MS = LIVE_WINDOW_MS;
 const LIVE_REQUEST_INTERVAL = "5s";
 const LIVE_GRAPH_INTERVAL = "1s";
 const LIVE_MAX_ROWS_PER_POLE = 240;
@@ -1279,6 +1280,7 @@ function AnalyticsSurface() {
   const [expandedZones, setExpandedZones] = useState([]);
   const [faultFilter, setFaultFilter] = useState("all");
   const [faultSearch, setFaultSearch] = useState("");
+  const [liveNowMs, setLiveNowMs] = useState(() => Date.now());
 
   const deferredFaultSearch = useDeferredValue(faultSearch);
   const isLiveRange = preset === "live";
@@ -1295,6 +1297,15 @@ function AnalyticsSurface() {
   const intervalLabel = isLiveRange ? "Instant" : interval;
   const aggregationOptions = isLiveRange ? LIVE_AGGREGATION_OPTIONS : AGGREGATION_OPTIONS;
   const aggregationValue = isLiveRange ? "auto" : aggregation;
+  const liveWindow = useMemo(
+    () => ({
+      from: new Date(liveNowMs - LIVE_WINDOW_MS).toISOString(),
+      to: new Date(liveNowMs).toISOString(),
+    }),
+    [liveNowMs]
+  );
+  const reportFrom = isLiveRange ? liveWindow.from : from;
+  const reportTo = isLiveRange ? liveWindow.to : to;
   const rangeLabel = useMemo(
     () => (isLiveRange ? "Live telemetry" : buildReportDateLabel(from, to)),
     [from, isLiveRange, to]
@@ -1341,6 +1352,14 @@ function AnalyticsSurface() {
       setOverviewSelectedId(selectedReportPoleId);
     }
   }, [selectedReportPoleId, setOverviewSelectedId]);
+
+  useEffect(() => {
+    if (!isLiveRange) return undefined;
+
+    setLiveNowMs(Date.now());
+    const timer = window.setInterval(() => setLiveNowMs(Date.now()), LIVE_SNAPSHOT_SAMPLE_MS);
+    return () => window.clearInterval(timer);
+  }, [isLiveRange]);
 
   useEffect(() => {
     if (!isLiveRange) return undefined;
@@ -1411,12 +1430,14 @@ function AnalyticsSurface() {
     const row = liveRowFromWsMessage(lastMessage);
     if (!row) return;
 
+    if (isLiveRange) setLiveNowMs(Date.now());
+
     setLiveTelemetryByPole((current) => ({
       ...current,
       [poleId]: mergeTelemetryRows(current[poleId] || [], [row]),
     }));
     setLastLoadedAt(row.timestamp || new Date().toISOString());
-  }, [lastMessage]);
+  }, [isLiveRange, lastMessage]);
 
   useEffect(() => {
     if (!isLiveRange || !selectedPole) return;
@@ -1547,19 +1568,26 @@ function AnalyticsSurface() {
       reportPoles,
       telemetryByPole,
       liveTelemetryByPole,
-      from,
-      to
+      reportFrom,
+      reportTo
     );
-  }, [from, isLiveRange, liveTelemetryByPole, reportPoles, telemetryByPole, to]);
+  }, [
+    isLiveRange,
+    liveTelemetryByPole,
+    reportFrom,
+    reportPoles,
+    reportTo,
+    telemetryByPole,
+  ]);
 
   const report = useMemo(
     () =>
       buildAnalyticsReport(reportPoles, reportTelemetryByPole, {
-        from,
-        to,
+        from: reportFrom,
+        to: reportTo,
         interval: graphInterval,
       }),
-    [from, graphInterval, reportPoles, reportTelemetryByPole, to]
+    [graphInterval, reportFrom, reportPoles, reportTelemetryByPole, reportTo]
   );
   const hasTelemetryRows = report.summary.telemetryRows > 0;
 

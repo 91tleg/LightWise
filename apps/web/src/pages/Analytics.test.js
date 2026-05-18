@@ -123,11 +123,11 @@ describe("normalizeTelemetryRows", () => {
 });
 
 describe("getPresetRange", () => {
-  test("live preset covers the last hour", () => {
+  test("live preset covers the last minute", () => {
     const range = getPresetRange("live", new Date("2026-04-21T20:00:00Z"));
 
     expect(new Date(range.to).getTime() - new Date(range.from).getTime()).toBe(
-      60 * 60 * 1000
+      60 * 1000
     );
   });
 });
