@@ -53,7 +53,7 @@ class RemoveUser:
 
         if not tenant.is_owner(requesting_user_id):
             raise PermissionError(
-                "Only the tenant owner can remove users"
+                "Only a tenant owner can remove users"
             )
 
         if requesting_user_id == user_id:

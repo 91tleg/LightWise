@@ -1,7 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
 from unittest.mock import MagicMock
-
 import pytest
 
 from application.tenant.invite_user import InviteUser
@@ -11,7 +10,7 @@ from domain.tenant.models import Tenant
 _TENANT = Tenant(
     tenant_id="tenant-1",
     name="Acme Lighting",
-    owner_user_id="owner-1",
+    owner_user_ids=frozenset(["owner-1", "owner-2"]),
     max_users=3,
     created_at="2024-01-01T00:00:00+00:00",
 )
@@ -67,6 +66,18 @@ class TestInviteUserSuccess:
         )
         user_repo.save_user.assert_called_once_with(result)
 
+    def test_second_owner_can_invite(self):
+        use_case, _, user_repo, cognito = _use_case()
+        result = use_case.execute(
+            requesting_user_id="owner-2",
+            tenant_id="tenant-1",
+            email="new.user@example.com",
+            role="operator",
+        )
+        assert result.user_id == "user-2"
+        cognito.create_cognito_user.assert_called_once()
+        user_repo.save_user.assert_called_once()
+
 
 class TestInviteUserValidation:
     def test_raises_when_tenant_not_found(self):
@@ -86,8 +97,7 @@ class TestInviteUserValidation:
 
     def test_raises_when_requesting_user_is_not_owner(self):
         use_case, _, user_repo, cognito = _use_case()
-
-        with pytest.raises(PermissionError, match="Only the tenant owner"):
+        with pytest.raises(PermissionError, match="Only a tenant owner"):
             use_case.execute(
                 requesting_user_id="member-1",
                 tenant_id="tenant-1",
