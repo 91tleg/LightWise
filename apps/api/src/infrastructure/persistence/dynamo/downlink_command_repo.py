@@ -2,6 +2,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from functools import lru_cache
 from datetime import datetime, timezone
+from domain.streetlight.models import DownlinkCommandRecord
+from decimal import Decimal
 
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
@@ -33,6 +35,41 @@ class DownlinkCommandRepo:
     def __init__(self, table_name: str) -> None:
         self._db = get_dynamodb_resource()
         self._table = self._db.Table(table_name)
+
+    def _deserialize(
+        self,
+        item: dict,
+    ) -> DownlinkCommandRecord:
+        return DownlinkCommandRecord(
+            streetlight_id=item["streetlight_id"],
+            command_id=item["command_id"],
+            tenant_id=item["tenant_id"],
+            issued_by=item["issued_by"],
+            command_type=item["command_type"],
+            payload=self._strip_decimals(
+                item.get("payload", {})
+            ),
+            status=item["status"],
+            created_at=item["created_at"],
+            sent_at=item.get("sent_at"),
+            acknowledged_at=item.get("acknowledged_at"),
+            reason=item.get("reason"),
+        )
+
+    def _strip_decimals(self, value):
+        if isinstance(value, list):
+            return [self._strip_decimals(v) for v in value]
+
+        if isinstance(value, dict):
+            return {
+                key: self._strip_decimals(item)
+                for key, item in value.items()
+            }
+
+        if isinstance(value, Decimal):
+            return int(value)
+
+        return value
 
     def write(
         self,
@@ -157,7 +194,9 @@ class DownlinkCommandRepo:
                 "Failed to update command status for streetlight"
             ) from e
 
-    def get(self, streetlight_id: str, command_id: str) -> dict | None:
+    def get(
+        self, streetlight_id: str, command_id: str
+    ) -> DownlinkCommandRecord | None:
         """Fetch a single command record by primary key."""
         try:
             result = self._table.get_item(
@@ -166,7 +205,8 @@ class DownlinkCommandRepo:
                     "command_id": command_id,
                 }
             )
-            return result.get("Item")
+            item = result.get("Item")
+            return self._deserialize(item) if item else None
 
         except ClientError as e:
             raise PersistenceError(
@@ -178,7 +218,7 @@ class DownlinkCommandRepo:
         streetlight_id: str,
         tenant_id: str | None = None,
         limit: int = 50,
-    ) -> list[dict]:
+    ) -> list[DownlinkCommandRecord]:
         """
         List recent commands for a single streetlight.
 
@@ -207,7 +247,7 @@ class DownlinkCommandRepo:
         self,
         tenant_id: str,
         limit: int = 50,
-    ) -> list[dict]:
+    ) -> list[DownlinkCommandRecord]:
         """
         List recent commands across all streetlights for a tenant.
 
@@ -220,7 +260,8 @@ class DownlinkCommandRepo:
                 ScanIndexForward=False,
                 Limit=limit,
             )
-            return result.get("Items", [])
+            items = result.get("Items", [])
+            return [self._deserialize(item) for item in items]
 
         except ClientError as e:
             raise PersistenceError(
