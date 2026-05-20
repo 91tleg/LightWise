@@ -1,6 +1,10 @@
-#include "lib/lorawan/lorawan_sensor.hpp"
+#ifndef TEST_MOCKS_LIB_MOCK_LORAWAN_SENSOR_HPP
+#define TEST_MOCKS_LIB_MOCK_LORAWAN_SENSOR_HPP 
+
 #include <cstdint>
 #include <gmock/gmock.h>
+
+#include "lib/lorawan/lorawan_sensor.hpp"
 
 using namespace lorawan;
 
@@ -21,4 +25,7 @@ class MockLorawanSensor : public LorawanSensor
     MOCK_METHOD( bool, setPacketType, ( PacketType ), ( noexcept, override ) );
     MOCK_METHOD( bool, sendPacket, ( const uint8_t *, uint8_t ), ( noexcept, override ) );
     MOCK_METHOD( bool, setRxCb, ( LorawanSensor::RxCallback ), ( noexcept, override ) );
+    MOCK_METHOD( void, run, (), ( noexcept, override ) );
 };
+
+#endif /* TEST_MOCKS_LIB_MOCK_LORAWAN_SENSOR_HPP */

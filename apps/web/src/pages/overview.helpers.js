@@ -14,26 +14,32 @@ function isSensorWarning(value) {
   return normalizeSensorHealth(value) === "DEGRADED";
 }
 
-export const OVERVIEW_WORKING_POLE_ID = "LW-00100";
+export const POLE_OFFLINE_THRESHOLD_MS = 180 * 1000;
 
-export function getOverviewPoleList(
-  poles,
-  preferredId = OVERVIEW_WORKING_POLE_ID
-) {
+export function getOverviewPoleList(poles) {
   const rows = Array.isArray(poles) ? poles : [];
-  const targetId = String(preferredId || "").trim();
 
   if (!rows.length) return [];
 
-  if (targetId) {
-    const preferredPole = rows.find(
-      (pole) => String(pole?.streetlight_id || "").trim() === targetId
-    );
+  return rows.filter((pole) => String(pole?.streetlight_id || "").trim());
+}
 
-    if (preferredPole) return [preferredPole];
+export function isPoleTelemetryStale(
+  pole,
+  nowValue = Date.now(),
+  thresholdMs = POLE_OFFLINE_THRESHOLD_MS
+) {
+  const lastSeen = pole?.last_seen;
+  if (!lastSeen) return true;
+
+  const timestamp = new Date(lastSeen).getTime();
+  const nowMs = nowValue instanceof Date ? nowValue.getTime() : Number(nowValue);
+
+  if (!Number.isFinite(timestamp) || !Number.isFinite(nowMs)) {
+    return true;
   }
 
-  return rows.slice(0, 1);
+  return nowMs - timestamp > thresholdMs;
 }
 
 export function getCombinedSensorHealth(pole) {

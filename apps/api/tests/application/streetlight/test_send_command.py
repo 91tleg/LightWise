@@ -80,7 +80,7 @@ class TestSendStreetlightCommandSuccess:
         assert result.command_id == "cmd-test"
         assert result.streetlight_id == "sl-001"
         assert result.command == "SET_LEVELS"
-        assert result.status == "sent"
+        assert result.status == "pending"
         domain_command = StreetlightCommand(
             command=DownlinkCmd.SET_LEVELS,
             params=SetLevelsParams(max_level=90, dim_level=20),

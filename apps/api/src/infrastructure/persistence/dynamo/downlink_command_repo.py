@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from domain.streetlight.models import DownlinkCommandRecord
 from decimal import Decimal
 
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 from domain.streetlight.commands import StreetlightCommand
@@ -214,6 +214,7 @@ class DownlinkCommandRepo:
     def list_for_streetlight(
         self,
         streetlight_id: str,
+        tenant_id: str | None = None,
         limit: int = 50,
     ) -> list[DownlinkCommandRecord]:
         """
@@ -222,16 +223,18 @@ class DownlinkCommandRepo:
         Results are ordered by command_id (time-prefixed) descending
         so the most recent command is first.
         """
+        query_kwargs = {
+            "KeyConditionExpression": Key("streetlight_id").eq(streetlight_id),
+            "ScanIndexForward": False,
+            "Limit": limit,
+        }
+
+        if tenant_id:
+            query_kwargs["FilterExpression"] = Attr("tenant_id").eq(tenant_id)
+
         try:
-            result = self._table.query(
-                KeyConditionExpression=Key("streetlight_id").eq(
-                    streetlight_id
-                ),
-                ScanIndexForward=False,
-                Limit=limit,
-            )
-            items = result.get("Items", [])
-            return [self._deserialize(item) for item in items]
+            result = self._table.query(**query_kwargs)
+            return result.get("Items", [])
 
         except ClientError as e:
             raise PersistenceError(

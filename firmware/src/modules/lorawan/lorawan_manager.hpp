@@ -119,6 +119,11 @@ namespace lorawan
          */
         [[nodiscard]] bool send( std::span< const uint8_t > buf ) noexcept;
 
+        /**
+         * @brief Polls the  device for incoming data.
+         */
+        void poll() noexcept;
+
     private:
 
         /**
@@ -169,7 +174,7 @@ namespace lorawan
         static constexpr uint32_t kJoinRetryMs  { 5000U };
 
         static constexpr LorawanSensor::Region      kRegion      { LorawanSensor::Region::US915           };
-        static constexpr LorawanSensor::DeviceClass kDeviceClass { LorawanSensor::DeviceClass::A          };
+        static constexpr LorawanSensor::DeviceClass kDeviceClass { LorawanSensor::DeviceClass::C          };
         static constexpr LorawanSensor::PacketType  kPacketType  { LorawanSensor::PacketType::UNCONFIRMED };
         static constexpr uint8_t kDatarate    { 3U    };
         static constexpr uint8_t kEirp        { 16U   };

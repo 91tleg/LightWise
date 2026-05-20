@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { loadPoleMetaMap, subscribeToPoleMetaChanges } from "../services/poleStorage";
 import {
   isValidCoord,
-  mergeLocalMetaIntoPole,
+  mergeBackendAndLocalPoles,
   pickBestCenter,
 } from "../utils/poleHelpers";
 import { mergePoleSnapshot } from "../utils/poleState";
@@ -57,11 +57,10 @@ export function useOverviewData({ streetlights = [], tenantId = "" } = {}) {
   }, []);
 
   const mergedPoles = useMemo(() => {
-    return (Array.isArray(streetlights) ? streetlights : []).map((pole) => {
-      const withLocalMeta = mergeLocalMetaIntoPole(pole, localMeta);
+    return mergeBackendAndLocalPoles(streetlights, localMeta).map((pole) => {
       return mergePoleSnapshot(
-        withLocalMeta,
-        snapshotMap[withLocalMeta.streetlight_id] || {}
+        pole,
+        snapshotMap[pole.streetlight_id] || {}
       );
     });
   }, [localMeta, snapshotMap, streetlights]);

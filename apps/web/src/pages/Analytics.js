@@ -2,9 +2,13 @@ import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "r
 import Layout from "../components/Layout";
 import Card from "../components/Card";
 import UiIcon from "../components/UiIcon";
+import { useOverviewData } from "../hooks/useOverviewData";
+import { useTelemetryLoader } from "../hooks/useTelemetryLoader";
 import { useLightWise } from "../hooks/useLightWise";
+import { useWebSocketSync } from "../hooks/useWebSocketSync";
 import { getStreetlightTelemetry } from "../services/api";
 import { formatTableTimestamp } from "../utils/formatters";
+import { toneForHealth } from "../utils/poleState";
 import {
   buildAnalyticsReport,
   buildRawTelemetryCsv,
@@ -13,19 +17,41 @@ import {
   formatHourLabel,
   getPresetRange,
   inferTelemetryInterval,
+  normalizeTelemetryRows,
+  resolveTelemetryInterval,
 } from "./analytics.helpers";
+import { getOverviewPoleList } from "./overview.helpers";
 import "../styles/lightwise.css";
 import "../styles/analytics.css";
 
 const RANGE_STORAGE_KEY = "lightwise.analytics.range.v2";
 
 const RANGE_PRESETS = [
+  { id: "live", label: "Live" },
   { id: "7d", label: "7 days" },
   { id: "30d", label: "30 days" },
   { id: "quarter", label: "Quarter" },
   { id: "year", label: "Year" },
   { id: "custom", label: "Custom" },
 ];
+
+const AGGREGATION_OPTIONS = [
+  { id: "auto", label: "Auto" },
+  { id: "5s", label: "5 sec" },
+  { id: "10s", label: "10 sec" },
+  { id: "30s", label: "30 sec" },
+  { id: "1m", label: "1 min" },
+  { id: "5m", label: "5 min" },
+  { id: "10m", label: "10 min" },
+  { id: "15m", label: "15 min" },
+  { id: "30m", label: "30 min" },
+  { id: "1h", label: "1 hour" },
+  { id: "6h", label: "6 hours" },
+  { id: "12h", label: "12 hours" },
+  { id: "1d", label: "1 day" },
+];
+
+const LIVE_AGGREGATION_OPTIONS = [{ id: "auto", label: "Instant" }];
 
 const FAULT_FILTERS = [
   { id: "all", label: "All" },
@@ -39,37 +65,37 @@ const CHART_METRICS = {
     id: "energy",
     label: "Energy",
     title: "Energy Consumption",
-    description: "Actual network draw against the baseline lighting profile.",
+    description: "Selected pole draw against the baseline lighting profile.",
   },
   light_level: {
     id: "light_level",
     label: "Brightness",
     title: "Brightness Intensity",
-    description: "Average dimming output across reporting poles.",
+    description: "Average dimming output from returned telemetry.",
   },
   lux: {
     id: "lux",
     label: "Lux",
     title: "Lux",
-    description: "Average ambient light level reported by the network.",
+    description: "Average ambient light level from returned telemetry.",
   },
   temp_c: {
     id: "temp_c",
     label: "Temperature",
     title: "Temperature",
-    description: "Average reported fixture temperature across the network.",
+    description: "Average reported fixture temperature from returned telemetry.",
   },
   humidity: {
     id: "humidity",
     label: "Humidity",
     title: "Humidity",
-    description: "Average reported humidity across reporting poles.",
+    description: "Average reported humidity from returned telemetry.",
   },
   motion: {
     id: "motion",
     label: "Motion",
     title: "Motion Activity",
-    description: "Share of reporting poles detecting motion during each interval.",
+    description: "Share of returned samples where motion was detected.",
   },
 };
 
@@ -81,6 +107,15 @@ const CHART_METRIC_ORDER = [
   "humidity",
   "motion",
 ];
+
+const LIVE_RANGE_REFRESH_MS = 30000;
+const LIVE_POLL_MS = 5000;
+const LIVE_SNAPSHOT_SAMPLE_MS = 1000;
+const LIVE_WINDOW_MS = 60 * 1000;
+const LIVE_POLL_LOOKBACK_MS = LIVE_WINDOW_MS;
+const LIVE_REQUEST_INTERVAL = "5s";
+const LIVE_GRAPH_INTERVAL = "1s";
+const LIVE_MAX_ROWS_PER_POLE = 240;
 
 function readStoredRange() {
   const fallback = getPresetRange("30d");
@@ -96,7 +131,16 @@ function readStoredRange() {
       typeof parsed.to === "string" &&
       typeof parsed.preset === "string"
     ) {
-      return parsed;
+      const aggregation = AGGREGATION_OPTIONS.some(
+        (option) => option.id === parsed.aggregation
+      )
+        ? parsed.aggregation
+        : "auto";
+
+      return {
+        ...parsed,
+        aggregation,
+      };
     }
   } catch {}
 
@@ -104,7 +148,141 @@ function readStoredRange() {
     preset: "30d",
     from: fallback.from,
     to: fallback.to,
+    aggregation: "auto",
   };
+}
+
+function toNumberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function toBooleanOrNull(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value > 0;
+  if (typeof value === "string") {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === "true") return true;
+    if (lowered === "false") return false;
+    const number = Number(lowered);
+    if (Number.isFinite(number)) return number > 0;
+  }
+  return null;
+}
+
+function compactTelemetryRow(row) {
+  return Object.fromEntries(
+    Object.entries(row || {}).filter(([, value]) => value !== null && value !== undefined)
+  );
+}
+
+function liveRowFromPole(pole, { timestamp } = {}) {
+  const rowTimestamp = timestamp || pole?.last_seen;
+  if (!pole?.streetlight_id || !rowTimestamp) return null;
+
+  const row = compactTelemetryRow({
+    timestamp: rowTimestamp,
+    lux: toNumberOrNull(pole.lux),
+    temp_c: toNumberOrNull(pole.temp_c),
+    humidity: toNumberOrNull(pole.humidity),
+    motion: toBooleanOrNull(pole.motion_detected),
+    motion_detected: toBooleanOrNull(pole.motion_detected),
+    light_level: toNumberOrNull(pole.light_level),
+    health: pole.health || null,
+  });
+
+  return Object.keys(row).length > 2 ? row : null;
+}
+
+function pinRowToLiveRange(row, from, to) {
+  if (!row?.timestamp) return row;
+
+  const timestamp = new Date(row.timestamp).getTime();
+  const fromMs = new Date(from).getTime();
+  const toMs = new Date(to).getTime();
+
+  if (
+    Number.isFinite(timestamp) &&
+    Number.isFinite(fromMs) &&
+    Number.isFinite(toMs) &&
+    timestamp >= fromMs &&
+    timestamp <= toMs
+  ) {
+    return row;
+  }
+
+  return {
+    ...row,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function liveRowFromWsMessage(message) {
+  if (!message || typeof message !== "object" || !message.streetlight_id) return null;
+
+  const data = message.data || {};
+  const motion = toBooleanOrNull(data.motion_detected ?? data.motion);
+  const row = compactTelemetryRow({
+    timestamp: message.timestamp || new Date().toISOString(),
+    lux: toNumberOrNull(data.lux),
+    temp_c: toNumberOrNull(data.temp_c ?? data.temperature_c ?? data.temperature),
+    humidity: toNumberOrNull(data.humidity ?? data.humidity_pct ?? data.hum_pct),
+    motion,
+    motion_detected: motion,
+    light_level: toNumberOrNull(data.light_level ?? data.light_level_pct ?? data.light_pct),
+    health: message.health || data.health || null,
+  });
+
+  return Object.keys(row).length > 2 ? row : null;
+}
+
+function mergeTelemetryRows(...groups) {
+  const seen = new Set();
+  const rows = groups
+    .flatMap((group) => normalizeTelemetryRows(group))
+    .filter((row) => {
+      if (!row?.timestamp) return false;
+      const key = `${row.timestamp}:${row.lux ?? ""}:${row.temp_c ?? ""}:${row.humidity ?? ""}:${row.light_level ?? ""}:${row.motion ?? ""}:${row.health ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime());
+
+  return rows.slice(-LIVE_MAX_ROWS_PER_POLE);
+}
+
+function filterRowsForRange(rows, from, to) {
+  const fromMs = new Date(from).getTime();
+  const toMs = new Date(to).getTime();
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) return rows;
+
+  return rows.filter((row) => {
+    const time = new Date(row?.timestamp).getTime();
+    return Number.isFinite(time) && time >= fromMs && time <= toMs;
+  });
+}
+
+function buildLiveReportTelemetry(reportPoles, telemetryByPole, liveTelemetryByPole, from, to) {
+  return reportPoles.reduce((nextTelemetry, pole) => {
+    const poleId = pole?.streetlight_id;
+    if (!poleId) return nextTelemetry;
+
+    const snapshotRow = pinRowToLiveRange(liveRowFromPole(pole), from, to);
+    const rows = filterRowsForRange(
+      mergeTelemetryRows(
+        telemetryByPole[poleId],
+        liveTelemetryByPole[poleId] || []
+      ),
+      from,
+      to
+    );
+    const mergedRows = mergeTelemetryRows(rows, snapshotRow ? [snapshotRow] : []);
+
+    nextTelemetry[poleId] = { streetlight_id: poleId, data: mergedRows };
+    return nextTelemetry;
+  }, {});
 }
 
 function persistRange(nextState) {
@@ -117,12 +295,24 @@ function formatNumber(value) {
   return new Intl.NumberFormat().format(Number(value || 0));
 }
 
+function formatPoleCount(count) {
+  const value = Number(count || 0);
+  return `${formatNumber(value)} pole${value === 1 ? "" : "s"}`;
+}
+
 function formatEnergy(value) {
   if (value === null || value === undefined) return "--";
 
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return "--";
+
+  const absValue = Math.abs(numericValue);
+  const maximumFractionDigits =
+    absValue >= 100 ? 0 : absValue >= 1 ? 1 : absValue >= 0.01 ? 4 : 6;
+
   return `${new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: Number(value) >= 100 ? 0 : 1,
-  }).format(Number(value))} kWh`;
+    maximumFractionDigits,
+  }).format(numericValue)} kWh`;
 }
 
 function formatPercent(value) {
@@ -167,11 +357,19 @@ function compareValues(left, right, direction = "desc") {
   return String(left || "").localeCompare(String(right || "")) * factor;
 }
 
-function formatChartLabel(timestamp, condensed = false) {
+function formatChartLabel(timestamp, condensed = false, live = false) {
   if (!timestamp) return "";
 
   const date = new Date(timestamp);
   if (!Number.isFinite(date.getTime())) return String(timestamp);
+
+  if (live) {
+    return date.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
 
   return date.toLocaleString(
     undefined,
@@ -454,7 +652,7 @@ function buildEnergySummarySections(report, rangeLabel) {
             <strong>${escapeHtml(formatEnergy(report?.headline?.energySavedKwh))}</strong>
           </div>
           <div class="metric">
-            Estimated Uptime
+            Uptime
             <strong>${escapeHtml(formatPercent(report?.headline?.uptimePct))}</strong>
           </div>
           <div class="metric">
@@ -549,6 +747,21 @@ function DateTimeField({ label, value, onChange }) {
   );
 }
 
+function SelectField({ label, value, options, onChange }) {
+  return (
+    <label className="analyticsField analyticsSelectField">
+      <span>{label}</span>
+      <select value={value} onChange={onChange}>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function MetricCard({ icon, label, value, note, loading }) {
   return (
     <article className="analyticsMetricCard">
@@ -571,7 +784,41 @@ function MetricCard({ icon, label, value, note, loading }) {
   );
 }
 
-function TrendChart({ metricId, energySeries, metricSeries, loading }) {
+function AnalyticsPoleList({ poles, selectedId, onSelect }) {
+  return (
+    <Card className="analyticsSectionCard analyticsPoleListCard">
+      <SectionHeading
+        title="Pole List"
+        description="Analytics is scoped to the selected reporting pole."
+      />
+
+      <div className="analyticsPoleList">
+        {poles.map((pole) => {
+          const selected = pole.streetlight_id === selectedId;
+
+          return (
+            <button
+              key={pole.streetlight_id}
+              type="button"
+              className={`analyticsPoleListItem${selected ? " isSelected" : ""}`}
+              onClick={() => onSelect(pole.streetlight_id)}
+            >
+              <span>
+                <strong>{pole.streetlight_id}</strong>
+                <small>{pole.name || "Unnamed pole"}</small>
+              </span>
+              <span className={`analyticsPoleHealth ${toneForHealth(pole.health)}`}>
+                {pole.health || "Waiting"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = false }) {
   const meta = CHART_METRICS[metricId] || CHART_METRICS.energy;
   const width = 1180;
   const height = 360;
@@ -586,12 +833,13 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
 
   if (metricId === "energy") {
     const series = energySeries;
+    const latestPoint = series[series.length - 1] || null;
 
     if (!series.length) {
       return (
         <EmptyState
           title="No energy series available"
-          description="Telemetry is still sparse for this date range. Try a wider range or verify reporting is enabled on more poles."
+          description="No returned telemetry rows are available for this selected pole and range."
         />
       );
     }
@@ -602,10 +850,12 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
     const chartBottom = height - bottomPad;
     const chartWidth = chartRight - chartLeft;
     const chartHeight = chartBottom - chartTop;
-    const maxValue = Math.max(
-      1,
-      ...series.flatMap((point) => [point.actualKwh, point.baselineKwh])
+    const seriesMax = Math.max(
+      ...series.flatMap((point) => [point.actualKwh, point.baselineKwh]).map(Number)
     );
+    const maxValue = isLive
+      ? Math.max(0.0005, Number.isFinite(seriesMax) ? seriesMax * 1.2 : 0)
+      : Math.max(1, Number.isFinite(seriesMax) ? seriesMax : 0);
 
     const toX = (index) =>
       chartLeft + (index / Math.max(series.length - 1, 1)) * chartWidth;
@@ -650,6 +900,11 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
             <span className="analyticsLegendSwatch isBaseline" />
             Baseline
           </span>
+          {isLive && latestPoint ? (
+            <span className="analyticsLiveReadout">
+              Live actual {formatEnergy(latestPoint.actualKwh)}
+            </span>
+          ) : null}
         </div>
 
         <svg viewBox={`0 0 ${width} ${height}`} className="analyticsViz">
@@ -668,7 +923,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
                 textAnchor="end"
                 className="analyticsVizAxis"
               >
-                {Math.round(tick.value)}
+                {isLive ? formatEnergy(tick.value) : Math.round(tick.value)}
               </text>
             </g>
           ))}
@@ -688,7 +943,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
                 textAnchor="middle"
                 className="analyticsVizAxis"
               >
-                {formatChartLabel(series[tick]?.timestamp, series.length > 45)}
+                {formatChartLabel(series[tick]?.timestamp, series.length > 45, isLive)}
               </text>
             </g>
           ))}
@@ -716,12 +971,13 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
   }
 
   const series = metricSeries?.[metricId] || [];
+  const latestPoint = series[series.length - 1] || null;
 
   if (!series.length) {
     return (
       <EmptyState
         title={`No ${meta.label.toLowerCase()} series available`}
-        description="Telemetry is still sparse for this variable in the selected range. Try a wider range or wait for more reporting intervals."
+        description="No returned telemetry rows include this variable for the selected pole and range."
       />
     );
   }
@@ -797,6 +1053,11 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
           />
           {meta.label}
         </span>
+        {isLive && latestPoint ? (
+          <span className="analyticsLiveReadout">
+            Live {formatMetricValue(metricId, latestPoint.value)}
+          </span>
+        ) : null}
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} className="analyticsViz">
@@ -835,7 +1096,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading }) {
               textAnchor="middle"
               className="analyticsVizAxis"
             >
-              {formatChartLabel(series[tick]?.timestamp, series.length > 45)}
+              {formatChartLabel(series[tick]?.timestamp, series.length > 45, isLive)}
             </text>
           </g>
         ))}
@@ -916,7 +1177,7 @@ function MotionHeatmap({ poles, center, loading }) {
     return (
       <EmptyState
         title="No mapped motion activity yet"
-        description="Save pole coordinates and ingest telemetry to render activity intensity across the network."
+        description="No returned telemetry rows include motion samples and saved coordinates for this pole."
       />
     );
   }
@@ -982,13 +1243,31 @@ function MotionHeatmap({ poles, center, loading }) {
 }
 
 function AnalyticsSurface() {
-  const { streetlights } = useLightWise();
+  const { streetlights, lastMessage, wsStatus, env } = useLightWise();
   const storedRange = useMemo(() => readStoredRange(), []);
+  const {
+    availablePoles,
+    setSelectedId: setOverviewSelectedId,
+    setSnapshotMap,
+  } = useOverviewData({
+    streetlights,
+    tenantId: env?.TENANT_ID,
+  });
+
+  useWebSocketSync(lastMessage, setSnapshotMap);
+
+  const analyticsPoles = useMemo(
+    () => getOverviewPoleList(availablePoles),
+    [availablePoles]
+  );
 
   const [preset, setPreset] = useState(storedRange.preset);
   const [from, setFrom] = useState(storedRange.from);
   const [to, setTo] = useState(storedRange.to);
+  const [aggregation, setAggregation] = useState(storedRange.aggregation || "auto");
+  const [selectedPoleId, setSelectedPoleId] = useState("");
   const [telemetryByPole, setTelemetryByPole] = useState({});
+  const [liveTelemetryByPole, setLiveTelemetryByPole] = useState({});
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [failedPoles, setFailedPoles] = useState([]);
@@ -1001,11 +1280,53 @@ function AnalyticsSurface() {
   const [expandedZones, setExpandedZones] = useState([]);
   const [faultFilter, setFaultFilter] = useState("all");
   const [faultSearch, setFaultSearch] = useState("");
+  const [liveNowMs, setLiveNowMs] = useState(() => Date.now());
 
   const deferredFaultSearch = useDeferredValue(faultSearch);
-  const interval = useMemo(() => inferTelemetryInterval(from, to), [from, to]);
-  const rangeLabel = useMemo(() => buildReportDateLabel(from, to), [from, to]);
+  const isLiveRange = preset === "live";
+  const interval = useMemo(
+    () => {
+      if (isLiveRange) return LIVE_REQUEST_INTERVAL;
+      return aggregation === "auto"
+        ? inferTelemetryInterval(from, to)
+        : resolveTelemetryInterval(aggregation, from, to);
+    },
+    [aggregation, from, isLiveRange, to]
+  );
+  const graphInterval = isLiveRange ? LIVE_GRAPH_INTERVAL : interval;
+  const intervalLabel = isLiveRange ? "Instant" : interval;
+  const aggregationOptions = isLiveRange ? LIVE_AGGREGATION_OPTIONS : AGGREGATION_OPTIONS;
+  const aggregationValue = isLiveRange ? "auto" : aggregation;
+  const liveWindow = useMemo(
+    () => ({
+      from: new Date(liveNowMs - LIVE_WINDOW_MS).toISOString(),
+      to: new Date(liveNowMs).toISOString(),
+    }),
+    [liveNowMs]
+  );
+  const reportFrom = isLiveRange ? liveWindow.from : from;
+  const reportTo = isLiveRange ? liveWindow.to : to;
+  const rangeLabel = useMemo(
+    () => (isLiveRange ? "Live telemetry" : buildReportDateLabel(from, to)),
+    [from, isLiveRange, to]
+  );
   const selectedChartMeta = CHART_METRICS[selectedChartMetric] || CHART_METRICS.energy;
+  const selectedPole = useMemo(() => {
+    return (
+      analyticsPoles.find((pole) => pole.streetlight_id === selectedPoleId) ||
+      analyticsPoles[0] ||
+      null
+    );
+  }, [analyticsPoles, selectedPoleId]);
+  const selectedReportPoleId = selectedPole?.streetlight_id || "";
+  const reportPoles = useMemo(
+    () => (selectedPole ? [selectedPole] : []),
+    [selectedPole]
+  );
+  const { loading: latestTelemetryLoading } = useTelemetryLoader(
+    selectedReportPoleId,
+    setSnapshotMap
+  );
 
   const rangeError = useMemo(() => {
     const fromMs = new Date(from).getTime();
@@ -1023,11 +1344,152 @@ function AnalyticsSurface() {
   }, [from, to]);
 
   useEffect(() => {
-    persistRange({ preset, from, to });
-  }, [preset, from, to]);
+    persistRange({ preset, from, to, aggregation });
+  }, [aggregation, preset, from, to]);
 
   useEffect(() => {
-    if (!streetlights.length) {
+    if (selectedReportPoleId) {
+      setOverviewSelectedId(selectedReportPoleId);
+    }
+  }, [selectedReportPoleId, setOverviewSelectedId]);
+
+  useEffect(() => {
+    if (!isLiveRange) return undefined;
+
+    setLiveNowMs(Date.now());
+    const timer = window.setInterval(() => setLiveNowMs(Date.now()), LIVE_SNAPSHOT_SAMPLE_MS);
+    return () => window.clearInterval(timer);
+  }, [isLiveRange]);
+
+  useEffect(() => {
+    if (!isLiveRange) return undefined;
+
+    function syncLiveRange() {
+      const nextRange = getPresetRange("live");
+      setFrom(nextRange.from);
+      setTo(nextRange.to);
+    }
+
+    syncLiveRange();
+    const timer = window.setInterval(syncLiveRange, LIVE_RANGE_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [isLiveRange]);
+
+  useEffect(() => {
+    if (!isLiveRange || !selectedReportPoleId || rangeError) return undefined;
+
+    let active = true;
+    let inFlight = false;
+
+    async function pollLiveTelemetry() {
+      if (inFlight) return;
+      inFlight = true;
+
+      const toIso = new Date().toISOString();
+      const fromIso = new Date(Date.now() - LIVE_POLL_LOOKBACK_MS).toISOString();
+
+      try {
+        const result = await getStreetlightTelemetry(selectedReportPoleId, {
+          from: fromIso,
+          to: toIso,
+          interval: LIVE_REQUEST_INTERVAL,
+          allowMockFallback: false,
+        });
+        const rows = normalizeTelemetryRows(result);
+
+        if (!active || !rows.length) return;
+
+        setLiveTelemetryByPole((current) => ({
+          ...current,
+          [selectedReportPoleId]: mergeTelemetryRows(
+            current[selectedReportPoleId] || [],
+            rows
+          ),
+        }));
+        setLastLoadedAt(rows[rows.length - 1]?.timestamp || toIso);
+      } catch {
+        // Live polling is opportunistic; the existing range loader handles errors.
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    pollLiveTelemetry();
+    const timer = window.setInterval(pollLiveTelemetry, LIVE_POLL_MS);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [isLiveRange, rangeError, selectedReportPoleId]);
+
+  useEffect(() => {
+    const poleId = String(lastMessage?.streetlight_id || "").trim();
+    if (!poleId) return;
+
+    const row = liveRowFromWsMessage(lastMessage);
+    if (!row) return;
+
+    if (isLiveRange) setLiveNowMs(Date.now());
+
+    setLiveTelemetryByPole((current) => ({
+      ...current,
+      [poleId]: mergeTelemetryRows(current[poleId] || [], [row]),
+    }));
+    setLastLoadedAt(row.timestamp || new Date().toISOString());
+  }, [isLiveRange, lastMessage]);
+
+  useEffect(() => {
+    if (!isLiveRange || !selectedPole) return;
+
+    const row = liveRowFromPole(selectedPole);
+    if (!row) return;
+
+    setLiveTelemetryByPole((current) => ({
+      ...current,
+      [selectedPole.streetlight_id]: mergeTelemetryRows(
+        current[selectedPole.streetlight_id] || [],
+        [row]
+      ),
+    }));
+  }, [isLiveRange, selectedPole]);
+
+  useEffect(() => {
+    if (!isLiveRange || !selectedPole) return undefined;
+
+    function sampleLatestPoleSnapshot() {
+      const row = liveRowFromPole(selectedPole, {
+        timestamp: new Date().toISOString(),
+      });
+      if (!row) return;
+
+      setLiveTelemetryByPole((current) => ({
+        ...current,
+        [selectedPole.streetlight_id]: mergeTelemetryRows(
+          current[selectedPole.streetlight_id] || [],
+          [row]
+        ),
+      }));
+    }
+
+    sampleLatestPoleSnapshot();
+    const timer = window.setInterval(sampleLatestPoleSnapshot, LIVE_SNAPSHOT_SAMPLE_MS);
+    return () => window.clearInterval(timer);
+  }, [isLiveRange, selectedPole]);
+
+  useEffect(() => {
+    if (!analyticsPoles.length) {
+      if (selectedPoleId) setSelectedPoleId("");
+      return;
+    }
+
+    if (!analyticsPoles.some((pole) => pole.streetlight_id === selectedPoleId)) {
+      setSelectedPoleId(analyticsPoles[0]?.streetlight_id || "");
+    }
+  }, [analyticsPoles, selectedPoleId]);
+
+  useEffect(() => {
+    if (!selectedReportPoleId) {
       setTelemetryByPole({});
       setFailedPoles([]);
       setLoading(false);
@@ -1047,13 +1509,14 @@ function AnalyticsSurface() {
       setLoadError("");
       setFailedPoles([]);
 
-      const poles = streetlights.map((pole) => pole?.streetlight_id).filter(Boolean);
+      const poles = [selectedReportPoleId];
       const results = await Promise.allSettled(
         poles.map((poleId) =>
           getStreetlightTelemetry(poleId, {
             from,
             to,
             interval,
+            allowMockFallback: false,
           })
         )
       );
@@ -1079,6 +1542,11 @@ function AnalyticsSurface() {
       setLoading(false);
 
       if (failures.length === poles.length) {
+        if (isLiveRange) {
+          setLoadError("");
+          return;
+        }
+
         setLoadError("Analytics data could not be loaded for the selected date range.");
         return;
       }
@@ -1092,17 +1560,36 @@ function AnalyticsSurface() {
     return () => {
       active = false;
     };
-  }, [from, interval, rangeError, streetlights, to]);
+  }, [from, interval, isLiveRange, rangeError, selectedReportPoleId, to]);
+
+  const reportTelemetryByPole = useMemo(() => {
+    if (!isLiveRange) return telemetryByPole;
+    return buildLiveReportTelemetry(
+      reportPoles,
+      telemetryByPole,
+      liveTelemetryByPole,
+      reportFrom,
+      reportTo
+    );
+  }, [
+    isLiveRange,
+    liveTelemetryByPole,
+    reportFrom,
+    reportPoles,
+    reportTo,
+    telemetryByPole,
+  ]);
 
   const report = useMemo(
     () =>
-      buildAnalyticsReport(streetlights, telemetryByPole, {
-        from,
-        to,
-        interval,
+      buildAnalyticsReport(reportPoles, reportTelemetryByPole, {
+        from: reportFrom,
+        to: reportTo,
+        interval: graphInterval,
       }),
-    [from, interval, streetlights, telemetryByPole, to]
+    [graphInterval, reportFrom, reportPoles, reportTelemetryByPole, reportTo]
   );
+  const hasTelemetryRows = report.summary.telemetryRows > 0;
 
   useEffect(() => {
     const zoneNames = report.zones.map((zone) => zone.zone);
@@ -1150,7 +1637,9 @@ function AnalyticsSurface() {
   }, [deferredFaultSearch, faultFilter, report.faults]);
 
   const showInitialSkeleton =
-    loading && report.rawTelemetryRows.length === 0 && streetlights.length > 0;
+    (loading || latestTelemetryLoading) &&
+    report.rawTelemetryRows.length === 0 &&
+    analyticsPoles.length > 0;
 
   function applyPreset(nextPreset) {
     setPreset(nextPreset);
@@ -1211,7 +1700,7 @@ function AnalyticsSurface() {
   function exportFullPdf() {
     openPrintableReport(
       "LightWise Analytics Report",
-      `${rangeLabel} • ${report.summary.totalPoles} poles • Interval ${interval}`,
+      `${rangeLabel} • ${formatPoleCount(report.summary.totalPoles)} • Interval ${intervalLabel}`,
       buildFullReportSections(report, rangeLabel)
     );
   }
@@ -1219,7 +1708,7 @@ function AnalyticsSurface() {
   function exportEnergyPdf() {
     openPrintableReport(
       "LightWise Energy Summary",
-      `${rangeLabel} • Estimated network energy performance`,
+      `${rangeLabel} • Selected pole energy from returned telemetry`,
       buildEnergySummarySections(report, rangeLabel)
     );
   }
@@ -1242,8 +1731,14 @@ function AnalyticsSurface() {
           </div>
           <div className="analyticsHeroBadge">
             <UiIcon name="radio" size={16} />
-            <span>{report.summary.totalPoles} poles</span>
+            <span>{formatPoleCount(report.summary.totalPoles)}</span>
           </div>
+          {isLiveRange ? (
+            <div className="analyticsHeroBadge">
+              <UiIcon name="activity" size={16} />
+              <span>WebSocket {wsStatus || "idle"}</span>
+            </div>
+          ) : null}
           {lastLoadedAt ? (
             <div className="analyticsHeroBadge">
               <UiIcon name="save" size={16} />
@@ -1278,9 +1773,15 @@ function AnalyticsSurface() {
             value={to}
             onChange={(event) => handleCustomDateChange("to", event.target.value)}
           />
+          <SelectField
+            label="Aggregation"
+            value={aggregationValue}
+            options={aggregationOptions}
+            onChange={(event) => setAggregation(event.target.value)}
+          />
           <div className="analyticsRangeMeta">
-            <span className="analyticsRangeMetaLabel">Aggregation</span>
-            <strong>{interval}</strong>
+            <span className="analyticsRangeMetaLabel">Using</span>
+            <strong>{intervalLabel}</strong>
           </div>
         </div>
       </section>
@@ -1294,7 +1795,7 @@ function AnalyticsSurface() {
         </div>
       ) : null}
 
-      {!streetlights.length ? (
+      {!analyticsPoles.length ? (
         <Card>
           <EmptyState
             title="No network inventory is available"
@@ -1303,26 +1804,46 @@ function AnalyticsSurface() {
         </Card>
       ) : (
         <>
+          <AnalyticsPoleList
+            poles={analyticsPoles}
+            selectedId={selectedPole?.streetlight_id || ""}
+            onSelect={setSelectedPoleId}
+          />
+
           <section className="analyticsMetricGrid">
             <MetricCard
               icon="bolt"
               label="Energy Saved"
               value={formatEnergy(report.headline.energySavedKwh)}
-              note="Estimated against the baseline profile for the selected range."
+              note={
+                hasTelemetryRows
+                  ? "Calculated from returned telemetry samples for the selected pole."
+                  : "No live energy telemetry loaded for this range."
+              }
               loading={showInitialSkeleton}
             />
             <MetricCard
               icon="radio"
               label="Uptime"
               value={formatPercent(report.headline.uptimePct)}
-              note="Share of healthy reporting intervals across the network."
+              note={
+                hasTelemetryRows
+                  ? "Share of healthy telemetry intervals for the selected pole."
+                  : "No live health telemetry loaded for this range."
+              }
               loading={showInitialSkeleton}
             />
             <MetricCard
               icon="alert"
               label="Faults Resolved"
-              value={formatNumber(report.headline.faultsResolved)}
-              note={`${formatNumber(report.headline.activeFaults)} active issues remain in view.`}
+              value={
+                hasTelemetryRows ? formatNumber(report.headline.faultsResolved) : "--"
+              }
+              note={
+                hasTelemetryRows
+                  ? `${formatNumber(report.headline.activeFaults)} active issues remain in telemetry.`
+                  : "No live fault telemetry loaded for this range."
+              }
               loading={showInitialSkeleton}
             />
           </section>
@@ -1354,6 +1875,7 @@ function AnalyticsSurface() {
               energySeries={report.energySeries}
               metricSeries={report.metricSeries}
               loading={showInitialSkeleton}
+              isLive={isLiveRange}
             />
           </Card>
 
@@ -1361,7 +1883,7 @@ function AnalyticsSurface() {
             <Card className="analyticsSectionCard">
               <SectionHeading
                 title="Zone Breakdown"
-                description="Sortable district rollup with expandable pole details."
+                description="Sortable rollup built only from returned telemetry samples."
                 actions={
                   <button
                     type="button"
@@ -1379,7 +1901,7 @@ function AnalyticsSurface() {
               ) : !sortedZones.length ? (
                 <EmptyState
                   title="No zone totals available"
-                  description="Once telemetry and coordinates are available, district rollups will appear here."
+                  description="Zone totals will appear once live samples are available for this pole."
                 />
               ) : (
                 <div className="analyticsTableWrap">
@@ -1483,7 +2005,7 @@ function AnalyticsSurface() {
             <Card className="analyticsSectionCard">
               <SectionHeading
                 title="Fault History"
-                description="Searchable event log with recurring issue highlighting."
+                description="Searchable event log built only from returned telemetry health samples."
               />
 
               <div className="analyticsFaultToolbar">
@@ -1513,8 +2035,8 @@ function AnalyticsSurface() {
                 <SkeletonBlock className="analyticsLogSkeleton" />
               ) : !filteredFaults.length ? (
                 <EmptyState
-                  title="No matching fault events"
-                  description="Try a different filter or widen the report range to surface more maintenance history."
+                  title="No live fault events"
+                  description="No returned telemetry health samples produced a fault event for this pole and range."
                 />
               ) : (
                 <div className="analyticsFaultList" role="list">
@@ -1556,7 +2078,7 @@ function AnalyticsSurface() {
             <Card className="analyticsSectionCard">
               <SectionHeading
                 title="Motion Heatmap"
-                description="Activity intensity mapped from average motion detections by pole."
+                description="Activity intensity mapped only from live motion telemetry."
               />
 
               <MotionHeatmap
@@ -1569,7 +2091,7 @@ function AnalyticsSurface() {
             <Card className="analyticsSectionCard">
               <SectionHeading
                 title="Motion by Hour"
-                description="Average pedestrian activity across the 24-hour day."
+                description="Average motion activity from returned telemetry samples."
               />
 
               <MotionByHourChart
@@ -1590,14 +2112,14 @@ function AnalyticsSurface() {
                 type="button"
                 className="analyticsExportButton"
                 onClick={exportFullPdf}
-                disabled={!report.summary.totalPoles}
+                disabled={!report.rawTelemetryRows.length}
               >
                 <span className="analyticsExportIcon">
                   <UiIcon name="save" size={18} />
                 </span>
                 <span>
                   <strong>Full PDF report</strong>
-                  <small>Print-friendly summary with metrics, zones, faults, and hourly motion.</small>
+                  <small>Print-friendly summary of loaded telemetry metrics.</small>
                 </span>
               </button>
 
@@ -1627,7 +2149,7 @@ function AnalyticsSurface() {
                 </span>
                 <span>
                   <strong>Energy summary PDF</strong>
-                  <small>Compact energy-focused packet for savings and baseline comparisons.</small>
+                  <small>Compact energy-focused packet built from loaded telemetry.</small>
                 </span>
               </button>
             </div>

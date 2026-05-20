@@ -3,7 +3,7 @@
 
 #include "hal/alspt19.h"
 #include "hal/c4001.h"
-#include "hal/dht11.h"
+#include "hal/aht20.h"
 #include "hal/led.h"
 #include "hal/lwnode.h"
 
@@ -16,7 +16,7 @@ namespace hal
     extern AlsPt19Hw alspt19Secondary;
     extern C4001Hw c4001Primary;
     extern C4001Hw c4001Secondary;
-    extern Dht11Hw dht11Primary;
+    extern Aht20Hw aht20Primary;
     extern LedHw led;
     extern LwnodeHw lwnodePrimary;
 

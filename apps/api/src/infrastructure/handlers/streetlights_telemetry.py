@@ -33,6 +33,11 @@ def handler(event: dict, context: object) -> dict:
     except AuthError:
         return error(401, "Unauthorized")
 
+    logger.info("telemetry query", extra={
+        "tenant_id": tenant_id,
+        "streetlight_id": (event.get("pathParameters") or {}).get("id"),
+    })
+
     streetlight_id = (event.get("pathParameters") or {}).get("id")
     if not streetlight_id:
         return error(400, "streetlight_id is required")

@@ -167,6 +167,7 @@ function parseIntervalMs(interval) {
   const number = Number.parseFloat(text);
   if (!Number.isFinite(number) || number <= 0) return 60 * 60 * 1000;
 
+  if (text.endsWith("s")) return number * 1000;
   if (text.endsWith("m")) return number * 60 * 1000;
   if (text.endsWith("h")) return number * 60 * 60 * 1000;
   if (text.endsWith("d")) return number * 24 * 60 * 60 * 1000;
@@ -335,4 +336,53 @@ export function mockGetTelemetry(id, from, to, interval = "1h") {
 
 export function mockUpdateMetadata(id, body) {
   return { message: "updated (mock)", streetlight_id: id, metadata: body };
+}
+
+export function mockListUsers() {
+  return [
+    {
+      user_id: MOCK_PROFILE.sub,
+      name: MOCK_PROFILE.name,
+      email: MOCK_PROFILE.email,
+      role: MOCK_PROFILE.role,
+      tenant_id: MOCK_PROFILE.tenant_id,
+      created_at: "2026-02-01T18:22:00Z",
+    },
+  ];
+}
+
+export function mockInviteUser(body = {}) {
+  const email = String(body.email || "").trim();
+  const name = String(body.name || "").trim() || email.split("@")[0] || "Invited user";
+
+  return {
+    user_id: `mock-user-${hashString(email || name)}`,
+    name,
+    email,
+    role: body.role === "admin" ? "admin" : "operator",
+    tenant_id: MOCK_PROFILE.tenant_id,
+    created_at: new Date().toISOString(),
+  };
+}
+
+export function mockRemoveUser(userId) {
+  return { message: "User removed (mock)", user_id: userId };
+}
+
+export function mockSendStreetlightCommand(id, body = {}) {
+  return {
+    command_id: `cmd-mock-${Date.now().toString(36)}`,
+    streetlight_id: id,
+    command: body.command,
+    params: body.params || {},
+    status: "pending",
+    dispatched_at: new Date().toISOString(),
+  };
+}
+
+export function mockGetStreetlightCommands(id) {
+  return {
+    streetlight_id: id,
+    commands: [],
+  };
 }

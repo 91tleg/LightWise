@@ -28,7 +28,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - uses: aws-actions/setup-sam@v2
+      - uses: aws-actions/setup-sam@v3
 
       - name: Build
         run: sam build
@@ -43,6 +43,7 @@ jobs:
             --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
             --parameter-overrides \
               Env=prod \
+              AuthEnabled=true \
               InfluxUrl=${{ secrets.INFLUX_URL }} \
               InfluxToken=${{ secrets.INFLUX_TOKEN }} \
               InfluxOrg=${{ secrets.INFLUX_ORG }}

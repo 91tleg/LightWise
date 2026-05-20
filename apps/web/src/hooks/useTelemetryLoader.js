@@ -6,25 +6,32 @@ import {
   snapshotFromTelemetryRow,
 } from "../utils/poleState";
 
-export function useTelemetryLoader(selectedPoleId, setSnapshotMap) {
+const DEFAULT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
+export function useTelemetryLoader(
+  selectedPoleId,
+  setSnapshotMap,
+  { refreshMs = 0, lookbackMs = DEFAULT_LOOKBACK_MS, interval = "5m" } = {}
+) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
+    let refreshTimer = null;
 
-    async function loadTelemetry() {
+    async function loadTelemetry({ showLoading = true } = {}) {
       if (!selectedPoleId) {
         setLoading(false);
         setError(null);
         return;
       }
 
-      setLoading(true);
+      if (showLoading) setLoading(true);
       setError(null);
 
       const to = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-      const from = new Date(Date.now() - 24 * 60 * 60 * 1000)
+      const from = new Date(Date.now() - lookbackMs)
         .toISOString()
         .replace(/\.\d{3}Z$/, "Z");
 
@@ -32,7 +39,7 @@ export function useTelemetryLoader(selectedPoleId, setSnapshotMap) {
         const points = await getStreetlightTelemetry(selectedPoleId, {
           from,
           to,
-          interval: "5m",
+          interval,
         });
 
         if (cancelled) return;
@@ -58,11 +65,18 @@ export function useTelemetryLoader(selectedPoleId, setSnapshotMap) {
     }
 
     loadTelemetry();
+    if (refreshMs > 0) {
+      refreshTimer = window.setInterval(
+        () => loadTelemetry({ showLoading: false }),
+        refreshMs
+      );
+    }
 
     return () => {
       cancelled = true;
+      if (refreshTimer) window.clearInterval(refreshTimer);
     };
-  }, [selectedPoleId, setSnapshotMap]);
+  }, [interval, lookbackMs, refreshMs, selectedPoleId, setSnapshotMap]);
 
   return { loading, error };
 }

@@ -1,21 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLightWise } from "../hooks/useLightWise";
 import AuthScreen from "../components/AuthScreen";
-import { getOperatorProfile } from "../services/api";
-import { waitForIdToken, redirectToSignIn, redirectToSignOut } from "../services/auth";
+import { redirectToSignIn, redirectToSignOut } from "../services/auth";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const { setOperator } = useLightWise();
+  const { completeAuthentication } = useLightWise();
   const [error, setError] = useState(null);
+  const didStartRef = useRef(false);
 
   useEffect(() => {
+    if (didStartRef.current) return;
+    didStartRef.current = true;
+
     async function handleCallback() {
       try {
-        const token = await waitForIdToken();
-        const profile = await getOperatorProfile(token);
-        setOperator(profile);
+        const profile = await completeAuthentication();
+        if (!profile) throw new Error("Unable to load operator profile");
         navigate("/overview", { replace: true });
       } catch (err) {
         console.error("AuthCallback failed:", err?.message, err?.status, err);
@@ -24,17 +26,18 @@ export default function AuthCallback() {
     }
 
     handleCallback();
-  }, [navigate, setOperator]);
+  }, [completeAuthentication, navigate]);
 
   if (error) {
     return (
       <AuthScreen
         title="Sign-in failed"
-        subtitle={error}
-        action={{ label: "Try again", onClick: async () => {
+        message={error}
+        actionLabel="Try again"
+        onAction={async () => {
           try { await redirectToSignOut(); } catch {}
           await redirectToSignIn();
-        }}}
+        }}
       />
     );
   }

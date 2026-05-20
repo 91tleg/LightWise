@@ -13,6 +13,25 @@ const DEFAULT_CENTER = {
 const FIXTURE_KWH_PER_HOUR = 0.16;
 const DAYLIGHT_LUX_THRESHOLD = 180;
 const DEFAULT_LIGHT_LEVEL = 68;
+const LIVE_RANGE_MS = 60 * 1000;
+const TELEMETRY_INTERVALS = new Set([
+  "5s", "10s", "30s",
+  "1m", "5m", "10m", "15m", "30m",
+  "1h", "6h", "12h",
+  "1d", "7d", "30d",
+]);
+const INTERVAL_UNIT_SECONDS = {
+  s: 1,
+  m: 60,
+  h: 60 * 60,
+  d: 24 * 60 * 60,
+};
+const INTERVAL_COERCION_RULES = [
+  [30 * 24 * 60 * 60, "1d"],
+  [7 * 24 * 60 * 60, "1h"],
+  [24 * 60 * 60, "5m"],
+  [6 * 60 * 60, "1m"],
+];
 
 function roundWhole(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -26,12 +45,24 @@ function roundOneDecimal(value) {
   return roundValue(value, 1);
 }
 
+function roundEnergyValue(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+
+  const abs = Math.abs(num);
+  if (abs >= 1) return roundValue(num, 2) ?? 0;
+  if (abs >= 0.01) return roundValue(num, 4) ?? 0;
+  return roundValue(num, 6) ?? 0;
+}
+
 function toBoolean(value) {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
-    const lowered = value.toLowerCase();
+    const lowered = value.trim().toLowerCase();
     if (lowered === "true") return true;
     if (lowered === "false") return false;
+    const numeric = Number(lowered);
+    if (Number.isFinite(numeric)) return numeric > 0;
   }
   if (typeof value === "number") return value > 0;
   return null;
@@ -66,25 +97,19 @@ function clamp(value, min, max) {
 }
 
 function intervalToHours(interval) {
+  const seconds = parseIntervalSeconds(interval);
+  return seconds !== null ? seconds / (60 * 60) : 1;
+}
+
+function parseIntervalSeconds(interval) {
   const value = String(interval || "").trim();
-  if (!value) return 1;
+  const match = value.match(/^(\d+(?:\.\d+)?)([smhd])$/);
+  if (!match) return null;
 
-  if (value.endsWith("m")) {
-    const minutes = Number.parseFloat(value.slice(0, -1));
-    return Number.isFinite(minutes) ? minutes / 60 : 1;
-  }
-
-  if (value.endsWith("h")) {
-    const hours = Number.parseFloat(value.slice(0, -1));
-    return Number.isFinite(hours) ? hours : 1;
-  }
-
-  if (value.endsWith("d")) {
-    const days = Number.parseFloat(value.slice(0, -1));
-    return Number.isFinite(days) ? days * 24 : 24;
-  }
-
-  return 1;
+  const amount = Number.parseFloat(match[1]);
+  const multiplier = INTERVAL_UNIT_SECONDS[match[2]];
+  if (!Number.isFinite(amount) || !multiplier) return null;
+  return amount * multiplier;
 }
 
 function escapeCsvValue(value) {
@@ -154,6 +179,14 @@ export function deriveZoneLabel(pole, center = DEFAULT_CENTER) {
   return `${northSouth} ${eastWest}`;
 }
 
+function getSinglePoleZoneLabel(pole) {
+  const name = String(pole?.name || "").trim();
+  if (name) return name;
+
+  const id = String(pole?.streetlight_id || "").trim();
+  return id || "Unassigned";
+}
+
 function getLightingDemandFactor(row) {
   const lux = safeNum(row?.lux);
   if (lux !== null) {
@@ -177,24 +210,9 @@ function estimateEnergyForRow(row, intervalHours) {
   const actualKwh = baselineKwh * outputFactor;
 
   return {
-    baselineKwh: roundValue(baselineKwh, 3) ?? 0,
-    actualKwh: roundValue(actualKwh, 3) ?? 0,
-    savedKwh: roundValue(Math.max(0, baselineKwh - actualKwh), 3) ?? 0,
-  };
-}
-
-function buildSnapshotRowFromPole(pole) {
-  const timestamp = pole?.last_seen || null;
-  if (!timestamp) return null;
-
-  return {
-    timestamp,
-    lux: roundWhole(pole?.lux),
-    temp_c: roundOneDecimal(pole?.temp_c),
-    humidity: roundOneDecimal(pole?.humidity),
-    motion: toBoolean(pole?.motion_detected),
-    light_level: roundWhole(pole?.light_level),
-    health: pole?.health || "UNKNOWN",
+    baselineKwh: roundEnergyValue(baselineKwh),
+    actualKwh: roundEnergyValue(actualKwh),
+    savedKwh: roundEnergyValue(Math.max(0, baselineKwh - actualKwh)),
   };
 }
 
@@ -216,9 +234,9 @@ function buildFaultTimelineForPole(pole, rows = []) {
 
   rows.forEach((row) => {
     const health = row?.health ? normalizeHealth(row.health) : null;
-    const timestamp = row?.timestamp || pole?.last_seen || new Date().toISOString();
+    const timestamp = row?.timestamp;
 
-    if (!health || health === "UNKNOWN") {
+    if (!timestamp || !health || health === "UNKNOWN") {
       return;
     }
 
@@ -267,21 +285,6 @@ function buildFaultTimelineForPole(pole, rows = []) {
       openFault = null;
     }
   });
-
-  const snapshotHealth = normalizeHealth(pole?.health);
-  if (isFaultHealth(snapshotHealth) && openFault !== snapshotHealth) {
-    events.push({
-      poleId: pole?.streetlight_id || "",
-      poleName: pole?.name || pole?.streetlight_id || "Unnamed pole",
-      zone: rows[rows.length - 1]?.zone || "Unassigned",
-      timestamp: pole?.last_seen || rows[rows.length - 1]?.timestamp || new Date().toISOString(),
-      health: snapshotHealth,
-      type: getHealthLabel(snapshotHealth),
-      status: "active",
-      recurring: false,
-    });
-    openFault = snapshotHealth;
-  }
 
   return {
     events,
@@ -340,25 +343,17 @@ function buildPoleSummary(pole, rows, intervalHours, zone) {
     zone,
     lat: getValidCoord(pole?.lat),
     lng: getValidCoord(pole?.lng),
-    lastSeen: pole?.last_seen || enrichedRows[enrichedRows.length - 1]?.timestamp || null,
+    lastSeen: enrichedRows[enrichedRows.length - 1]?.timestamp || null,
     actualEnergyKwh: roundValue(sum(enrichedRows.map((row) => row.actualKwh)), 2) ?? 0,
     baselineEnergyKwh: roundValue(sum(enrichedRows.map((row) => row.baselineKwh)), 2) ?? 0,
     energySavedKwh: roundValue(sum(enrichedRows.map((row) => row.savedKwh)), 2) ?? 0,
     uptimePct:
       healthRows.length > 0
         ? roundValue((healthyRows.length / healthRows.length) * 100, 1)
-        : isHealthyHealth(normalizeHealth(pole?.health))
-        ? 100
-        : isFaultHealth(normalizeHealth(pole?.health))
-        ? 0
         : null,
     motionRatePct:
       motionRows.length > 0
         ? roundValue((motionHits / motionRows.length) * 100, 1)
-        : typeof pole?.motion_detected === "boolean"
-        ? pole.motion_detected
-          ? 100
-          : 0
         : null,
     activeFaults: faultTimeline.activeCount,
     faultsResolved: faultTimeline.resolvedCount,
@@ -453,9 +448,9 @@ function buildEnergySeries(poleSummaries = []) {
     .map((point) => ({
       timestamp: point.timestamp,
       timestampValue: point.timestampValue,
-      actualKwh: roundValue(point.actualKwh, 2) ?? 0,
-      baselineKwh: roundValue(point.baselineKwh, 2) ?? 0,
-      savedKwh: roundValue(Math.max(0, point.baselineKwh - point.actualKwh), 2) ?? 0,
+      actualKwh: roundEnergyValue(point.actualKwh),
+      baselineKwh: roundEnergyValue(point.baselineKwh),
+      savedKwh: roundEnergyValue(Math.max(0, point.baselineKwh - point.actualKwh)),
     }));
 }
 
@@ -617,6 +612,7 @@ export function getPresetRange(preset, nowValue = new Date()) {
   const now = new Date(nowValue);
   const from = new Date(now);
 
+  if (preset === "live") from.setTime(now.getTime() - LIVE_RANGE_MS);
   if (preset === "7d") from.setDate(now.getDate() - 7);
   if (preset === "30d") from.setDate(now.getDate() - 30);
   if (preset === "quarter") from.setMonth(now.getMonth() - 3);
@@ -638,6 +634,35 @@ export function inferTelemetryInterval(from, to) {
   if (daySpan <= 45) return "1h";
   if (daySpan <= 180) return "6h";
   return "1d";
+}
+
+export function resolveTelemetryInterval(requested, from, to) {
+  const requestedInterval = TELEMETRY_INTERVALS.has(requested)
+    ? requested
+    : inferTelemetryInterval(from, to);
+  const requestedSeconds = parseIntervalSeconds(requestedInterval);
+  const fromMs = parseTimestamp(from);
+  const toMs = parseTimestamp(to);
+
+  if (requestedSeconds === null || fromMs === null || toMs === null || toMs <= fromMs) {
+    return requestedInterval;
+  }
+
+  const windowSeconds = (toMs - fromMs) / 1000;
+  const rule = INTERVAL_COERCION_RULES.find(([thresholdSeconds]) => {
+    return windowSeconds >= thresholdSeconds;
+  });
+
+  if (!rule) return requestedInterval;
+
+  const minimumInterval = rule[1];
+  const minimumSeconds = parseIntervalSeconds(minimumInterval);
+
+  if (minimumSeconds !== null && requestedSeconds < minimumSeconds) {
+    return minimumInterval;
+  }
+
+  return requestedInterval;
 }
 
 export function buildReportDateLabel(from, to) {
@@ -668,20 +693,23 @@ export function buildAnalyticsReport(streetlights = [], telemetryByPole = {}, op
   const poles = Array.isArray(streetlights) ? streetlights : [];
   const center = getNetworkCenter(poles);
   const intervalHours = intervalToHours(options.interval || inferTelemetryInterval(options.from, options.to));
+  const usePoleNameAsZone = poles.length === 1;
 
   const poleSummaries = poles.map((pole) => {
     const rawRows = sortTelemetryRows(normalizeTelemetryRows(telemetryByPole[pole?.streetlight_id]));
-    const rows = rawRows.length ? rawRows : [buildSnapshotRowFromPole(pole)].filter(Boolean);
-    const zone = deriveZoneLabel(pole, center);
-    return buildPoleSummary(pole, rows, intervalHours, zone);
+    const zone = usePoleNameAsZone ? getSinglePoleZoneLabel(pole) : deriveZoneLabel(pole, center);
+    return buildPoleSummary(pole, rawRows, intervalHours, zone);
   });
+  const reportingPoleSummaries = poleSummaries.filter(
+    (pole) => pole.totalTelemetryRows > 0
+  );
 
-  const zones = groupZones(poleSummaries);
-  const energySeries = buildEnergySeries(poleSummaries);
-  const metricSeries = buildNetworkMetricSeries(poleSummaries);
-  const hourlyMotion = buildHourlyMotion(poleSummaries);
+  const zones = groupZones(reportingPoleSummaries);
+  const energySeries = buildEnergySeries(reportingPoleSummaries);
+  const metricSeries = buildNetworkMetricSeries(reportingPoleSummaries);
+  const hourlyMotion = buildHourlyMotion(reportingPoleSummaries);
   const faults = markRecurringFaults(
-    poleSummaries.flatMap((pole) => pole.faults).sort((left, right) => {
+    reportingPoleSummaries.flatMap((pole) => pole.faults).sort((left, right) => {
       const leftTs = parseTimestamp(left?.timestamp) ?? 0;
       const rightTs = parseTimestamp(right?.timestamp) ?? 0;
       return rightTs - leftTs;
@@ -692,9 +720,10 @@ export function buildAnalyticsReport(streetlights = [], telemetryByPole = {}, op
     .flatMap((pole) => pole.rows)
     .sort((left, right) => (right.timestampValue ?? 0) - (left.timestampValue ?? 0));
 
-  const healthSamples = sum(poleSummaries.map((pole) => pole.healthSamples));
+  const hasTelemetry = rawTelemetryRows.length > 0;
+  const healthSamples = sum(reportingPoleSummaries.map((pole) => pole.healthSamples));
   const healthyWeightedTotal = sum(
-    poleSummaries.map((pole) =>
+    reportingPoleSummaries.map((pole) =>
       pole.uptimePct !== null ? (pole.uptimePct / 100) * Math.max(pole.healthSamples, 1) : 0
     )
   );
@@ -702,27 +731,31 @@ export function buildAnalyticsReport(streetlights = [], telemetryByPole = {}, op
   return {
     center,
     headline: {
-      energySavedKwh: roundValue(sum(poleSummaries.map((pole) => pole.energySavedKwh)), 1) ?? 0,
+      energySavedKwh: hasTelemetry
+        ? roundValue(sum(reportingPoleSummaries.map((pole) => pole.energySavedKwh)), 1) ?? 0
+        : null,
       uptimePct:
         healthSamples > 0
           ? roundValue((healthyWeightedTotal / healthSamples) * 100, 1)
-          : roundValue(
-              average(
-                poleSummaries
-                  .map((pole) => pole.uptimePct)
-                  .filter((value) => value !== null)
-              ) ?? 0,
-              1
-            ) ?? 0,
-      faultsResolved: sum(poleSummaries.map((pole) => pole.faultsResolved)),
-      activeFaults: sum(poleSummaries.map((pole) => pole.activeFaults)),
+          : null,
+      faultsResolved: hasTelemetry
+        ? sum(reportingPoleSummaries.map((pole) => pole.faultsResolved))
+        : null,
+      activeFaults: hasTelemetry
+        ? sum(reportingPoleSummaries.map((pole) => pole.activeFaults))
+        : null,
     },
     summary: {
       totalPoles: poleSummaries.length,
+      reportingPoles: reportingPoleSummaries.length,
       totalZones: zones.length,
       telemetryRows: rawTelemetryRows.length,
-      activeFaults: sum(poleSummaries.map((pole) => pole.activeFaults)),
-      resolvedFaults: sum(poleSummaries.map((pole) => pole.faultsResolved)),
+      activeFaults: hasTelemetry
+        ? sum(reportingPoleSummaries.map((pole) => pole.activeFaults))
+        : null,
+      resolvedFaults: hasTelemetry
+        ? sum(reportingPoleSummaries.map((pole) => pole.faultsResolved))
+        : null,
     },
     poles: poleSummaries,
     zones,
@@ -730,7 +763,13 @@ export function buildAnalyticsReport(streetlights = [], telemetryByPole = {}, op
     metricSeries,
     faults,
     motionMap: poleSummaries
-      .filter((pole) => pole.lat !== null && pole.lng !== null)
+      .filter(
+        (pole) =>
+          pole.lat !== null &&
+          pole.lng !== null &&
+          pole.motionSamples > 0 &&
+          pole.motionRatePct !== null
+      )
       .map((pole) => ({
         streetlight_id: pole.streetlight_id,
         name: pole.name,
@@ -738,7 +777,8 @@ export function buildAnalyticsReport(streetlights = [], telemetryByPole = {}, op
         lat: pole.lat,
         lng: pole.lng,
         health: pole.health,
-        motionRatePct: pole.motionRatePct ?? 0,
+        motionRatePct: pole.motionRatePct,
+        motionSamples: pole.motionSamples,
         energySavedKwh: pole.energySavedKwh,
         activeFaults: pole.activeFaults,
       })),
