@@ -9,31 +9,44 @@ on:
     paths:
       - "firmware/**"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repo
-      uses: actions/checkout@v6
-      with:
-        submodules: true
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
-    - name: Setup Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.11'
-    
-    - name: Install PlatformIO
-      run: pip install platformio
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
 
-    - name: Install dependencies
-      run: sudo apt update && sudo apt install -y cmake gcc make
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: |
+            pio-${{ runner.os }}-
 
-    - name: Run Build Script
-      working-directory: firmware/scripts
-      run: bash build.sh
+      - name: Install PlatformIO
+        run: pip install platformio==6.1.16
 
-    - name: Run Test Script
-      working-directory: firmware/scripts
-      run: bash run-tests.sh
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake gcc make
+
+      - name: Run Build Script
+        working-directory: firmware/scripts
+        run: bash build.sh
+
+      - name: Run Test Script
+        working-directory: firmware/scripts
+        run: bash run-tests.sh
