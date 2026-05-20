@@ -122,10 +122,10 @@ def streetlight_to_list_item(
             "lng": metadata.lng if metadata else None,
         },
     }
-    def command_to_response(
-        record: DownlinkCommandRecord,
-    ) -> dict:
-        return {
+
+
+def command_to_response(record: DownlinkCommandRecord) -> dict:
+    return {
         "streetlight_id": record.streetlight_id,
         "command_id": record.command_id,
         "tenant_id": record.tenant_id,

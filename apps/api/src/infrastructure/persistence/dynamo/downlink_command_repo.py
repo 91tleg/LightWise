@@ -35,7 +35,7 @@ class DownlinkCommandRepo:
     def __init__(self, table_name: str) -> None:
         self._db = get_dynamodb_resource()
         self._table = self._db.Table(table_name)
-        
+
     def _deserialize(
         self,
         item: dict,
@@ -47,7 +47,7 @@ class DownlinkCommandRepo:
             issued_by=item["issued_by"],
             command_type=item["command_type"],
             payload=self._strip_decimals(
-            item.get("payload", {})
+                item.get("payload", {})
             ),
             status=item["status"],
             created_at=item["created_at"],
@@ -55,7 +55,7 @@ class DownlinkCommandRepo:
             acknowledged_at=item.get("acknowledged_at"),
             reason=item.get("reason"),
         )
-        
+
     def _strip_decimals(self, value):
         if isinstance(value, list):
             return [self._strip_decimals(v) for v in value]
@@ -194,7 +194,9 @@ class DownlinkCommandRepo:
                 "Failed to update command status for streetlight"
             ) from e
 
-    def get(self, streetlight_id: str, command_id: str) -> DownlinkCommandRecord  | None:
+    def get(
+        self, streetlight_id: str, command_id: str
+    ) -> DownlinkCommandRecord | None:
         """Fetch a single command record by primary key."""
         try:
             result = self._table.get_item(
