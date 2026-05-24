@@ -1,6 +1,5 @@
 from __future__ import annotations
 from unittest.mock import MagicMock
-
 import pytest
 
 from application.tenant.remove_user import RemoveUser
@@ -10,7 +9,7 @@ from domain.tenant.models import Tenant, TenantUser
 _TENANT = Tenant(
     tenant_id="tenant-1",
     name="Acme Lighting",
-    owner_user_id="owner-1",
+    owner_user_ids=frozenset(["owner-1", "owner-2"]),
     max_users=3,
     created_at="2024-01-01T00:00:00+00:00",
 )
@@ -65,6 +64,35 @@ class TestRemoveUserSuccess:
         )
         user_repo.delete_user.assert_called_once_with("tenant-1", "user-2")
 
+    def test_second_owner_can_remove_user(self):  # new
+        use_case, _, user_repo, cognito = _use_case()
+        result = use_case.execute(
+            requesting_user_id="owner-2",
+            tenant_id="tenant-1",
+            user_id="user-2",
+        )
+        assert result is None
+        cognito.delete_cognito_user.assert_called_once()
+        user_repo.delete_user.assert_called_once()
+
+    def test_owner_can_remove_other_owner(self):
+        other_owner = TenantUser(
+            tenant_id="tenant-1",
+            user_id="owner-2",
+            email="owner2@example.com",
+            role="admin",
+            created_at="2024-01-01T00:00:00+00:00",
+        )
+        use_case, _, user_repo, cognito = _use_case(user=other_owner)
+        result = use_case.execute(
+            requesting_user_id="owner-1",
+            tenant_id="tenant-1",
+            user_id="owner-2",
+        )
+        assert result is None
+        cognito.delete_cognito_user.assert_called_once()
+        user_repo.delete_user.assert_called_once()
+
 
 class TestRemoveUserValidation:
     def test_raises_when_tenant_not_found(self):
@@ -83,8 +111,7 @@ class TestRemoveUserValidation:
 
     def test_raises_when_requesting_user_is_not_owner(self):
         use_case, _, user_repo, cognito = _use_case()
-
-        with pytest.raises(PermissionError, match="Only the tenant owner"):
+        with pytest.raises(PermissionError, match="Only a tenant owner"):
             use_case.execute(
                 requesting_user_id="member-1",
                 tenant_id="tenant-1",
@@ -98,7 +125,9 @@ class TestRemoveUserValidation:
     def test_raises_when_owner_removes_self(self):
         use_case, _, user_repo, cognito = _use_case()
 
-        with pytest.raises(ValueError, match="Owner cannot remove themselves"):
+        with pytest.raises(
+            ValueError, match="Owner cannot remove themselves"
+        ):
             use_case.execute(
                 requesting_user_id="owner-1",
                 tenant_id="tenant-1",

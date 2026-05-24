@@ -27,7 +27,7 @@ class UserTenantRepo:
             return Tenant(
                 tenant_id=item["tenant_id"],
                 name=item["name"],
-                owner_user_id=item["owner_user_id"],
+                owner_user_ids=frozenset(item["owner_user_ids"]),
                 max_users=int(item["max_users"]),
                 created_at=item["created_at"],
             )
@@ -42,7 +42,7 @@ class UserTenantRepo:
                 "tenant_id": tenant.tenant_id,
                 "user_id": self.TENANT_SK,
                 "name": tenant.name,
-                "owner_user_id": tenant.owner_user_id,
+                "owner_user_ids": tenant.owner_user_ids,
                 "max_users": tenant.max_users,
                 "created_at": tenant.created_at,
             })

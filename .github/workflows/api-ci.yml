@@ -9,6 +9,9 @@ on:
     paths:
       - "apps/api/**"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -40,10 +43,6 @@ jobs:
       - name: Lint code
         run: |
           flake8 src/ tests/
-
-      #- name: Type check
-      #  run: |
-      #    mypy src/ tests/
 
       - name: Run tests
         run: |
