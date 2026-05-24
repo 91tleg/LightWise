@@ -63,7 +63,14 @@ const SECTION_ITEMS = [
 function safeReadAdminState() {
   try {
     const raw = localStorage.getItem(ADMIN_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const value = raw ? JSON.parse(raw) : null;
+    if (!value || typeof value !== "object") return null;
+
+    // User management is remote-owned, so ignore any old cached directory entries.
+    return {
+      ...value,
+      users: [],
+    };
   } catch {
     return null;
   }
@@ -71,7 +78,9 @@ function safeReadAdminState() {
 
 function safeWriteAdminState(value) {
   try {
-    localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(value));
+    const persistableState = { ...(value || {}) };
+    delete persistableState.users;
+    localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(persistableState));
   } catch {
     // ignore storage failures in local mock mode
   }
@@ -998,12 +1007,17 @@ export default function Admin() {
   async function handleUserRemove(user) {
     if (!user?.id) return;
 
+    if (isLocalOnlyUser(user)) {
+      setUserStatus({
+        tone: "critical",
+        text: "User removal is not available yet.",
+      });
+      return;
+    }
+
     setUserSaving(true);
     try {
-      const localOnly = isLocalOnlyUser(user);
-      if (!localOnly) {
-        await removeUser(user.user_id || user.id);
-      }
+      await removeUser(user.user_id || user.id);
 
       patchAdminState((current) => ({
         ...current,
@@ -1017,7 +1031,7 @@ export default function Admin() {
       setSelectedUserId(null);
       setUserStatus({
         tone: "healthy",
-        text: localOnly ? "User removed from this device." : "User removed.",
+        text: "User removed.",
       });
     } catch (error) {
       setUserStatus({
