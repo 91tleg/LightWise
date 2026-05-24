@@ -117,7 +117,7 @@ export function usePoleMetadata(selectedId) {
       setSaveMsg("Changes saved");
     } catch {
       setSaveState("error");
-      setSaveMsg("Saved locally only. Server sync failed.");
+      setSaveMsg("Saved on this device. Try again to share changes with the team.");
     }
 
     setIsEditing(false);
@@ -155,7 +155,7 @@ export function usePoleMetadata(selectedId) {
       setSaveMsg("Coordinates cleared");
     } catch {
       setSaveState("error");
-      setSaveMsg("Coordinates cleared locally only. Server sync failed.");
+      setSaveMsg("Coordinates cleared on this device. Try again to share changes with the team.");
     }
 
     queueReset(() => {

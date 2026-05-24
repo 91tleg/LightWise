@@ -26,15 +26,9 @@ const ALLOWED_INTERVALS = new Set([
   "1h", "6h", "12h", "1d", "7d", "30d",
 ]);
 
-/**
- * Authenticated fetch against the LightWise REST API.
- * - Injects idToken into Authorization header (no Bearer prefix — API GW Cognito authorizer)
- * - Handles 401 by emitting auth-required and redirecting to sign-in
- * - Accepts an optional pre-fetched token (e.g. from AuthCallback)
- */
 async function apiFetch(path, { method = "GET", body, headers, query } = {}, { token } = {}) {
   const { API_BASE } = LIGHTWISE_ENV;
-  if (!API_BASE) throw new Error("Missing REACT_APP_API_BASE in .env");
+  if (!API_BASE) throw new Error("LightWise is not ready yet. Please try again later.");
 
   const url      = buildUrl(path, query);
   const idToken  = String(token || "").trim() || (await fetchIdTokenSilently());
@@ -42,7 +36,7 @@ async function apiFetch(path, { method = "GET", body, headers, query } = {}, { t
   if (!idToken) {
     emitAuthRequired("missing_token");
     await redirectToSignIn();
-    throw apiError("Unauthenticated", 401);
+    throw apiError("Please sign in again.", 401);
   }
 
   const hasBody = body !== undefined && body !== null;
@@ -59,7 +53,7 @@ async function apiFetch(path, { method = "GET", body, headers, query } = {}, { t
       body: hasBody ? JSON.stringify(body) : undefined,
     });
   } catch (cause) {
-    const err = new Error(`Failed to fetch (${method} ${url}). Check API URL, backend, or CORS.`);
+    const err = new Error("LightWise is having trouble connecting. Please try again.");
     err.cause = cause;
     throw err;
   }
@@ -67,16 +61,18 @@ async function apiFetch(path, { method = "GET", body, headers, query } = {}, { t
   if (res.status === 401) {
     emitAuthRequired("http_401");
     await redirectToSignIn();
-    throw apiError("Unauthorized", 401);
+    throw apiError("Please sign in again.", 401);
   }
-
-  if (res.status === 403) throw apiError("Forbidden: insufficient permissions", 403);
-  if (res.status === 404) throw apiError("Resource not found", 404);
 
   const data = await parseJsonSafely(res);
 
+  if (res.status === 403) {
+    throw apiError(cleanApiMessage(data?.error || data?.message, "You do not have permission to do that."), 403, data);
+  }
+  if (res.status === 404) throw apiError(cleanApiMessage(data?.error || data?.message, "We could not find that item."), 404, data);
+
   if (!res.ok) {
-    const msg = data?.error || data?.message || `API error ${res.status}`;
+    const msg = cleanApiMessage(data?.error || data?.message, "Something went wrong. Please try again.");
     throw apiError(msg, res.status, data);
   }
 
@@ -85,6 +81,26 @@ async function apiFetch(path, { method = "GET", body, headers, query } = {}, { t
 
 function apiError(message, status, payload) {
   return Object.assign(new Error(message), { status, payload });
+}
+
+function cleanApiMessage(message, fallback) {
+  const text = String(message || "").trim();
+  if (!text) return fallback;
+
+  const hiddenTerms = [
+    "api",
+    "aws",
+    "backend",
+    "cognito",
+    "cors",
+    "dynamodb",
+    "lambda",
+    "server",
+  ];
+
+  return hiddenTerms.some((term) => text.toLowerCase().includes(term))
+    ? fallback
+    : text;
 }
 
 function buildUrl(path, extraQuery = {}) {

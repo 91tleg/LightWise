@@ -64,16 +64,16 @@ describe("api service", () => {
     global.fetch.mockRejectedValue(new TypeError("network down"));
 
     await expect(getOperatorProfile()).rejects.toThrow(
-      "Failed to fetch (GET https://api.example.com/auth/me). Check API URL, backend, or CORS."
+      "LightWise is having trouble connecting. Please try again."
     );
   });
 
   test("surfaces streetlight inventory fetch failures instead of falling back", async () => {
     mockFetchIdTokenSilently.mockResolvedValue("token-123");
-    global.fetch.mockRejectedValue(new TypeError("backend unavailable"));
+    global.fetch.mockRejectedValue(new TypeError("service unavailable"));
 
     await expect(listStreetlights()).rejects.toThrow(
-      "Failed to fetch (GET https://api.example.com/streetlights). Check API URL, backend, or CORS."
+      "LightWise is having trouble connecting. Please try again."
     );
   });
 
@@ -88,7 +88,7 @@ describe("api service", () => {
         interval: "5m",
       })
     ).rejects.toThrow(
-      "Failed to fetch (GET https://api.example.com/streetlights/LW-00043/telemetry?from=2026-04-25T00%3A00%3A00.000Z&to=2026-04-25T01%3A00%3A00.000Z&interval=5m). Check API URL, backend, or CORS."
+      "LightWise is having trouble connecting. Please try again."
     );
   });
 
