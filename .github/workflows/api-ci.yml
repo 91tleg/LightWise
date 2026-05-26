@@ -34,8 +34,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
           pip install flake8 mypy pytest
+
+      - name: Start local DynamoDB
+        run: |
+          docker compose -f docker/dynamodb/docker-compose.yml up -d
 
       - name: Lint code
         run: |
@@ -46,5 +49,16 @@ jobs:
       #    mypy src/ tests/
 
       - name: Run tests
+        env:
+          AWS_ACCESS_KEY_ID: local
+          AWS_SECRET_ACCESS_KEY: local
+          AWS_DEFAULT_REGION: us-west-2
+          AWS_REGION: us-west-2
+          DYNAMO_ENDPOINT: http://localhost:8000
         run: |
           pytest tests/ --maxfail=1 --disable-warnings -q
+
+      - name: Stop local DynamoDB
+        if: always()
+        run: |
+          docker compose -f docker/dynamodb/docker-compose.yml down
