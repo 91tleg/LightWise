@@ -43,6 +43,20 @@ jobs:
         run: |
           docker compose -f docker/dynamodb/docker-compose.yml up -d
 
+      - name: Wait for local DynamoDB
+        run: |
+          for i in {1..20}; do
+            if curl -s http://localhost:8000 > /dev/null; then
+              echo "DynamoDB is ready"
+              exit 0
+            fi
+            echo "Waiting for DynamoDB..."
+            sleep 2
+          done
+          echo "DynamoDB did not become ready in time"
+          docker compose -f docker/dynamodb/docker-compose.yml logs
+          exit 1
+
       - name: Lint code
         run: |
           flake8 src/ tests/
