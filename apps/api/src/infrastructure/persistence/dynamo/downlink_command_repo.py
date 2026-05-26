@@ -236,7 +236,8 @@ class DownlinkCommandRepo:
 
         try:
             result = self._table.query(**query_kwargs)
-            return result.get("Items", [])
+            items = result.get("Items", [])
+            return [self._deserialize(item) for item in items]
 
         except ClientError as e:
             raise PersistenceError(

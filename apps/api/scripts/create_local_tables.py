@@ -15,11 +15,11 @@ TABLES = [
     {
         "TableName": "Streetlights",
         "AttributeDefinitions": [
-            {"AttributeName": "tenant_id",      "AttributeType": "S"},
+            {"AttributeName": "tenant_id", "AttributeType": "S"},
             {"AttributeName": "streetlight_id", "AttributeType": "S"},
         ],
         "KeySchema": [
-            {"AttributeName": "tenant_id",      "KeyType": "HASH"},
+            {"AttributeName": "tenant_id", "KeyType": "HASH"},
             {"AttributeName": "streetlight_id", "KeyType": "RANGE"},
         ],
         "GlobalSecondaryIndexes": [
@@ -34,7 +34,7 @@ TABLES = [
                 },
                 "ProvisionedThroughput": {
                     "ReadCapacityUnits": 1,
-                    "WriteCapacityUnits": 1
+                    "WriteCapacityUnits": 1,
                 },
             }
         ],
@@ -80,20 +80,20 @@ TABLES = [
         "TableName": "UsersAndTenants",
         "AttributeDefinitions": [
             {"AttributeName": "tenant_id", "AttributeType": "S"},
-            {"AttributeName": "user_id",   "AttributeType": "S"},
+            {"AttributeName": "user_id", "AttributeType": "S"},
         ],
         "KeySchema": [
             {"AttributeName": "tenant_id", "KeyType": "HASH"},
-            {"AttributeName": "user_id",   "KeyType": "RANGE"},
+            {"AttributeName": "user_id", "KeyType": "RANGE"},
         ],
         "BillingMode": "PAY_PER_REQUEST",
     },
     {
         "TableName": "WebSocketConnections",
         "AttributeDefinitions": [
-            {"AttributeName": "connection_id",  "AttributeType": "S"},
+            {"AttributeName": "connection_id", "AttributeType": "S"},
             {"AttributeName": "streetlight_id", "AttributeType": "S"},
-            {"AttributeName": "tenant_id",      "AttributeType": "S"},
+            {"AttributeName": "tenant_id", "AttributeType": "S"},
         ],
         "KeySchema": [
             {"AttributeName": "connection_id", "KeyType": "HASH"},
@@ -103,12 +103,39 @@ TABLES = [
                 "IndexName": "StreetlightIndex",
                 "KeySchema": [
                     {"AttributeName": "streetlight_id", "KeyType": "HASH"},
-                    {"AttributeName": "tenant_id",      "KeyType": "RANGE"},
+                    {"AttributeName": "tenant_id", "KeyType": "RANGE"},
                 ],
                 "Projection": {"ProjectionType": "ALL"},
                 "ProvisionedThroughput": {
                     "ReadCapacityUnits": 1,
-                    "WriteCapacityUnits": 1
+                    "WriteCapacityUnits": 1,
+                },
+            }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+    },
+    {
+        "TableName": "DownlinkCommands",
+        "AttributeDefinitions": [
+            {"AttributeName": "streetlight_id", "AttributeType": "S"},
+            {"AttributeName": "command_id", "AttributeType": "S"},
+            {"AttributeName": "tenant_id", "AttributeType": "S"},
+        ],
+        "KeySchema": [
+            {"AttributeName": "streetlight_id", "KeyType": "HASH"},
+            {"AttributeName": "command_id", "KeyType": "RANGE"},
+        ],
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "ByTenant",
+                "KeySchema": [
+                    {"AttributeName": "tenant_id", "KeyType": "HASH"},
+                    {"AttributeName": "command_id", "KeyType": "RANGE"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 1,
+                    "WriteCapacityUnits": 1,
                 },
             }
         ],
@@ -123,7 +150,7 @@ def delete_table(name):
         waiter = client.get_waiter("table_not_exists")
         waiter.wait(TableName=name)
     except client.exceptions.ResourceNotFoundException:
-        pass  # already gone
+        pass
 
 
 def create_table(definition):
