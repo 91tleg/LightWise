@@ -423,12 +423,16 @@
 .lwAdminFieldError {
   font-size: 12px;
   font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
   color: #c62828;
 }
 
 .lwAdminFieldHint {
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
   color: #64768a;
 }
 

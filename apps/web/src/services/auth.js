@@ -31,10 +31,10 @@ export async function fetchIdToken(options = {}) {
   const session = await withTimeout(
     fetchAuthSession(sessionOptions),
     timeoutMs,
-    "Timed out loading Cognito session"
+    "Sign-in is taking longer than expected. Please try again."
   );
   const token = session?.tokens?.idToken?.toString() ?? "";
-  if (!token) throw buildUnauthorizedError("Missing Cognito id token");
+  if (!token) throw buildUnauthorizedError("Please sign in again.");
   return token;
 }
 

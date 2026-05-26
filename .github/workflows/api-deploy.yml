@@ -8,6 +8,9 @@ on:
       - "apps/api/**"
       - ".github/workflows/api-deploy.yml"
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

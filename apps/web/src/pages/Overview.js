@@ -201,13 +201,6 @@ export default function Overview() {
   const lastSeenValue = showLiveReadings
     ? "Now"
     : formatTimestamp(overviewSelectedPole?.last_seen);
-  const connectionValue = selectedPoleIsLive ? "Live" : "Offline";
-  const connectionNote = selectedPoleIsLive
-    ? "Receiving current telemetry"
-    : overviewSelectedPole?.last_seen
-    ? `Latest loaded sample ${formatTimestamp(overviewSelectedPole.last_seen)}`
-    : "Awaiting first pole report";
-  const connectionTone = selectedPoleIsLive ? "healthy" : "critical";
   const summaryCards = useMemo(
     () => [
       {
@@ -233,20 +226,12 @@ export default function Overview() {
         value: brightnessAvg != null ? `${brightnessAvg}%` : "Waiting",
         note:
           brightnessAvg != null
-            ? "Latest average from loaded telemetry"
-            : "No live brightness telemetry yet",
+            ? "Latest average brightness"
+            : "Waiting for brightness readings",
         tone: brightnessAvg != null ? "healthy" : "neutral",
       },
-      {
-        icon: "radio",
-        label: "Connection Status",
-        value: connectionValue,
-        note: connectionNote,
-        tone: connectionTone,
-        showStatusDot: true,
-      },
     ],
-    [brightnessAvg, connectionNote, connectionTone, connectionValue, counts]
+    [brightnessAvg, counts]
   );
 
   return (

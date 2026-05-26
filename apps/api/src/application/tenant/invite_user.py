@@ -55,7 +55,7 @@ class InviteUser:
             raise ValueError(f"Tenant not found: {tenant_id}")
 
         if not tenant.is_owner(requesting_user_id):
-            raise PermissionError("Only the tenant owner can invite users")
+            raise PermissionError("Only a tenant owner can invite users")
 
         current_count = self._user_repo.count_users(tenant_id)
         if not tenant.can_invite(current_count):

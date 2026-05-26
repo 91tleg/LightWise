@@ -5,7 +5,7 @@ from dataclasses import dataclass
 class Tenant:
     tenant_id: str
     name: str
-    owner_user_id: str
+    owner_user_ids: frozenset[str]
     max_users: int
     created_at: str
 
@@ -13,7 +13,7 @@ class Tenant:
         return current_user_count < self.max_users
 
     def is_owner(self, user_id: str) -> bool:
-        return self.owner_user_id == user_id
+        return user_id in self.owner_user_ids
 
 
 @dataclass(frozen=True)

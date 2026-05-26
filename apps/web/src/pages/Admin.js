@@ -29,31 +29,10 @@ const LEGACY_DEMO_USER_EMAILS = new Set([
   "avery.brooks@city.gov",
   "jules.chen@city.gov",
 ]);
-const LEGACY_DEMO_SCHEDULE_NAMES = new Set([
-  "day window",
-  "night window",
-  "waterfront day window",
-  "waterfront night window",
-]);
-const DAY_OPTIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const TIME_OPTIONS = Array.from({ length: 97 }, (_, index) => {
-  const minutes = Math.min(index * 15, 24 * 60);
-  return {
-    value: minutes,
-    label: formatMinutes(minutes),
-  };
-});
 const DEFAULT_POLE_FORM = {
   name: "",
   lat: "",
   lng: "",
-};
-const DEFAULT_SCHEDULE_FORM = {
-  name: "",
-  startMinute: 0,
-  endMinute: 12 * 60,
-  dimLevel: 70,
-  days: [0, 1, 2, 3, 4, 5, 6],
 };
 const DEFAULT_USER_FORM = {
   name: "",
@@ -65,13 +44,7 @@ const SECTION_ITEMS = [
     id: "poles",
     label: "Poles",
     icon: "pin",
-    description: "Search assets, update metadata, and inspect pole locations.",
-  },
-  {
-    id: "schedules",
-    label: "Schedules",
-    icon: "chart",
-    description: "Shape dimming windows with a visual timeline instead of raw inputs.",
+    description: "Manage pole names and locations.",
   },
   {
     id: "lorawan",
@@ -83,14 +56,21 @@ const SECTION_ITEMS = [
     id: "users",
     label: "Users",
     icon: "user",
-    description: "Add operators, promote admins, and manage access cleanly.",
+    description: "Manage who can access LightWise.",
   },
 ];
 
 function safeReadAdminState() {
   try {
     const raw = localStorage.getItem(ADMIN_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const value = raw ? JSON.parse(raw) : null;
+    if (!value || typeof value !== "object") return null;
+
+    // User management is remote-owned, so ignore any old cached directory entries.
+    return {
+      ...value,
+      users: [],
+    };
   } catch {
     return null;
   }
@@ -98,7 +78,9 @@ function safeReadAdminState() {
 
 function safeWriteAdminState(value) {
   try {
-    localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(value));
+    const persistableState = { ...(value || {}) };
+    delete persistableState.users;
+    localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(persistableState));
   } catch {
     // ignore storage failures in local mock mode
   }
@@ -112,10 +94,6 @@ function isLegacyDemoUser(user = {}) {
   return LEGACY_DEMO_USER_EMAILS.has(String(user.email || "").trim().toLowerCase());
 }
 
-function isLegacyDemoSchedule(schedule = {}) {
-  return LEGACY_DEMO_SCHEDULE_NAMES.has(String(schedule.name || "").trim().toLowerCase());
-}
-
 function isLegacyDemoDevice(device = {}) {
   const devEui = normalizeDevEui(device.devEui);
   const gateway = String(device.gateway || "").trim();
@@ -126,37 +104,8 @@ function isLocalOnlyUser(user = {}) {
   return !String(user.user_id || "").trim() && !String(user.created_at || "").trim();
 }
 
-function isInviteEndpointUnavailable(error) {
-  return String(error?.message || "").startsWith("Failed to fetch (POST ");
-}
-
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
-}
-
-function dedupe(values = []) {
-  return Array.from(new Set((Array.isArray(values) ? values : []).filter(Boolean)));
-}
-
-function formatMinutes(totalMinutes) {
-  const safeValue = clamp(Number(totalMinutes) || 0, 0, 24 * 60);
-  const hour24 = Math.floor(safeValue / 60) % 24;
-  const minutes = safeValue % 60;
-  const suffix = hour24 >= 12 ? "PM" : "AM";
-  const hour12 = hour24 % 12 || 12;
-  return `${hour12}:${String(minutes).padStart(2, "0")} ${suffix}`;
-}
-
-function summarizeDays(days = []) {
-  const sortedDays = [...(Array.isArray(days) ? days : [])].sort((a, b) => a - b);
-  if (sortedDays.length === 7) return "Every day";
-  if (sortedDays.length === 5 && sortedDays.every((day, index) => day === index)) {
-    return "Weekdays";
-  }
-  if (sortedDays.length === 2 && sortedDays[0] === 5 && sortedDays[1] === 6) {
-    return "Weekend";
-  }
-  return sortedDays.map((day) => DAY_OPTIONS[day] || "").join(", ");
 }
 
 function normalizeMapPoint(point) {
@@ -189,7 +138,6 @@ function createSeedAdminState(operator = null) {
     : null;
 
   return {
-    schedules: [],
     devices: [],
     users: users ? [users] : [],
   };
@@ -202,35 +150,6 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   }
 
   const poleIds = new Set(basePoles.map((pole) => pole.streetlight_id));
-  const schedules = Array.isArray(currentState.schedules)
-    ? currentState.schedules
-        .filter((schedule) => !isLegacyDemoSchedule(schedule))
-        .map((schedule) => {
-          if (!schedule?.id) return null;
-
-          const startMinute = clamp(Number(schedule.startMinute) || 18 * 60, 0, 47 * 60);
-          const rawEnd = Number(schedule.endMinute);
-          const endMinute = clamp(
-            Number.isFinite(rawEnd) ? rawEnd : startMinute + 180,
-            startMinute + 30,
-            48 * 60
-          );
-
-          return {
-            id: String(schedule.id),
-            name: String(schedule.name || "").trim(),
-            startMinute,
-            endMinute,
-            dimLevel: clamp(Number(schedule.dimLevel) || 60, 10, 100),
-            days: dedupe(schedule.days)
-              .map((day) => Number(day))
-              .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
-              .sort((a, b) => a - b),
-          };
-        })
-        .filter(Boolean)
-    : [];
-
   const devices = Array.isArray(currentState.devices)
     ? currentState.devices
         .filter((device) => !isLegacyDemoDevice(device))
@@ -289,7 +208,6 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   }
 
   return {
-    schedules,
     devices,
     users: users.length ? users : fallback.users,
   };
@@ -341,18 +259,6 @@ function makePoleForm(pole = null) {
         lng: pole.lng != null ? String(pole.lng) : "",
       }
     : { ...DEFAULT_POLE_FORM };
-}
-
-function makeScheduleForm(schedule = null) {
-  return schedule
-    ? {
-        name: schedule.name || "",
-        startMinute: schedule.startMinute ?? DEFAULT_SCHEDULE_FORM.startMinute,
-        endMinute: schedule.endMinute ?? DEFAULT_SCHEDULE_FORM.endMinute,
-        dimLevel: schedule.dimLevel ?? DEFAULT_SCHEDULE_FORM.dimLevel,
-        days: Array.isArray(schedule.days) ? schedule.days : DEFAULT_SCHEDULE_FORM.days,
-      }
-    : { ...DEFAULT_SCHEDULE_FORM };
 }
 
 function makeUserForm(user = null) {
@@ -452,24 +358,6 @@ function validatePoleForm(form) {
   return errors;
 }
 
-function validateScheduleForm(form) {
-  const errors = {};
-
-  if (!String(form.name || "").trim()) {
-    errors.name = "Schedule name is required.";
-  }
-
-  if (Number(form.endMinute) <= Number(form.startMinute)) {
-    errors.timeline = "The schedule must end after it starts.";
-  }
-
-  if (!Array.isArray(form.days) || !form.days.length) {
-    errors.days = "Pick at least one day.";
-  }
-
-  return errors;
-}
-
 function validateUserForm(form) {
   const errors = {};
 
@@ -553,92 +441,6 @@ function SectionNav({ activeSection, onChange }) {
         ))}
       </div>
     </aside>
-  );
-}
-
-function TimelineEditor({ scheduleForm, onChange, timelineError }) {
-  const startPercent = (Number(scheduleForm.startMinute) / (24 * 60)) * 100;
-  const endPercent = (Number(scheduleForm.endMinute) / (24 * 60)) * 100;
-  const widthPercent = Math.max(endPercent - startPercent, 4);
-
-  return (
-    <div className="lwAdminTimelineEditor">
-      <div className="lwAdminTimelineTop">
-        <div>
-          <div className="lwAdminTimelineLabel">Start</div>
-          <div className="lwAdminTimelineValue">{formatMinutes(scheduleForm.startMinute)}</div>
-        </div>
-
-        <div className="lwAdminTimelineSummary">
-          <span>{summarizeDays(scheduleForm.days)}</span>
-          <strong>{scheduleForm.dimLevel}% brightness</strong>
-        </div>
-
-        <div>
-          <div className="lwAdminTimelineLabel">End</div>
-          <div className="lwAdminTimelineValue">{formatMinutes(scheduleForm.endMinute)}</div>
-        </div>
-      </div>
-
-      <div className="lwAdminTimelineTrackWrap">
-        <div className="lwAdminTimelineTrack" />
-        <div
-          className="lwAdminTimelineWindow"
-          style={{ left: `${startPercent}%`, width: `${widthPercent}%` }}
-        />
-
-        <input
-          className="lwAdminRangeInput lwAdminRangeInputStart"
-          type="range"
-          min="0"
-          max={String((24 * 60) - 30)}
-          step="15"
-          value={scheduleForm.startMinute}
-          onChange={(event) => {
-            const nextStart = clamp(
-              Number(event.target.value),
-              0,
-              Number(scheduleForm.endMinute) - 30
-            );
-            onChange((current) => ({
-              ...current,
-              startMinute: nextStart,
-            }));
-          }}
-        />
-
-        <input
-          className="lwAdminRangeInput lwAdminRangeInputEnd"
-          type="range"
-          min="30"
-          max={String(24 * 60)}
-          step="15"
-          value={scheduleForm.endMinute}
-          onChange={(event) => {
-            const nextEnd = clamp(
-              Number(event.target.value),
-              Number(scheduleForm.startMinute) + 30,
-              24 * 60
-            );
-            onChange((current) => ({
-              ...current,
-              endMinute: nextEnd,
-            }));
-          }}
-        />
-      </div>
-
-      <div className="lwAdminTimelineHours">
-        {[0, 4, 8, 12, 16, 20, 24].map((hour) => (
-          <span key={hour}>{formatMinutes(hour * 60)}</span>
-        ))}
-      </div>
-
-      <FieldMessage
-        error={timelineError}
-        hint="Drag the handles across the timeline to shape the active lighting window."
-      />
-    </div>
   );
 }
 
@@ -747,8 +549,8 @@ function AdminMapSurface({
       />
 
       <div className="lwAdminMapBadgeRow">
-        <StatusChip tone="neutral">Static picker</StatusChip>
-        <StatusChip tone="neutral">No live updates</StatusChip>
+        <StatusChip tone="neutral">Map view</StatusChip>
+        <StatusChip tone="neutral">Manual edits</StatusChip>
       </div>
 
       <div
@@ -792,7 +594,7 @@ function AdminMapSurface({
       </div>
 
       <div className="lwAdminMapFooter">
-        This map is intentionally static so administrative edits stay deliberate and stable.
+        Use this map to review pole locations before saving changes.
       </div>
     </div>
   );
@@ -814,10 +616,6 @@ export default function Admin() {
   const [poleForm, setPoleForm] = useState(DEFAULT_POLE_FORM);
   const [poleSearch, setPoleSearch] = useState("");
   const [poleStatus, setPoleStatus] = useState(null);
-  const [selectedScheduleId, setSelectedScheduleId] = useState(null);
-  const [scheduleEditorMode, setScheduleEditorMode] = useState("edit");
-  const [scheduleForm, setScheduleForm] = useState(DEFAULT_SCHEDULE_FORM);
-  const [scheduleStatus, setScheduleStatus] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [userEditorMode, setUserEditorMode] = useState("edit");
   const [userForm, setUserForm] = useState(DEFAULT_USER_FORM);
@@ -888,7 +686,6 @@ export default function Admin() {
     }
   }, [adminState]);
 
-  const schedules = useMemo(() => adminState?.schedules ?? [], [adminState?.schedules]);
   const users = useMemo(
     () => (adminState?.users ?? []).filter((user) => !isLegacyDemoUser(user)),
     [adminState?.users]
@@ -896,10 +693,6 @@ export default function Admin() {
   const selectedPole = useMemo(
     () => poles.find((pole) => pole.streetlight_id === selectedPoleId) || null,
     [poles, selectedPoleId]
-  );
-  const selectedSchedule = useMemo(
-    () => schedules.find((schedule) => schedule.id === selectedScheduleId) || null,
-    [schedules, selectedScheduleId]
   );
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) || null,
@@ -961,7 +754,7 @@ export default function Admin() {
       {
         label: "Mapped Poles",
         value: poles.filter((pole) => isValidCoord(pole.lat) && isValidCoord(pole.lng)).length,
-        note: "Selectable on the static map",
+        note: "Selectable on the map",
       },
       {
         label: "Users",
@@ -975,7 +768,6 @@ export default function Admin() {
   );
 
   const poleErrors = useMemo(() => validatePoleForm(poleForm), [poleForm]);
-  const scheduleErrors = useMemo(() => validateScheduleForm(scheduleForm), [scheduleForm]);
   const userErrors = useMemo(() => validateUserForm(userForm), [userForm]);
 
   useEffect(() => {
@@ -994,25 +786,6 @@ export default function Admin() {
       setPoleForm(makePoleForm(selectedPole));
     }
   }, [selectedPole]);
-
-  useEffect(() => {
-    if (scheduleEditorMode === "create") return;
-    if (!schedules.length) {
-      setSelectedScheduleId(null);
-      return;
-    }
-
-    if (!selectedScheduleId || !schedules.some((schedule) => schedule.id === selectedScheduleId)) {
-      setSelectedScheduleId(schedules[0].id);
-    }
-  }, [scheduleEditorMode, schedules, selectedScheduleId]);
-
-  useEffect(() => {
-    if (scheduleEditorMode === "create") return;
-    if (selectedSchedule) {
-      setScheduleForm(makeScheduleForm(selectedSchedule));
-    }
-  }, [scheduleEditorMode, selectedSchedule]);
 
   useEffect(() => {
     if (userEditorMode === "create") return;
@@ -1114,13 +887,6 @@ export default function Admin() {
     setConfirmState(nextState);
   }
 
-  function beginNewSchedule() {
-    setScheduleEditorMode("create");
-    setScheduleForm(makeScheduleForm());
-    setSelectedScheduleId(null);
-    setScheduleStatus(null);
-  }
-
   function beginNewUser() {
     setUserEditorMode("create");
     setUserForm(makeUserForm());
@@ -1161,45 +927,25 @@ export default function Admin() {
       .catch(() => {
         setPoleStatus({
           tone: "warning",
-          text: "Pole details saved locally. Server sync failed.",
+          text: "Pole details were saved on this device. Try again to share them with the team.",
         });
       });
   }
 
-  function handleScheduleSave() {
-    if (Object.keys(scheduleErrors).length) {
-      setScheduleStatus({ tone: "critical", text: "Resolve the schedule validation issues before saving." });
+  async function handleUserSave() {
+    if (userEditorMode === "edit" && !selectedUser) {
+      setUserStatus({ tone: "critical", text: "Select a user to edit." });
       return;
     }
 
-    const nextSchedule = {
-      id: scheduleEditorMode === "edit" && selectedSchedule ? selectedSchedule.id : makeId("schedule"),
-      name: scheduleForm.name.trim(),
-      startMinute: Number(scheduleForm.startMinute),
-      endMinute: Number(scheduleForm.endMinute),
-      dimLevel: clamp(Number(scheduleForm.dimLevel) || 60, 10, 100),
-      days: dedupe(scheduleForm.days).sort((a, b) => a - b),
-    };
+    if (userEditorMode === "edit") {
+      setUserStatus({
+        tone: "critical",
+        text: "Editing users is not available yet.",
+      });
+      return;
+    }
 
-    patchAdminState((current) => ({
-      ...current,
-      schedules:
-        scheduleEditorMode === "edit" && selectedSchedule
-          ? current.schedules.map((schedule) =>
-              schedule.id === selectedSchedule.id ? nextSchedule : schedule
-            )
-          : [nextSchedule, ...current.schedules],
-    }));
-
-    setScheduleEditorMode("edit");
-    setSelectedScheduleId(nextSchedule.id);
-    setScheduleStatus({
-      tone: "healthy",
-      text: scheduleEditorMode === "edit" ? "Schedule updated." : "Schedule created.",
-    });
-  }
-
-  async function handleUserSave() {
     if (Object.keys(userErrors).length) {
       setUserStatus({ tone: "critical", text: "Complete the required user fields." });
       return;
@@ -1217,20 +963,7 @@ export default function Admin() {
     setUserSaving(true);
 
     try {
-      let savedLocally = false;
-      let savedUser = nextUser;
-
-      if (userEditorMode === "create") {
-        try {
-          savedUser = await inviteUser(nextUser);
-        } catch (error) {
-          if (!isInviteEndpointUnavailable(error)) {
-            throw error;
-          }
-          savedLocally = true;
-          savedUser = nextUser;
-        }
-      }
+      const savedUser = await inviteUser(nextUser);
 
       const mergedUser = {
         ...savedUser,
@@ -1250,20 +983,16 @@ export default function Admin() {
             : [mergedUser, ...current.users],
       }));
 
-      if (userEditorMode === "create" && !savedLocally) {
-        setRemoteUsers((current) => [mergedUser, ...(Array.isArray(current) ? current : [])]);
-      }
+      setRemoteUsers((current) => {
+        if (!Array.isArray(current)) return current;
+        return [mergedUser, ...current];
+      });
 
       setUserEditorMode("edit");
       setSelectedUserId(mergedUser.id);
       setUserStatus({
-        tone: savedLocally ? "warning" : "healthy",
-        text:
-          userEditorMode === "edit"
-            ? "User updated locally."
-            : savedLocally
-            ? "User added locally. Cognito invite service unavailable."
-            : "Cognito invite sent.",
+        tone: "healthy",
+        text: "Invite sent.",
       });
     } catch (error) {
       setUserStatus({
@@ -1278,12 +1007,17 @@ export default function Admin() {
   async function handleUserRemove(user) {
     if (!user?.id) return;
 
+    if (isLocalOnlyUser(user)) {
+      setUserStatus({
+        tone: "critical",
+        text: "User removal is not available yet.",
+      });
+      return;
+    }
+
     setUserSaving(true);
     try {
-      const localOnly = isLocalOnlyUser(user);
-      if (!localOnly) {
-        await removeUser(user.user_id || user.id);
-      }
+      await removeUser(user.user_id || user.id);
 
       patchAdminState((current) => ({
         ...current,
@@ -1297,7 +1031,7 @@ export default function Admin() {
       setSelectedUserId(null);
       setUserStatus({
         tone: "healthy",
-        text: localOnly ? "User removed locally." : "User removed from Cognito.",
+        text: "User removed.",
       });
     } catch (error) {
       setUserStatus({
@@ -1351,7 +1085,7 @@ export default function Admin() {
     return (
       <Layout>
         <div className="lwAdminWorkspace">
-          <div className="lwAdminLoadingCard">Loading admin configuration surface...</div>
+          <div className="lwAdminLoadingCard">Loading admin settings...</div>
         </div>
       </Layout>
     );
@@ -1529,206 +1263,6 @@ export default function Admin() {
                   </div>
                 </div>
               ) : null}
- 
-              {activeSection === "schedules" ? (
-                <div className="lwAdminSectionGrid lwAdminSectionGridCompact">
-                  <SectionCard
-                    icon="chart"
-                    title="Visual Schedule Editor"
-                    subtitle="Drag the timeline to shape lighting runtime windows."
-                    actions={
-                      <button type="button" className="lwAdminSecondaryBtn" onClick={beginNewSchedule}>
-                        New Schedule
-                      </button>
-                    }
-                  >
-                    <div className="lwAdminRecordList">
-                      {schedules.map((schedule) => (
-                        <button
-                          key={schedule.id}
-                          type="button"
-                          className={`lwAdminRecordItem${
-                            schedule.id === selectedScheduleId && scheduleEditorMode !== "create"
-                              ? " isSelected"
-                              : ""
-                          }`}
-                          onClick={() => {
-                            setScheduleEditorMode("edit");
-                            setSelectedScheduleId(schedule.id);
-                            setScheduleStatus(null);
-                          }}
-                        >
-                          <div>
-                            <strong>{schedule.name}</strong>
-                            <span>
-                              {formatMinutes(schedule.startMinute)} to {formatMinutes(schedule.endMinute)}
-                            </span>
-                          </div>
-                          <StatusChip tone="healthy">{schedule.dimLevel}%</StatusChip>
-                        </button>
-                      ))}
-                    </div>
-                  </SectionCard>
-
-                  <SectionCard
-                    icon="settings"
-                    title={scheduleEditorMode === "create" ? "Create Schedule" : "Edit Schedule"}
-                    subtitle="Use the timeline and day pills instead of manual timestamps."
-                  >
-                    <div className="lwAdminFormGrid">
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Schedule name</span>
-                        <input
-                          className="lwAdminInput"
-                          value={scheduleForm.name}
-                          onChange={(event) =>
-                            setScheduleForm((current) => ({ ...current, name: event.target.value }))
-                          }
-                          placeholder="Downtown evening ramp"
-                        />
-                        <FieldMessage error={scheduleErrors.name} />
-                      </label>
-                    </div>
-
-                    <div className="lwAdminInlineSurface lwAdminScheduleHint">
-                      <strong>Each saved schedule is one time block.</strong>
-                      <span>
-                        Save multiple rows for separate daytime, evening, and overnight windows.
-                      </span>
-                    </div>
-
-                    <div className="lwAdminFormGrid">
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Start time</span>
-                        <select
-                          className="lwAdminSelect"
-                          value={scheduleForm.startMinute}
-                          onChange={(event) => {
-                            const nextStart = Number(event.target.value);
-                            setScheduleForm((current) => ({
-                              ...current,
-                              startMinute: nextStart,
-                              endMinute: Math.max(nextStart + 15, Number(current.endMinute)),
-                            }));
-                          }}
-                        >
-                          {TIME_OPTIONS.filter((option) => option.value < Number(scheduleForm.endMinute)).map((option) => (
-                            <option key={`start-${option.value}`} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">End time</span>
-                        <select
-                          className="lwAdminSelect"
-                          value={scheduleForm.endMinute}
-                          onChange={(event) =>
-                            setScheduleForm((current) => ({
-                              ...current,
-                              endMinute: Number(event.target.value),
-                            }))
-                          }
-                        >
-                          {TIME_OPTIONS.filter((option) => option.value > Number(scheduleForm.startMinute)).map((option) => (
-                            <option key={`end-${option.value}`} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-
-                    <TimelineEditor
-                      scheduleForm={scheduleForm}
-                      onChange={setScheduleForm}
-                      timelineError={scheduleErrors.timeline}
-                    />
-
-                    <label className="lwAdminField">
-                      <span className="lwAdminLabel">Brightness target</span>
-                      <input
-                        type="range"
-                        min="10"
-                        max="100"
-                        value={scheduleForm.dimLevel}
-                        onChange={(event) =>
-                          setScheduleForm((current) => ({
-                            ...current,
-                            dimLevel: Number(event.target.value),
-                          }))
-                        }
-                      />
-                      <FieldMessage hint={`Target brightness: ${scheduleForm.dimLevel}%`} />
-                    </label>
-
-                    <div className="lwAdminField">
-                      <span className="lwAdminLabel">Active days</span>
-                      <div className="lwAdminPillRow">
-                        {DAY_OPTIONS.map((day, dayIndex) => {
-                          const active = scheduleForm.days.includes(dayIndex);
-                          return (
-                            <button
-                              key={day}
-                              type="button"
-                              className={`lwAdminDayPill${active ? " isActive" : ""}`}
-                              onClick={() =>
-                                setScheduleForm((current) => ({
-                                  ...current,
-                                  days: active
-                                    ? current.days.filter((value) => value !== dayIndex)
-                                    : [...current.days, dayIndex].sort((a, b) => a - b),
-                                }))
-                              }
-                            >
-                              {day}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <FieldMessage error={scheduleErrors.days} />
-                    </div>
-
-                    <div className="lwAdminButtonRow">
-                      <button type="button" className="lwAdminPrimaryBtn" onClick={handleScheduleSave}>
-                        {scheduleEditorMode === "create" ? "Create Schedule" : "Save Schedule"}
-                      </button>
-                      {selectedSchedule ? (
-                        <button
-                          type="button"
-                          className="lwAdminGhostBtn isDanger"
-                          onClick={() =>
-                            openConfirmation({
-                              title: `Delete ${selectedSchedule.name}?`,
-                              message:
-                                "This removes the schedule and cannot be undone from the local planner.",
-                              confirmLabel: "Delete schedule",
-                              tone: "danger",
-                              onConfirm: () => {
-                                patchAdminState((current) => ({
-                                  ...current,
-                                  schedules: current.schedules.filter(
-                                    (schedule) => schedule.id !== selectedSchedule.id
-                                  ),
-                                }));
-                                setSelectedScheduleId(null);
-                                setScheduleStatus({ tone: "healthy", text: "Schedule deleted." });
-                              },
-                            })
-                          }
-                        >
-                          Delete Schedule
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {scheduleStatus ? <StatusChip tone={scheduleStatus.tone}>{scheduleStatus.text}</StatusChip> : null}
-                  </SectionCard>
-                </div>
-              ) : null}
-
               {activeSection === "lorawan" ? (
                 <div className="lwAdminSectionGrid lwAdminSectionGridCompact">
                   <div className="lwAdminDownlinkCard">
@@ -1824,7 +1358,7 @@ export default function Admin() {
                   <SectionCard
                     icon="settings"
                     title={userEditorMode === "create" ? "Add User" : "Edit User"}
-                    subtitle="Invites and removals sync with Cognito."
+                    subtitle="Manage who can access LightWise."
                   >
                     <div className="lwAdminFormGrid">
                       <label className="lwAdminField">
@@ -1845,6 +1379,7 @@ export default function Admin() {
                         <input
                           className="lwAdminInput"
                           value={userForm.email}
+                          disabled={userEditorMode === "edit"}
                           onChange={(event) =>
                             setUserForm((current) => ({ ...current, email: event.target.value }))
                           }
