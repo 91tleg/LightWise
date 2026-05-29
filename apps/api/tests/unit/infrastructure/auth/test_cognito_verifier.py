@@ -42,7 +42,7 @@ def test_jwks_fetched_once_across_calls(cognito_config):
     fresh_verifier = CognitoVerifier(cognito_config)
 
     with patch("urllib.request.urlopen") as mock_urlopen:
-        from tests.conftest import make_jwks
+        from tests.unit.conftest import make_jwks
         mock_urlopen.return_value.__enter__.return_value.read.return_value = (
             json.dumps(make_jwks()).encode()
         )
@@ -160,7 +160,7 @@ def test_invalid_token_header_raises(cognito_verifier):
 
 
 def test_no_matching_key_raises(cognito_verifier):
-    from tests.conftest import make_jwks
+    from tests.unit.conftest import make_jwks
     cognito_verifier.__dict__["_jwks"] = make_jwks(kid="different-kid")
 
     with patch(
