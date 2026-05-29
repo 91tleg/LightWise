@@ -45,6 +45,11 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     needs: unit
+    env:
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-west-2
+      DYNAMO_ENDPOINT: http://localhost:8000
     defaults:
       run:
         working-directory: apps/api
@@ -79,10 +84,12 @@ jobs:
           docker compose -f docker/dynamodb/docker-compose.yml wait dynamodb-setup || true
           echo "Verifying table exists..."
           for i in {1..10}; do
-            if aws dynamodb describe-table \
-                --table-name DownlinkCommands \
-                --endpoint-url http://localhost:8000 \
-                --region us-west-2 2>/dev/null; then
+            RESPONSE=$(curl -s -X POST http://localhost:8000 \
+              -H "Content-Type: application/x-amz-json-1.0" \
+              -H "X-Amz-Target: DynamoDB_20120810.DescribeTable" \
+              -d '{"TableName": "DownlinkCommands"}')
+            echo "$RESPONSE"
+            if echo "$RESPONSE" | grep -q "TableName"; then
               echo "Table is ready"
               exit 0
             fi
@@ -92,11 +99,6 @@ jobs:
           echo "Table did not become ready in time"
           exit 1
       - name: Run integration tests
-        env:
-          AWS_ACCESS_KEY_ID: local
-          AWS_SECRET_ACCESS_KEY: local
-          AWS_DEFAULT_REGION: us-west-2
-          DYNAMO_ENDPOINT: http://localhost:8000
         run: pytest tests/integration --maxfail=1 --disable-warnings -q
       - name: Stop local DynamoDB
         if: always()
