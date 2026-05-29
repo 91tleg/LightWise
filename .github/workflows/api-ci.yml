@@ -87,6 +87,7 @@ jobs:
             RESPONSE=$(curl -s -X POST http://localhost:8000 \
               -H "Content-Type: application/x-amz-json-1.0" \
               -H "X-Amz-Target: DynamoDB_20120810.DescribeTable" \
+              -H "Authorization: AWS4-HMAC-SHA256 Credential=local/20240101/us-east-1/dynamodb/aws4_request, SignedHeaders=content-type;host;x-amz-target, Signature=fake" \
               -d '{"TableName": "DownlinkCommands"}')
             echo "$RESPONSE"
             if echo "$RESPONSE" | grep -q "TableName"; then
