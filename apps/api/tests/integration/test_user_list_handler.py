@@ -44,6 +44,7 @@ def users_table(monkeypatch):
     return table
 
 
+@pytest.mark.integration
 def test_list_users_through_handler_use_case_repo_and_dynamodb(
     users_table,
 ):

@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  unit:
     runs-on: ubuntu-latest
 
     defaults:
@@ -22,8 +22,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.11]
-
+        python-version: ["3.11"]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
@@ -38,44 +37,70 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install flake8 mypy pytest
+      - name: Lint code
+        run: flake8 src/ tests/
+      - name: Run unit tests
+        run: pytest tests/unit --maxfail=1 --disable-warnings -q
 
-      - name: Start local DynamoDB
+  integration:
+    runs-on: ubuntu-latest
+    needs: unit
+    env:
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-west-2
+      DYNAMO_ENDPOINT: http://localhost:8000
+    defaults:
+      run:
+        working-directory: apps/api
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
         run: |
-          docker compose -f docker/dynamodb/docker-compose.yml up -d
-
-      - name: Wait for local DynamoDB
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Start local DynamoDB
+        run: docker compose -f docker/dynamodb/docker-compose.yml up -d
+      - name: Wait for DynamoDB and table
         run: |
           for i in {1..20}; do
             if curl -s http://localhost:8000 > /dev/null; then
               echo "DynamoDB is ready"
-              exit 0
+              break
             fi
             echo "Waiting for DynamoDB..."
             sleep 2
           done
-          echo "DynamoDB did not become ready in time"
-          docker compose -f docker/dynamodb/docker-compose.yml logs
+          echo "Waiting for setup container to finish..."
+          docker compose -f docker/dynamodb/docker-compose.yml wait dynamodb-setup || true
+          echo "Verifying table exists..."
+          for i in {1..10}; do
+            RESPONSE=$(curl -s -X POST http://localhost:8000 \
+              -H "Content-Type: application/x-amz-json-1.0" \
+              -H "X-Amz-Target: DynamoDB_20120810.DescribeTable" \
+              -H "Authorization: AWS4-HMAC-SHA256 Credential=local/20240101/us-east-1/dynamodb/aws4_request, SignedHeaders=content-type;host;x-amz-target, Signature=fake" \
+              -d '{"TableName": "DownlinkCommands"}')
+            echo "$RESPONSE"
+            if echo "$RESPONSE" | grep -q "TableName"; then
+              echo "Table is ready"
+              exit 0
+            fi
+            echo "Waiting for table..."
+            sleep 2
+          done
+          echo "Table did not become ready in time"
           exit 1
-
-      - name: Lint code
-        run: |
-          flake8 src/ tests/
-
-      #- name: Type check
-      #  run: |
-      #    mypy src/ tests/
-
-      - name: Run tests
-        env:
-          AWS_ACCESS_KEY_ID: local
-          AWS_SECRET_ACCESS_KEY: local
-          AWS_DEFAULT_REGION: us-west-2
-          AWS_REGION: us-west-2
-          DYNAMO_ENDPOINT: http://localhost:8000
-        run: |
-          pytest tests/ --maxfail=1 --disable-warnings -q
-
+      - name: Run integration tests
+        run: pytest tests/integration --maxfail=1 --disable-warnings -q
       - name: Stop local DynamoDB
         if: always()
-        run: |
-          docker compose -f docker/dynamodb/docker-compose.yml down
+        run: docker compose -f docker/dynamodb/docker-compose.yml down

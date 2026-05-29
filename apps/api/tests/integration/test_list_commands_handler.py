@@ -44,6 +44,7 @@ def downlink_table(monkeypatch):
     return table
 
 
+@pytest.mark.integration
 def test_list_commands_through_handler_use_case_repo_and_dynamodb(
     downlink_table,
 ):

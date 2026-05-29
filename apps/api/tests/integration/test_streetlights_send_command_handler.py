@@ -50,6 +50,7 @@ def dynamodb_tables(monkeypatch):
     return metadata_table, commands_table
 
 
+@pytest.mark.integration
 def test_send_command_through_handler_use_case_repo_and_dynamodb(
     dynamodb_tables,
     monkeypatch,
