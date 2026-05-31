@@ -20,6 +20,7 @@ class TestInviteUserHandler:
     def test_passes_tenant_and_requesting_user_to_use_case(self):
         user = SimpleNamespace(
             user_id="user-2",
+            name="",
             email="new.user@example.com",
             role="operator",
             tenant_id="tenant-1",
