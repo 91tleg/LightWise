@@ -10,7 +10,6 @@ import { useOverviewData } from "../hooks/useOverviewData";
 import { useTelemetryLoader } from "../hooks/useTelemetryLoader";
 import { useWebSocketSync } from "../hooks/useWebSocketSync";
 import { formatTimestamp } from "../utils/formatters";
-import { isValidCoord } from "../utils/poleHelpers";
 import {
   getCombinedSensorHealth,
   getOverviewPoleList,
@@ -55,6 +54,8 @@ function hasPoleTelemetry(pole) {
 export default function Overview() {
   const { wsStatus, lastMessage, streetlights, env } = useLightWise();
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [mapMode, setMapMode] = useState("all");
+  const [mapFitRequestKey, setMapFitRequestKey] = useState(0);
   const {
     availablePoles,
     selectedId,
@@ -94,20 +95,17 @@ export default function Overview() {
 
     return mapPoles.filter((pole) => visibleIds.has(pole?.streetlight_id));
   }, [mapPoles, overviewPoles]);
-  const overviewMapCenter = useMemo(() => {
-    if (
-      overviewSelectedPole &&
-      isValidCoord(overviewSelectedPole?.lat) &&
-      isValidCoord(overviewSelectedPole?.lng)
-    ) {
-      return {
-        lat: Number(overviewSelectedPole.lat),
-        lng: Number(overviewSelectedPole.lng),
-      };
-    }
 
-    return mapCenter;
-  }, [mapCenter, overviewSelectedPole]);
+  function handlePoleSelect(poleId) {
+    if (!poleId) return;
+    setSelectedId(poleId);
+    setMapMode("selected");
+  }
+
+  function handleMapZoomOut() {
+    setMapMode("all");
+    setMapFitRequestKey((current) => current + 1);
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 30000);
@@ -330,7 +328,7 @@ export default function Overview() {
                         key={pole.streetlight_id}
                         type="button"
                         className={`lwPoleListItem ${selected ? "isSelected" : ""}`}
-                        onClick={() => setSelectedId(pole.streetlight_id)}
+                        onClick={() => handlePoleSelect(pole.streetlight_id)}
                       >
                         <div>
                           <strong>{pole.streetlight_id}</strong>
@@ -353,18 +351,34 @@ export default function Overview() {
             </div>
           </aside>
 
-          <Card title="Network Map" className="lwMapCardShell lwOverviewMapShell">
+          <Card
+            title="Network Map"
+            className="lwMapCardShell lwOverviewMapShell"
+            actions={
+              <button
+                type="button"
+                className="lwOverviewMapResetBtn"
+                onClick={handleMapZoomOut}
+              >
+                Zoom Out
+              </button>
+            }
+          >
             <MapEmbed
               title="LightWise network map"
               height={560}
               fillHeight
-              lat={overviewMapCenter.lat}
-              lng={overviewMapCenter.lng}
+              lat={mapCenter.lat}
+              lng={mapCenter.lng}
               poles={overviewMapPoles}
               selectedId={overviewSelectedPole?.streetlight_id}
-              onSelectPole={(pole) => setSelectedId(pole.streetlight_id)}
+              onSelectPole={(pole) => handlePoleSelect(pole.streetlight_id)}
               interactive
-              useOverlayMarkers
+              fitToPoles={mapMode === "all"}
+              focusSelected={mapMode === "selected"}
+              fitRequestKey={mapFitRequestKey}
+              fitMaxZoom={13}
+              selectedZoom={18}
               showMotionFocus={false}
               showLegend
             />

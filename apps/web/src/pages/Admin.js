@@ -15,7 +15,6 @@ import {
 import { loadPoleMetaMap, upsertPoleMeta } from "../services/poleStorage";
 import { formatTimestamp } from "../utils/formatters";
 import {
-  DEFAULT_CENTER,
   isValidCoord,
   mergeBackendAndLocalPoles,
   pickBestCenter,
@@ -106,17 +105,6 @@ function isLocalOnlyUser(user = {}) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
-}
-
-function normalizeMapPoint(point) {
-  if (!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lng))) {
-    return null;
-  }
-
-  return {
-    lat: Number(point.lat),
-    lng: Number(point.lng),
-  };
 }
 
 function normalizeDevEui(value = "") {
@@ -210,36 +198,6 @@ function reconcileAdminState(currentState, basePoles = [], operator = null) {
   return {
     devices,
     users: users.length ? users : fallback.users,
-  };
-}
-
-function buildMapBoundsFromPoints(points = [], center = DEFAULT_CENTER) {
-  const validPoints = points.map(normalizeMapPoint).filter(Boolean);
-  const coords = validPoints.length ? validPoints : [center];
-  const minLat = Math.min(...coords.map((item) => item.lat));
-  const maxLat = Math.max(...coords.map((item) => item.lat));
-  const minLng = Math.min(...coords.map((item) => item.lng));
-  const maxLng = Math.max(...coords.map((item) => item.lng));
-  const latPad = Math.max((maxLat - minLat) * 0.22, 0.0032);
-  const lngPad = Math.max((maxLng - minLng) * 0.22, 0.0032);
-
-  return {
-    minLat: minLat - latPad,
-    maxLat: maxLat + latPad,
-    minLng: minLng - lngPad,
-    maxLng: maxLng + lngPad,
-  };
-}
-
-function getPercentPosition(lat, lng, bounds) {
-  const latSpan = Math.max(bounds.maxLat - bounds.minLat, 0.0001);
-  const lngSpan = Math.max(bounds.maxLng - bounds.minLng, 0.0001);
-  const left = ((Number(lng) - bounds.minLng) / lngSpan) * 100;
-  const top = (1 - (Number(lat) - bounds.minLat) / latSpan) * 100;
-
-  return {
-    left: `${clamp(left, 4, 96).toFixed(2)}%`,
-    top: `${clamp(top, 6, 94).toFixed(2)}%`,
   };
 }
 
@@ -392,9 +350,9 @@ function FieldMessage({ error, hint }) {
   return null;
 }
 
-function SectionCard({ icon, title, subtitle, actions, children }) {
+function SectionCard({ icon, title, subtitle, actions, children, className = "" }) {
   return (
-    <section className="lwAdminCard">
+    <section className={`lwAdminCard${className ? ` ${className}` : ""}`}>
       <div className="lwAdminCardHeader">
         <div className="lwAdminCardTitleWrap">
           <div className="lwAdminCardIcon">
@@ -521,18 +479,6 @@ function AdminMapSurface({
 
     return pickBestCenter(validPoles);
   }, [previewPoint, selectedPoleId, validPoles]);
-  const pointsForBounds = useMemo(() => {
-    return [
-      ...validPoles.map((pole) => ({ lat: Number(pole.lat), lng: Number(pole.lng) })),
-      ...(previewPoint ? [previewPoint] : []),
-      center,
-    ];
-  }, [center, previewPoint, validPoles]);
-  const bounds = useMemo(
-    () => buildMapBoundsFromPoints(pointsForBounds, center),
-    [center, pointsForBounds]
-  );
-
   return (
     <div className="lwAdminMapSurface">
       <MapEmbed
@@ -545,53 +491,11 @@ function AdminMapSurface({
         lng={center.lng}
         poles={validPoles}
         selectedId={selectedPoleId}
-        forceNativePin={Boolean(previewPoint)}
+        onSelectPole={onPoleClick}
+        fitToPoles
+        fitMaxZoom={15}
+        previewPoint={previewPoint}
       />
-
-      <div className="lwAdminMapBadgeRow">
-        <StatusChip tone="neutral">Map view</StatusChip>
-        <StatusChip tone="neutral">Manual edits</StatusChip>
-      </div>
-
-      <div
-        className="lwAdminMapOverlay"
-        role="presentation"
-      >
-        {validPoles.map((pole) => {
-          const tone = toneForHealth(pole.health);
-          const isActive = pole.streetlight_id === selectedPoleId;
-          const position = getPercentPosition(pole.lat, pole.lng, bounds);
-          const showLabel = isActive;
-
-          return (
-            <button
-              key={pole.streetlight_id}
-              type="button"
-              className={`lwAdminMapMarker ${tone}${isActive ? " isActive" : ""}`}
-              style={position}
-              onClick={(event) => {
-                event.stopPropagation();
-                onPoleClick?.(pole);
-              }}
-            >
-              <span className="lwAdminMapMarkerDot" />
-              {showLabel ? (
-                <span className="lwAdminMapMarkerLabel">{pole.streetlight_id}</span>
-              ) : null}
-            </button>
-          );
-        })}
-
-        {previewPoint ? (
-          <div
-            className="lwAdminMapPreviewPin"
-            style={getPercentPosition(previewPoint.lat, previewPoint.lng, bounds)}
-          >
-            <span className="lwAdminMapPreviewDot" />
-            <span className="lwAdminMapMarkerLabel">Preview</span>
-          </div>
-        ) : null}
-      </div>
 
       <div className="lwAdminMapFooter">
         Use this map to review pole locations before saving changes.
@@ -1122,7 +1026,7 @@ export default function Admin() {
 
             <div className="lwAdminSectionBody">
               {activeSection === "poles" ? (
-                <div className="lwAdminSectionGrid">
+                <div className="lwAdminSectionGrid lwAdminPoleSectionGrid">
                   <SectionCard
                     icon="pin"
                     title="Pole Management"
@@ -1141,8 +1045,9 @@ export default function Admin() {
                       icon="settings"
                       title="Edit Pole"
                       subtitle="Click any row or marker to load it into the editor."
+                      className="lwAdminPoleEditorCard"
                     >
-                      <div className="lwAdminFormGrid">
+                      <div className="lwAdminFormGrid lwAdminPoleFormGrid">
                         <label className="lwAdminField">
                           <span className="lwAdminLabel">Display name</span>
                           <input
@@ -1203,8 +1108,10 @@ export default function Admin() {
                       icon="analytics"
                       title="Pole Table"
                       subtitle="Search by pole ID, name, or health. Click a row to edit."
+                      actions={<span className="lwAdminTableCount">{filteredPoles.length} poles</span>}
+                      className="lwAdminPoleTableCard"
                     >
-                      <label className="lwAdminField">
+                      <label className="lwAdminField lwAdminPoleTableSearch">
                         <span className="lwAdminLabel">Search</span>
                         <input
                           className="lwAdminInput"
