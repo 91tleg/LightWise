@@ -6,7 +6,6 @@ import { useLightWise } from "../hooks/useLightWise";
 import { loadPoleMetaMap, subscribeToPoleMetaChanges } from "../services/poleStorage";
 import { readActivePoleId, writeActivePoleId } from "../services/activePoleStorage";
 import {
-  DEFAULT_CENTER,
   isValidCoord,
   mergeBackendAndLocalPoles,
   pickBestCenter,
@@ -58,27 +57,7 @@ export default function MapView() {
     );
   }, [mergedPoles]);
 
-  const selectedPole = useMemo(() => {
-    return (
-      validPoles.find((pole) => pole.streetlight_id === selectedId) ||
-      validPoles[0] ||
-      null
-    );
-  }, [validPoles, selectedId]);
-
-  const mapCenter = selectedPole
-    ? {
-        lat: Number(selectedPole.lat),
-        lng: Number(selectedPole.lng),
-      }
-    : DEFAULT_CENTER;
-
-  const mapKey = [
-    selectedPole?.streetlight_id || "none",
-    mapCenter.lat,
-    mapCenter.lng,
-    validPoles.length,
-  ].join("-");
+  const mapCenter = useMemo(() => pickBestCenter(validPoles), [validPoles]);
 
   return (
     <Layout title="Map View" subtitle="Interactive network map.">
@@ -92,17 +71,17 @@ export default function MapView() {
           }}
         >
           <MapEmbed
-            key={mapKey}
             title="Interactive LightWise Map"
             height={760}
             fillHeight={false}
             lat={mapCenter.lat}
             lng={mapCenter.lng}
             poles={validPoles}
-            selectedId={selectedPole?.streetlight_id}
+            selectedId={selectedId}
             onSelectPole={(pole) => setSelectedId(pole.streetlight_id)}
             interactive
-            forceNativePin
+            fitToPoles
+            fitMaxZoom={16}
             showLegend
           />
         </div>

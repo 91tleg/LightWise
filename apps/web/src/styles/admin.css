@@ -3,7 +3,7 @@
   height: 100%;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
-  min-height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -142,6 +142,7 @@
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 12px;
+  align-items: stretch;
   overflow: hidden;
 }
 
@@ -150,7 +151,7 @@
   top: 0;
   align-self: start;
   max-height: 100%;
-  overflow: auto;
+  overflow: hidden;
   padding: 16px;
 }
 
@@ -229,17 +230,23 @@
   gap: 12px;
 }
 
+.lwAdminSectionBody {
+  overflow: hidden;
+}
+
 .lwAdminSectionGrid {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.82fr);
+  grid-template-columns: minmax(360px, 0.9fr) minmax(470px, 1.1fr);
   gap: 12px;
   align-items: stretch;
+  overflow: hidden;
 }
 
 .lwAdminSectionGridCompact {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 0;
 }
 
 .lwAdminCard {
@@ -248,7 +255,56 @@
   display: flex;
   flex-direction: column;
   padding: 16px;
+  overflow: hidden;
+}
+
+.lwAdminStack {
+  height: 100%;
+  grid-template-rows: minmax(300px, 0.48fr) minmax(0, 0.52fr);
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+}
+
+.lwAdminPoleSectionGrid .lwAdminStack {
+  grid-template-rows: minmax(220px, 0.38fr) minmax(320px, 0.62fr);
+}
+
+.lwAdminStack > .lwAdminCard {
+  min-height: 0;
+}
+
+.lwAdminStack > .lwAdminCard:first-child {
   overflow: auto;
+}
+
+.lwAdminStack > .lwAdminCard:last-child {
+  overflow: hidden;
+}
+
+.lwAdminPoleEditorCard {
+  padding: 14px;
+}
+
+.lwAdminPoleEditorCard .lwAdminCardHeader,
+.lwAdminPoleTableCard .lwAdminCardHeader {
+  margin-bottom: 10px;
+}
+
+.lwAdminPoleEditorCard .lwAdminFormGrid {
+  gap: 10px 12px;
+}
+
+.lwAdminPoleEditorCard .lwAdminField {
+  gap: 6px;
+}
+
+.lwAdminPoleEditorCard .lwAdminButtonRow {
+  margin-top: 8px;
+}
+
+.lwAdminPoleTableCard {
+  padding: 14px;
 }
 
 .lwAdminCardHeader {
@@ -361,6 +417,10 @@
   gap: 14px;
 }
 
+.lwAdminPoleFormGrid .lwAdminField:first-child {
+  grid-column: 1 / -1;
+}
+
 .lwAdminField {
   display: grid;
   gap: 7px;
@@ -382,6 +442,7 @@
 .lwAdminTextarea,
 .lwAdminSelect {
   width: 100%;
+  min-height: 46px;
   box-sizing: border-box;
   border-radius: 14px;
   border: 1px solid rgba(200, 214, 227, 0.98);
@@ -563,7 +624,8 @@
 
 .lwAdminMapSurface {
   position: relative;
-  min-height: 420px;
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: 18px;
   overflow: hidden;
   background:
@@ -573,24 +635,8 @@
 
 .lwAdminMapSurface .lwMapBox,
 .lwAdminMapSurface .lwInteractiveMap {
-  min-height: 420px;
-  height: 420px;
-}
-
-.lwAdminMapBadgeRow {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  right: 14px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  z-index: 2;
-}
-
-.lwAdminMapBadgeRow .lwAdminChip {
-  backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.86);
+  min-height: 0;
+  height: 100%;
 }
 
 .lwAdminMapOverlay {
@@ -701,10 +747,15 @@
 }
 
 .lwAdminMapFooter {
-  margin-top: 12px;
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
+  z-index: 700;
   font-size: 12px;
   font-weight: 700;
   color: #617285;
+  pointer-events: none;
 }
 
 .lwAdminRecordList {
@@ -745,10 +796,56 @@
 }
 
 .lwAdminTableWrap {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  position: relative;
+  z-index: 1;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   border-radius: 16px;
   border: 1px solid rgba(207, 220, 232, 0.98);
+}
+
+.lwAdminStack .lwAdminTableWrap {
+  min-height: 0;
+}
+
+.lwAdminPoleTableSearch {
+  margin-bottom: 10px;
+}
+
+.lwAdminPoleTableCard .lwAdminTableWrap {
+  min-height: 0;
+}
+
+.lwAdminPoleTableCard .lwAdminTable {
+  min-width: 0;
+}
+
+.lwAdminPoleTableCard .lwAdminTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.lwAdminPoleTableCard .lwAdminTable td {
+  padding: 11px 13px;
+}
+
+.lwAdminTableCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(11, 99, 166, 0.22);
+  background: rgba(11, 99, 166, 0.1);
+  color: #0b63a6;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .lwAdminTable {
@@ -786,10 +883,10 @@
 }
 
 .lwAdminTable td {
-  padding: 13px 14px;
+  padding: 15px 16px;
   vertical-align: top;
   border-top: 1px solid rgba(226, 232, 240, 0.92);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #1f3347;
   overflow-wrap: anywhere;
@@ -797,7 +894,7 @@
 
 .lwAdminTable td strong {
   display: block;
-  font-size: 14px;
+  font-size: 15px;
   color: #102133;
 }
 
@@ -1165,10 +1262,6 @@ body.dark .lwAdminMapMarkerLabel {
   color: #eef5ff;
 }
 
-body.dark .lwAdminMapBadgeRow .lwAdminChip {
-  background: rgba(8, 18, 30, 0.76);
-}
-
 body.dark .lwAdminMapPreviewDot {
   border-color: rgba(8, 18, 30, 0.98);
   box-shadow:
@@ -1183,15 +1276,26 @@ body.dark .lwAdminMapPreviewDot {
 
   .lwAdminShell {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .lwAdminSectionNav {
     position: static;
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .lwAdminSectionNavList {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .lwAdminSectionGrid,
   .lwAdminSectionGridCompact {
     grid-template-columns: 1fr;
+  }
+
+  .lwAdminPoleSectionGrid {
+    grid-template-columns: minmax(300px, 0.82fr) minmax(410px, 1.18fr);
   }
 
   .lwAdminDownlinkTop {
@@ -1207,6 +1311,18 @@ body.dark .lwAdminMapPreviewDot {
 
   .lwAdminStatGrid {
     grid-template-columns: 1fr;
+  }
+
+  .lwAdminShell {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .lwAdminSectionNav {
+    display: none;
+  }
+
+  .lwAdminPoleSectionGrid {
+    grid-template-columns: minmax(180px, 0.65fr) minmax(260px, 1.35fr);
   }
 
   .lwAdminFormGrid,
@@ -1241,7 +1357,7 @@ body.dark .lwAdminMapPreviewDot {
   .lwAdminMapSurface,
   .lwAdminMapSurface .lwMapBox,
   .lwAdminMapSurface .lwInteractiveMap {
-    min-height: 360px;
-    height: 360px;
+    min-height: 0;
+    height: 100%;
   }
 }

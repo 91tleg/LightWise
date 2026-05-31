@@ -18,7 +18,7 @@ const poles = [
   },
 ];
 
-test("renders the real map background, loading surface, and LightWise markers", () => {
+test("renders the native map surface, loading surface, and LightWise markers", async () => {
   const { container } = render(
     <MapEmbed
       title="Network map"
@@ -29,17 +29,15 @@ test("renders the real map background, loading surface, and LightWise markers", 
     />
   );
 
-  expect(screen.getByLabelText("Select pole LW-00043")).toBeTruthy();
-  expect(screen.getByLabelText("Select pole LW-00044")).toBeTruthy();
+  expect(await screen.findByLabelText("Select pole LW-00043")).toBeTruthy();
+  expect(await screen.findByLabelText("Select pole LW-00044")).toBeTruthy();
   expect(container.querySelector(".lwMapLoadingSurface")).toBeTruthy();
   expect(container.querySelector(".lwMapRoadLayer")).toBeNull();
-  expect(screen.getByTitle("Network map").getAttribute("src")).toContain(
-    "output=embed"
-  );
-  expect(screen.getByTitle("Network map").style.pointerEvents).toBe("none");
+  expect(screen.getByRole("application", { name: "Network map" })).toBeTruthy();
+  expect(container.querySelector("iframe")).toBeNull();
 });
 
-test("renders a marker for a single interactive pole", () => {
+test("renders a marker for a single interactive pole", async () => {
   render(
     <MapEmbed
       title="Single pole map"
@@ -50,7 +48,7 @@ test("renders a marker for a single interactive pole", () => {
     />
   );
 
-  expect(screen.getByLabelText("Select pole LW-00043")).toBeTruthy();
+  expect(await screen.findByLabelText("Select pole LW-00043")).toBeTruthy();
 });
 
 test("hides LightWise pole markers when marker rendering is disabled", () => {
@@ -66,5 +64,5 @@ test("hides LightWise pole markers when marker rendering is disabled", () => {
 
   expect(screen.queryByLabelText("Select pole LW-00043")).toBeNull();
   expect(screen.queryByText("LW-00043")).toBeNull();
-  expect(screen.getByTitle("Hidden marker map").getAttribute("src")).not.toContain("&q=");
+  expect(screen.getByRole("application", { name: "Hidden marker map" })).toBeTruthy();
 });

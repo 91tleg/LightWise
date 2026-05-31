@@ -897,6 +897,25 @@ body.dark {
   color: var(--lw-text);
 }
 
+.lwCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.lwCardHeader .lwCardTitle {
+  margin-bottom: 0;
+}
+
+.lwCardActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .lwBottomGrid {
   display: grid;
   grid-template-columns: 340px 1fr 340px;
