@@ -417,6 +417,20 @@ Resources:
             Path: /users/{id}
             Method: delete
 
+    UpdateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.user_update.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersAndTenants
+      Events:
+        UpdateUser:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: patch
+
   ListStreetlightsFunction:
     Type: AWS::Serverless::Function
     Properties:

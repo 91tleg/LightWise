@@ -43,6 +43,7 @@ def handler(event: dict, context: object) -> dict:
     return success([
         {
             "user_id": u.user_id,
+            "name": u.name,
             "email": u.email,
             "role": u.role,
             "tenant_id": u.tenant_id,

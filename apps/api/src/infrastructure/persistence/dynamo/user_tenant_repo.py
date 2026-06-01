@@ -112,6 +112,7 @@ class UserTenantRepo:
                 "email": user.email,
                 "role": user.role,
                 "created_at": user.created_at,
+                "name": user.name,
             })
         except ClientError as e:
             raise PersistenceError(
@@ -136,6 +137,7 @@ class UserTenantRepo:
             email=item["email"],
             role=item["role"],
             created_at=item["created_at"],
+            name=item.get("name", ""),
         )
 
 

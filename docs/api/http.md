@@ -414,3 +414,28 @@ Returned when Cognito rejects the delete request.
   "message": "User does not exist"
 }
 ```
+
+---
+
+## `PATCH /users/{id}`
+
+Updates a user's name inside the tenant.
+
+Only the tenant owner can update user data.
+
+### Authentication
+
+Requires a valid Cognito access token.
+
+### Path Parameters
+
+| Parameter | Type   | Required | Description                   |
+| --------- | ------ | -------- | ----------------------------- |
+| `id`      | string | Yes      | User ID of the user to update |
+
+### Request Body
+
+```json
+{
+  "name": "Jimmy Johns"
+}
