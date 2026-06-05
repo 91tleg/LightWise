@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <driver/gpio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct LedDetect
 {
     gpio_num_t pin;
@@ -13,5 +17,9 @@ typedef struct LedDetect
 bool led_detect_init( LedDetect * detect );
 bool led_detect_deinit( LedDetect * detect );
 bool led_detect_read( LedDetect * detect, bool * unplugged );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LED_DETECT_H */
