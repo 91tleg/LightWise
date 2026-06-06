@@ -56,6 +56,8 @@ namespace hal
                                        .addr   = board::config.lwnodeI2cAddr,
                                        .handle = nullptr };
 
+    constinit LedDetect ledDetect { .pin = board::config.ledDetectPin };
+
     void init()
     {
         if( !adc_unit_init( &sAdcUnit1 ) )
@@ -101,6 +103,11 @@ namespace hal
         if( !aht20_hal_init( &aht20Primary, &sI2cBus ) )
         {
             LOGE( kTag, "AHT20 init failed" );
+        }
+
+        if( !led_detect_init( &ledDetect ) )
+        {
+            LOGE( kTag, "LED detect pin init failed" );
         }
     }
 

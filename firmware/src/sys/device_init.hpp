@@ -6,6 +6,7 @@
 #include "lib/light/led.hpp"
 #include "lib/th/aht20.hpp"
 #include "lib/lorawan/lwnode.hpp"
+#include "lib/light/led_probe.hpp"
 
 namespace device
 {
@@ -18,6 +19,7 @@ namespace device
     extern mmwave::C4001 c001Secondary;
     extern th::Aht20 aht20Primary;
     extern lorawan::Lwnode lwnodePrimary;
+    extern light::LedProbe ledPresence;
 
 } /* namespace device */
 

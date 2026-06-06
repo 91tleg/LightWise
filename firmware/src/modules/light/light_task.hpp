@@ -17,7 +17,8 @@ namespace light
      */
     struct TaskParams
     {
-        Manager &manager;  /**< Fully constructed, statically allocated Manager. */
+        Manager      & manager;        /**< Fully constructed, statically allocated Manager. */
+        QueueHandle_t  ledQueue;    /**< Health transitions to FSM. */
     };
 
     /**

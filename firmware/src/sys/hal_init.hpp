@@ -6,6 +6,7 @@
 #include "hal/aht20.h"
 #include "hal/led.h"
 #include "hal/lwnode.h"
+#include "hal/led_detect.h"
 
 namespace hal
 {
@@ -19,6 +20,7 @@ namespace hal
     extern Aht20Hw aht20Primary;
     extern LedHw led;
     extern LwnodeHw lwnodePrimary;
+    extern LedDetect ledDetect;
 
 } /* namespace hal */
 

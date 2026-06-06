@@ -46,7 +46,7 @@ namespace mgr
         mmwave::Manager sMmwaveManager { device::c4001Primary,
                                          device::c001Secondary };
 
-        light::Manager sLightManager { device::led };
+        light::Manager sLightManager { device::led, device::ledPresence };
 
         lorawan::Manager sLorawanManager { device::lwnodePrimary };
 
@@ -58,6 +58,8 @@ namespace mgr
 
     void init()
     {
+        sFsmManager.init();
+
         static_cast< void >( sConfigStore.load( sSystemConfig ) );
 
         fsm::Config fsmConfig {};

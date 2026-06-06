@@ -1,9 +1,9 @@
 #include "light_task.hpp"
-
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-
+#include <freertos/queue.h>
 #include "light_manager.hpp"
+#include "common/types/sensor_health.hpp"
 #include "utils/log/log.h"
 
 namespace light
@@ -23,7 +23,11 @@ namespace light
     {
         configASSERT( pvParameters != nullptr );
 
-        TaskParams &params { *static_cast< TaskParams * >( pvParameters ) };
+        TaskParams & params { *static_cast< TaskParams * >( pvParameters ) };
+
+        configASSERT( params.ledQueue != nullptr );
+
+        bool lastPresent { true };
 
         for( ;; )
         {
@@ -52,6 +56,14 @@ namespace light
             {
                 LOGD( kTag, "Ramp complete at level: %u",
                     static_cast< unsigned >( params.manager.getTarget() ) );
+
+                if( params.manager.getTarget() == 100U )
+                {
+                    const bool present { params.manager.isPresent() };
+                    lastPresent = present;
+                    static_cast< void >( xQueueOverwrite( params.ledQueue, &present ) );
+                    LOGI( kTag, "LED present: %s", present ? "yes" : "no" );
+                }
             }
         }
     }
