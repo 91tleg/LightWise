@@ -2,6 +2,7 @@
 
 #include "light_manager.hpp"
 #include "lib/mock_light_sensor.hpp"
+#include "lib/mock_led_presence.hpp"
 
 using namespace light;
 using ::testing::_;
@@ -12,6 +13,7 @@ class LightManagerTest : public ::testing::Test
 {
 protected:
     MockLightSensor mockLed;
+    MockLedPresence mockPresence;
 
     void SetInitialLevel( Manager & mgr, uint8_t level )
     {
@@ -26,14 +28,14 @@ protected:
 
 TEST_F( LightManagerTest, InitialStateNotRamping )
 {
-    Manager mgr { mockLed };
+    Manager mgr { mockLed, mockPresence };
     EXPECT_FALSE( mgr.isRamping() );
     EXPECT_EQ( mgr.getTarget(), 0U );
 }
 
 TEST_F( LightManagerTest, SetTargetStartsRamping )
 {
-    Manager mgr { mockLed };
+    Manager mgr { mockLed, mockPresence };
     mgr.setTarget( 100U, 60U );
 
     EXPECT_TRUE( mgr.isRamping() );
@@ -44,7 +46,7 @@ TEST_F( LightManagerTest, SetTargetStartsRamping )
 
 TEST_F( LightManagerTest, StepIncrementsLevelOneByOne )
 {
-    Manager mgr { mockLed };
+    Manager mgr { mockLed, mockPresence };
     mgr.setTarget( 2U, 60U );
 
     InSequence seq;
@@ -58,7 +60,7 @@ TEST_F( LightManagerTest, StepIncrementsLevelOneByOne )
 
 TEST_F( LightManagerTest, StepRetriesOnHardwareFailure )
 {
-    Manager mgr { mockLed };
+    Manager mgr { mockLed, mockPresence };
     mgr.setTarget( 10U, 60U );
 
     /* Fail the first hardware write */
@@ -74,7 +76,7 @@ TEST_F( LightManagerTest, StepRetriesOnHardwareFailure )
 
 TEST_F( LightManagerTest, HandlesDownwardsRamp )
 {
-    Manager mgr { mockLed };
+    Manager mgr { mockLed, mockPresence };
     SetInitialLevel( mgr, 10U );
 
     mgr.setTarget( 8U, 60U );
@@ -89,7 +91,7 @@ TEST_F( LightManagerTest, HandlesDownwardsRamp )
 
 TEST_F( LightManagerTest, StepReturnsTrueImmediatelyWhenNotRamping )
 {
-    Manager mgr { mockLed };
+    Manager mgr { mockLed, mockPresence };
     
     EXPECT_CALL( mockLed, setLevel( _ ) ).Times( 0 );
     
@@ -99,7 +101,7 @@ TEST_F( LightManagerTest, StepReturnsTrueImmediatelyWhenNotRamping )
 
 TEST_F( LightManagerTest, SetTargetClampsZeroStepsToOne )
 {
-    Manager mgr { mockLed };
+    Manager mgr { mockLed, mockPresence };
     mgr.setTarget( 50U, 0U );
     
     EXPECT_EQ( mgr.stepIntervalMs(), 1000U );
