@@ -133,13 +133,13 @@ namespace fsm
             {
                 static_cast< void >( xQueueOverwrite( params.lorawanTxQueue,
                                                       &outputs.uplinkData ) );
-
             }
         }
 
         [[nodiscard]] EventData makeEventData( const ambient::Data & ambient,
                                                const th::Data & th,
-                                               const mmwave::Data & mmwave ) noexcept
+                                               const mmwave::Data & mmwave,
+                                               const bool lightOk ) noexcept
         {
             EventData ed {};
             ed.lux           = ambient.lux;
@@ -148,6 +148,7 @@ namespace fsm
             ed.ambientHealth = ambient.health;
             ed.thHealth      = th.health;
             ed.mmwaveHealth  = mmwave.health;
+            ed.lightOk       = lightOk;
             return ed;
         }
 
@@ -166,7 +167,8 @@ namespace fsm
                           ambient::Data & lastAmbient,
                           TickType_t & lastPollTick,
                           const th::Data & lastTh,
-                          const mmwave::Data & lastMmwave ) noexcept
+                          const mmwave::Data & lastMmwave,
+                          const bool lightOk ) noexcept
         {
             const TickType_t now { xTaskGetTickCount() };
 
@@ -178,7 +180,7 @@ namespace fsm
                     lastAmbient  = fresh;
                     lastPollTick = now;
 
-                    EventData ed { makeEventData( fresh, lastTh, lastMmwave ) };
+                    const EventData ed { makeEventData( fresh, lastTh, lastMmwave, lightOk ) };
                     const State before { manager.currentState() };
 
                     const Event event { ( fresh.lux <= 1000.0f )
@@ -206,6 +208,13 @@ namespace fsm
         configASSERT( params.lorawanTxQueue  != nullptr );
         configASSERT( params.thTaskHandle    != nullptr );
         configASSERT( params.lightTaskHandle != nullptr );
+        configASSERT( params.ledPresentQueue != nullptr );
+
+        bool          lastLightOk         { true };
+        ambient::Data lastAmbient         {};
+        th::Data      lastTh              {};
+        mmwave::Data  lastMmwave          {};
+        TickType_t    lastAmbientPollTick { xTaskGetTickCount() };
 
         sFsmTaskHandle = xTaskGetCurrentTaskHandle();
 
@@ -226,15 +235,12 @@ namespace fsm
         configASSERT( sMotionTimer != nullptr );
         configASSERT( sManualTimer != nullptr );
 
-        params.manager.init();
-
-        ambient::Data lastAmbient {};
-        th::Data      lastTh      {};
-        mmwave::Data  lastMmwave  {};
-        TickType_t    lastAmbientPollTick { xTaskGetTickCount() };
-
         for( ;; )
         {
+            static_cast< void >( xQueueReceive( params.ledPresentQueue,
+                                                &lastLightOk,
+                                                0U ) );
+
             uint32_t notifiedValue { 0U };
             if( xTaskNotifyWait( 0U, kClearAllBits, &notifiedValue,
                                  pdMS_TO_TICKS( kQueueReceiveTimeoutMs ) ) == pdTRUE )
@@ -244,7 +250,7 @@ namespace fsm
                 if( ( timerEvent == Event::MotionTimeout ) ||
                     ( timerEvent == Event::ManualTimeout  ) )
                 {
-                    const EventData ed { makeEventData( lastAmbient, lastTh, lastMmwave ) };
+                    const EventData ed { makeEventData( lastAmbient, lastTh, lastMmwave, lastLightOk ) };
                     const State before { params.manager.currentState() };
                     const Outputs out  { params.manager.process( timerEvent, ed ) };
                     handleTimers( before, params.manager.currentState() );
@@ -262,10 +268,10 @@ namespace fsm
                     readTh( params, lastTh );
                 }
 
-                const EventData ed { makeEventData( lastAmbient, lastTh, lastMmwave ) };
-                const Event event { mmwave.motionDetected
-                                    ? Event::MotionDetected
-                                    : Event::MotionTimeout };
+                const EventData ed { makeEventData( lastAmbient, lastTh, lastMmwave, lastLightOk ) };
+                const Event event  { mmwave.motionDetected
+                                     ? Event::MotionDetected
+                                     : Event::MotionTimeout };
                 const State   before { params.manager.currentState() };
                 const Outputs out    { params.manager.process( event, ed ) };
                 handleTimers( before, params.manager.currentState() );
@@ -279,8 +285,8 @@ namespace fsm
                       static_cast< unsigned >( dlEvent.event ) );
 
                 const State before { params.manager.currentState() };
-                const Outputs out { params.manager.process( dlEvent.event,
-                                                            dlEvent.data ) };
+                const Outputs out  { params.manager.process( dlEvent.event,
+                                                             dlEvent.data ) };
                 handleTimers( before, params.manager.currentState() );
                 dispatchOutputs( out, params );
             }
@@ -290,7 +296,8 @@ namespace fsm
                          lastAmbient,
                          lastAmbientPollTick,
                          lastTh,
-                         lastMmwave );
+                         lastMmwave,
+                         lastLightOk );
         }
     }
 

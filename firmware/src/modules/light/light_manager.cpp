@@ -3,6 +3,7 @@
 #include <algorithm>  /* std::clamp */
 
 #include "lib/light/light_sensor.hpp"
+#include "lib/light/led_presence.hpp"
 #include "utils/log/log.h"
 
 namespace light
@@ -15,12 +16,13 @@ namespace light
 
     } /* anonymous namespace */
 
-    Manager::Manager( LightSensor & led ) noexcept
-        : led_           { led   }
-        , current_       { 0U    }
-        , target_        { 0U    }
-        , stepsPerSecond_{ 1U    }
-        , ramping_       { false }
+    Manager::Manager( LightSensor & led, LedPresence & detect ) noexcept
+        : led_           { led    }
+        , detect_        { detect }
+        , current_       { 0U     }
+        , target_        { 0U     }
+        , stepsPerSecond_{ 1U     }
+        , ramping_       { false  }
     {
 
     }
@@ -33,8 +35,8 @@ namespace light
     }
 
     bool Manager::step() noexcept
-    {
-        bool complete { true };
+{
+    bool complete { true };
 
         if( ramping_ )
         {
@@ -71,9 +73,9 @@ namespace light
                 else
                 {
                     /* Write failed: hold current_; retry on next call.
-                     * Intentionally do NOT update ramping_ here: the ramp must
-                     * not be declared complete until hardware confirms the level,
-                     * even if the rolled-back current_ happens to equal target_. */
+                    * Intentionally do NOT update ramping_ here: the ramp must
+                    * not be declared complete until hardware confirms the level,
+                    * even if the rolled-back current_ happens to equal target_. */
                     LOGW( kTag, "setLevel failed at %u: retrying next step", next );
                 }
             }
@@ -97,6 +99,11 @@ namespace light
     uint32_t Manager::stepIntervalMs() const noexcept
     {
         return kMsPerSecond / static_cast< uint32_t >( stepsPerSecond_ );
+    }
+
+    bool Manager::isPresent() const noexcept
+    {
+        return detect_.isPresent();
     }
 
 } /* namespace light */

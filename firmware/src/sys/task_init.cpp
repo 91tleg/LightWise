@@ -52,6 +52,7 @@ namespace task
         constexpr uint32_t kMmwaveQueueLength   { 1U };
         constexpr uint32_t kLorawanQueueLength  { 1U };
         constexpr uint32_t kFsmCmdQueueLength   { 4U };
+        constexpr uint32_t kLedQueueLength      { 1U };
 
         /* Stack sizes (bytes) */
         constexpr uint32_t kAmbientStackSize      { 3072U };
@@ -60,7 +61,7 @@ namespace task
         constexpr uint32_t kLightStackSize        { 3072U };
         constexpr uint32_t kLorawanStackSize      { 8192U };
         constexpr uint32_t kMmwaveStackSize       { 3072U };
-        constexpr uint32_t kLorawanRadioStackSize { 4096U };
+        constexpr uint32_t kLorawanRadioStackSize { 5120U };
 
         /* Task priorities */
         constexpr UBaseType_t kAmbientPriority      { 3U };
@@ -77,12 +78,14 @@ namespace task
         StaticQueue_t xMmwaveQueueBuffer;
         StaticQueue_t xLorawanQueueBuffer;
         StaticQueue_t xFsmCmdQueueBuffer;
+        StaticQueue_t xLedQueueBuffer;
 
         uint8_t ucAmbientQueueStorage[ kAmbientQueueLength * sizeof( ambient::Data ) ];
         uint8_t ucThQueueStorage[ kThQueueLength * sizeof( th::Data ) ];
         uint8_t ucMmwaveQueueStorage[ kMmwaveQueueLength * sizeof( mmwave::Data ) ];
         uint8_t ucLorawanQueueStorage[ kLorawanQueueLength * sizeof( lorawan::UplinkData ) ];
         uint8_t ucFsmCmdQueueStorage[ kFsmCmdQueueLength * sizeof( lorawan::DownlinkEvent ) ];
+        uint8_t ucLedQueueStorage[ kLedQueueLength * sizeof( bool ) ];
 
         /* Queue handles */
         QueueHandle_t xAmbientQueueHandle { nullptr };
@@ -90,6 +93,7 @@ namespace task
         QueueHandle_t xMmwaveQueueHandle { nullptr };
         QueueHandle_t xLorawanQueueHandle { nullptr };
         QueueHandle_t xFsmCmdQueueHandle { nullptr };
+        QueueHandle_t xLedQueueHandle { nullptr };
 
         /* Task TCBs and stacks */
         StaticTask_t xAmbientTaskTcb;
@@ -164,10 +168,14 @@ namespace task
                                                  &xFsmCmdQueueBuffer );
         configASSERT( xFsmCmdQueueHandle != nullptr );
 
+        xLedQueueHandle = xQueueCreateStatic( kLedQueueLength,
+                                              sizeof( bool ),
+                                              ucLedQueueStorage,
+                                              &xLedQueueBuffer );
         LOGI( kTag, "Queues created" );
 
         /* Light task handle needed by FsmTaskParams */
-        xLightTaskParams.emplace( mgr::getLightManager() );
+        xLightTaskParams.emplace( mgr::getLightManager(), xLedQueueHandle );
 
         xLightTaskHandle = xTaskCreateStatic( light::task,
                                               "LightTask",
@@ -197,6 +205,7 @@ namespace task
                                 xMmwaveQueueHandle,
                                 xLorawanQueueHandle,
                                 xFsmCmdQueueHandle,
+                                xLedQueueHandle,
                                 xThTaskHandle,
                                 xLightTaskHandle );
 

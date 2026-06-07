@@ -52,6 +52,8 @@ namespace board
         ledc_mode_t       ledPwmSpeedMode;
         uint32_t          ledPwmFreqHz;
         ledc_timer_bit_t  ledPwmDutyRes;
+
+        gpio_num_t ledDetectPin;
     };
 
     inline constexpr Board config =
@@ -94,7 +96,9 @@ namespace board
         .ledPwmTimer     = LEDC_TIMER_0,
         .ledPwmSpeedMode = LEDC_LOW_SPEED_MODE,
         .ledPwmFreqHz    = 5000U,
-        .ledPwmDutyRes   = LEDC_TIMER_12_BIT
+        .ledPwmDutyRes   = LEDC_TIMER_12_BIT,
+
+        .ledDetectPin    = GPIO_NUM_5,
     };
 
 } /* namespace board */

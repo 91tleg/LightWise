@@ -25,6 +25,7 @@ namespace device
     constinit mmwave::C4001 c001Secondary { hal::c4001Secondary };
     constinit th::Aht20 aht20Primary { hal::aht20Primary };
     constinit lorawan::Lwnode lwnodePrimary { hal::lwnodePrimary };
+    constinit light::LedProbe ledPresence { hal::ledDetect };
 
     void init()
     {

@@ -7,6 +7,7 @@ namespace light
 {
 
     class LightSensor;
+    class LedPresence;
 
     class Manager
     {
@@ -19,7 +20,7 @@ namespace light
          * Post-condition: current_ = 0, not ramping, stepsPerSecond_ = 1
          * (safe minimum — caller must set a real rate via setTarget()).
          */
-        explicit Manager( LightSensor & led ) noexcept;
+        explicit Manager( LightSensor & led, LedPresence & detect ) noexcept;
 
         ~Manager()                             = default;
         Manager( const Manager & )             = delete;
@@ -66,8 +67,11 @@ namespace light
          */
         [[nodiscard]] uint32_t stepIntervalMs() const noexcept;
 
+        [[nodiscard]] bool isPresent() const noexcept;
+
     private:
         LightSensor & led_;
+        LedPresence & detect_;
 
         uint8_t  current_        { 0U };
         uint8_t  target_         { 0U };
