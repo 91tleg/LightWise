@@ -13,7 +13,7 @@ def make_event(
 ):
     return {
         "pathParameters": {
-            "streetlight_id": streetlight_id
+            "id": streetlight_id
         } if streetlight_id else {},
         "queryStringParameters": {"limit": str(limit)} if limit else {},
         "requestContext": {

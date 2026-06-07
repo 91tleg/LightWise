@@ -495,19 +495,16 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DownlinkCommands
-
         - Statement:
             - Effect: Allow
               Action:
               - iotwireless:SendDataToWirelessDevice
               Resource: "*"
-
         - Statement:
             - Effect: Allow
               Action:
               - dynamodb:GetItem
               Resource: "*"
-
       Events:
         SendCommand:
           Type: Api
@@ -526,7 +523,7 @@ Resources:
         ListCommands:
           Type: Api
           Properties:
-            Path: /streetlights/{streetlight_id}/commands
+            Path: /streetlights/{id}/commands
             Method: get
 
   Streetlights:
