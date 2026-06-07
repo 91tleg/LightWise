@@ -18,6 +18,7 @@ class DownlinkCommandRepo(Protocol):
         self,
         streetlight_id: str,
         limit: int,
+        tenant_id: str | None = None,
     ) -> list[DownlinkCommandRecord]: ...
 
     def list_for_tenant(
