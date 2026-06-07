@@ -40,7 +40,7 @@ def handler(event: dict, context: object) -> dict:
         tenant_id, _ = resolve_identity(event)
         path = event.get("pathParameters") or {}
         query = event.get("queryStringParameters") or {}
-        streetlight_id = path.get("streetlight_id")
+        streetlight_id = path.get("id")
         limit = _parse_limit(query.get("limit"))
         if streetlight_id:
             records = _use_case().for_streetlight(
