@@ -15,6 +15,7 @@ class WebSocketConnectionRepo:
 
     Table:
       PK  : connection_id
+      SK  : streetlight_id
 
     GSI (StreetlightIndex):
       PK  : streetlight_id
@@ -110,9 +111,18 @@ class WebSocketConnectionRepo:
         Cleans up a session when a user disconnects.
         """
         try:
-            self._table.delete_item(
-                Key={"connection_id": connection_id}
+            # Query all subscriptions for this connection
+            response = self._table.query(
+                KeyConditionExpression=Key("connection_id").eq(connection_id)
             )
+            with self._table.batch_writer() as batch:
+                for item in response.get("Items", []):
+                    batch.delete_item(
+                        Key={
+                            "connection_id": item["connection_id"],
+                            "streetlight_id": item["streetlight_id"],
+                        }
+                    )
         except Exception as e:
             raise PersistenceError(
                 f"Could not remove connection: {connection_id}"
