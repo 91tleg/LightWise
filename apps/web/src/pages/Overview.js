@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import MapEmbed from "../components/MapEmbed.js";
 import Card from "../components/Card";
@@ -10,6 +10,7 @@ import { useOverviewData } from "../hooks/useOverviewData";
 import { useWebSocketSync } from "../hooks/useWebSocketSync";
 import { formatTimestamp } from "../utils/formatters";
 import {
+  getOverviewConnectionSummary,
   getCombinedSensorHealth,
   getOverviewPoleList,
   isPoleTelemetryStale,
@@ -20,6 +21,8 @@ import {
 } from "../utils/poleState";
 import "../styles/lightwise.css";
 import "../styles/overview.css";
+
+const OVERVIEW_STATUS_TICK_MS = 5 * 1000;
 
 function cleanDisplay(value, fallback = "Waiting for data") {
   if (value === null || value === undefined || value === "") return fallback;
@@ -52,7 +55,7 @@ export default function Overview() {
   const { wsStatus, lastMessage, streetlights, env } = useLightWise();
   const [mapMode, setMapMode] = useState("all");
   const [mapFitRequestKey, setMapFitRequestKey] = useState(0);
-  const currentTimeMs = Date.now();
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const {
     availablePoles,
     selectedId,
@@ -103,6 +106,14 @@ export default function Overview() {
     setMapFitRequestKey((current) => current + 1);
   }
 
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setCurrentTimeMs(Date.now()),
+      OVERVIEW_STATUS_TICK_MS
+    );
+    return () => window.clearInterval(timer);
+  }, []);
+
   const { events } = useWebSocketSync(lastMessage);
 
   const selectedPoleEvents = useMemo(() => {
@@ -117,6 +128,7 @@ export default function Overview() {
     const reportingPoles = overviewPoles.filter(
       (pole) => !isPoleTelemetryStale(pole, currentTimeMs)
     );
+    const connection = getOverviewConnectionSummary(overviewPoles, currentTimeMs);
     const total = overviewPoles.length;
     const healthy = reportingPoles.filter((pole) => {
       const health = String(pole.health || "").toUpperCase();
@@ -129,27 +141,25 @@ export default function Overview() {
     const critical = reportingPoles.filter(
       (pole) => String(pole.health || "").toUpperCase() === "CRITICAL"
     ).length;
-    const offline = total - reportingPoles.length;
-
-    const status =
-      critical > 0
-        ? "Critical"
-        : warning > 0
-        ? "Warning"
-        : healthy > 0
-        ? "Healthy"
-        : "Offline";
-
-    return { total, healthy, warning, critical, offline, reporting: reportingPoles.length, status };
+    return {
+      total,
+      healthy,
+      warning,
+      critical,
+      offline: connection.offline,
+      reporting: reportingPoles.length,
+      connection,
+    };
   }, [currentTimeMs, overviewPoles]);
 
+  const selectedPoleIsOffline = overviewSelectedPole
+    ? isPoleTelemetryStale(overviewSelectedPole, currentTimeMs)
+    : true;
   const selectedPoleHasTelemetry = hasPoleTelemetry(overviewSelectedPole);
-  const showLiveReadings = selectedPoleHasTelemetry;
-  const selectedBrightnessLevel =
-    showLiveReadings && overviewSelectedPole?.light_level != null
-      ? overviewSelectedPole.light_level
-      : null;
-  const combinedSensorHealth = getCombinedSensorHealth(overviewSelectedPole);
+  const showLiveReadings = selectedPoleHasTelemetry && !selectedPoleIsOffline;
+  const combinedSensorHealth = selectedPoleIsOffline
+    ? { label: "Waiting for data", tone: "neutral" }
+    : getCombinedSensorHealth(overviewSelectedPole);
   const motionValue =
     showLiveReadings && typeof overviewSelectedPole?.motion_detected === "boolean"
       ? motionLabel(overviewSelectedPole.motion_detected)
@@ -164,10 +174,14 @@ export default function Overview() {
     showLiveReadings && overviewSelectedPole?.light_level != null
       ? `${overviewSelectedPole.light_level}%`
       : "Waiting for data";
-  const selectedPoleHealthLabel = showLiveReadings
+  const selectedPoleHealthLabel = selectedPoleIsOffline
+    ? "Offline"
+    : showLiveReadings
     ? cleanDisplay(overviewSelectedPole?.health, "Waiting for data")
     : "Waiting for data";
-  const selectedPoleHealthTone = showLiveReadings
+  const selectedPoleHealthTone = selectedPoleIsOffline
+    ? "critical"
+    : showLiveReadings
     ? toneForHealth(overviewSelectedPole?.health)
     : "neutral";
   const liveMetricFallback = "Waiting for data";
@@ -177,9 +191,10 @@ export default function Overview() {
       {
         icon: "shield",
         label: "System Status",
-        value: counts.status,
-        note: `${counts.total} streetlight${counts.total === 1 ? "" : "s"} available`,
-        tone: counts.status === "Offline" ? "critical" : toneForHealth(counts.status),
+        value: counts.connection.status,
+        note: counts.connection.note,
+        tone: counts.connection.tone,
+        showStatusDot: counts.total > 0,
       },
       {
         icon: "alert",
@@ -188,21 +203,13 @@ export default function Overview() {
         note:
           counts.warning + counts.critical
             ? "Needs operator attention"
+            : counts.offline
+            ? "No active faults among online streetlights"
             : "No active faults",
         tone: counts.warning + counts.critical ? "warning" : "healthy",
       },
-      {
-        icon: "bolt",
-        label: "Brightness Level",
-        value: selectedBrightnessLevel != null ? `${selectedBrightnessLevel}%` : "Waiting",
-        note:
-          selectedBrightnessLevel != null
-            ? "Selected streetlight brightness"
-            : "Waiting for brightness readings",
-        tone: selectedBrightnessLevel != null ? "healthy" : "neutral",
-      },
     ],
-    [counts, selectedBrightnessLevel]
+    [counts]
   );
 
   return (
@@ -290,11 +297,9 @@ export default function Overview() {
                       pole.streetlight_id === overviewSelectedPole?.streetlight_id;
                     const poleIsStale = isPoleTelemetryStale(pole, currentTimeMs);
                     const poleHealthLabel = poleIsStale
-                      ? "No live data"
-                      : cleanDisplay(pole.health, "Waiting");
-                    const poleHealthTone = !poleIsStale && hasReading(pole.health)
-                      ? toneForHealth(pole.health)
-                      : "neutral";
+                      ? "Offline"
+                      : "Online";
+                    const poleHealthTone = poleIsStale ? "critical" : "healthy";
 
                     return (
                       <button
