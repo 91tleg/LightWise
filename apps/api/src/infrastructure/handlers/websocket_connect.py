@@ -18,17 +18,12 @@ from functools import lru_cache
 from application.websocket.connect import ConnectWebSocket
 from domain.errors import AuthError
 from infrastructure.auth.identity import extract_websocket_identity
-from infrastructure.persistence.dynamo.websocket_connection_repo import (
-    get_websocket_connection_repo
-)
 from libs.logging import logger
 
 
 @lru_cache(maxsize=1)
 def _use_case() -> ConnectWebSocket:
-    return ConnectWebSocket(
-        repo=get_websocket_connection_repo()
-    )
+    return ConnectWebSocket()
 
 
 def handler(event: dict, context: object) -> dict:
