@@ -41,15 +41,15 @@ const DEFAULT_USER_FORM = {
 const SECTION_ITEMS = [
   {
     id: "poles",
-    label: "Poles",
+    label: "Streetlights",
     icon: "pin",
-    description: "Manage pole names and locations.",
+    description: "Manage streetlight names and locations.",
   },
   {
     id: "lorawan",
     label: "Connectivity",
     icon: "radio",
-    description: "Send lighting commands to selected poles.",
+    description: "Send lighting commands to selected streetlights.",
   },
   {
     id: "users",
@@ -498,7 +498,7 @@ function AdminMapSurface({
       />
 
       <div className="lwAdminMapFooter">
-        Use this map to review pole locations before saving changes.
+        Use this map to review streetlight locations before saving changes.
       </div>
     </div>
   );
@@ -656,7 +656,7 @@ export default function Admin() {
   const stats = useMemo(
     () => [
       {
-        label: "Mapped Poles",
+        label: "Mapped Streetlights",
         value: poles.filter((pole) => isValidCoord(pole.lat) && isValidCoord(pole.lng)).length,
         note: "Selectable on the map",
       },
@@ -805,12 +805,12 @@ export default function Admin() {
 
   function handlePoleSave() {
     if (!selectedPoleId) {
-      setPoleStatus({ tone: "critical", text: "Select a pole to edit." });
+      setPoleStatus({ tone: "critical", text: "Select a streetlight to edit." });
       return;
     }
 
     if (Object.keys(poleErrors).length) {
-      setPoleStatus({ tone: "critical", text: "Fix the pole form validation errors before saving." });
+      setPoleStatus({ tone: "critical", text: "Fix the streetlight form validation errors before saving." });
       return;
     }
 
@@ -826,12 +826,12 @@ export default function Admin() {
 
     updateStreetlightMetadata(selectedPoleId, patch)
       .then(() => {
-        setPoleStatus({ tone: "healthy", text: "Pole details saved." });
+        setPoleStatus({ tone: "healthy", text: "Streetlight details saved." });
       })
       .catch(() => {
         setPoleStatus({
           tone: "warning",
-          text: "Pole details were saved on this device. Try again to share them with the team.",
+          text: "Streetlight details were saved on this device. Try again to share them with the team.",
         });
       });
   }
@@ -1029,8 +1029,8 @@ export default function Admin() {
                 <div className="lwAdminSectionGrid lwAdminPoleSectionGrid">
                   <SectionCard
                     icon="pin"
-                    title="Pole Management"
-                    subtitle="Select individual poles and keep their display details current."
+                    title="Streetlight Management"
+                    subtitle="Select individual streetlights and keep their display details current."
                   >
                     <AdminMapSurface
                       poles={previewPoles}
@@ -1043,7 +1043,7 @@ export default function Admin() {
                   <div className="lwAdminStack">
                     <SectionCard
                       icon="settings"
-                      title="Edit Pole"
+                      title="Edit Streetlight"
                       subtitle="Click any row or marker to load it into the editor."
                       className="lwAdminPoleEditorCard"
                     >
@@ -1089,7 +1089,7 @@ export default function Admin() {
 
                         <div className="lwAdminField lwAdminFieldFull">
                           <div className="lwAdminInlineSurface">
-                            <strong>{selectedPole?.streetlight_id || "No pole selected"}</strong>
+                            <strong>{selectedPole?.streetlight_id || "No streetlight selected"}</strong>
                             <span>Last seen {formatTimestamp(selectedPole?.last_seen, "not available")}</span>
                           </div>
                         </div>
@@ -1097,7 +1097,7 @@ export default function Admin() {
 
                       <div className="lwAdminButtonRow">
                         <button type="button" className="lwAdminPrimaryBtn" onClick={handlePoleSave}>
-                          Save Pole
+                          Save Streetlight
                         </button>
                       </div>
 
@@ -1106,9 +1106,9 @@ export default function Admin() {
 
                     <SectionCard
                       icon="analytics"
-                      title="Pole Table"
-                      subtitle="Search by pole ID, name, or health. Click a row to edit."
-                      actions={<span className="lwAdminTableCount">{filteredPoles.length} poles</span>}
+                      title="Streetlight Table"
+                      subtitle="Search by streetlight ID, name, or health. Click a row to edit."
+                      actions={<span className="lwAdminTableCount">{filteredPoles.length} streetlight{filteredPoles.length === 1 ? "" : "s"}</span>}
                       className="lwAdminPoleTableCard"
                     >
                       <label className="lwAdminField lwAdminPoleTableSearch">
@@ -1117,7 +1117,7 @@ export default function Admin() {
                           className="lwAdminInput"
                           value={poleSearch}
                           onChange={(event) => setPoleSearch(event.target.value)}
-                          placeholder="Search poles"
+                          placeholder="Search streetlights"
                         />
                       </label>
 
@@ -1125,7 +1125,7 @@ export default function Admin() {
                         <table className="lwAdminTable">
                           <thead>
                             <tr>
-                              <th>Pole</th>
+                              <th>Streetlight</th>
                               <th>Health</th>
                               <th>Coordinates</th>
                             </tr>
@@ -1142,7 +1142,7 @@ export default function Admin() {
                                 >
                                   <td>
                                     <strong>{pole.streetlight_id}</strong>
-                                    <span>{pole.name || "Unnamed pole"}</span>
+                                    <span>{pole.name || "Unnamed streetlight"}</span>
                                   </td>
                                   <td>
                                     <StatusChip tone={toneForHealth(pole.health)}>
@@ -1159,7 +1159,7 @@ export default function Admin() {
                             ) : (
                               <tr>
                                 <td colSpan="3" className="lwAdminTableEmpty">
-                                  No poles match the current search.
+                                  No streetlights match the current search.
                                 </td>
                               </tr>
                             )}

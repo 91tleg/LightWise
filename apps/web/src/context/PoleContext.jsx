@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { savePoles } from "../services/poleStorage";
 import { AuthContext } from "./AuthContext";
 import { WSContext } from "./WSContext";
 import { StreetlightContext } from "./StreetlightContext";
@@ -18,10 +17,6 @@ export function PoleProvider({ children }) {
     [streetlights]
   );
   const [poles, setPoles] = useState([]);
-
-  useEffect(() => {
-    savePoles(poles);
-  }, [poles]);
 
   useEffect(() => {
     setPoles(fetchedPoleIds);

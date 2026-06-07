@@ -1,27 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  buildPoleEvent,
-  mergeTelemetrySnapshot,
-  snapshotFromWsMessage,
-} from "../utils/poleState";
-
-const EVENTS_CACHE_KEY = "lightwise_overview_events_cache_v6";
-
-function readCache(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
-function writeCache(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-}
+import { buildPoleEvent, snapshotFromWsMessage } from "../utils/poleState";
 
 function isDuplicateEvent(first, nextEvent) {
   if (!first) return false;
@@ -36,12 +14,8 @@ function isDuplicateEvent(first, nextEvent) {
   );
 }
 
-export function useWebSocketSync(lastMessage, setSnapshotMap) {
-  const [events, setEvents] = useState(() => readCache(EVENTS_CACHE_KEY, []));
-
-  useEffect(() => {
-    writeCache(EVENTS_CACHE_KEY, events);
-  }, [events]);
+export function useWebSocketSync(lastMessage) {
+  const [events, setEvents] = useState([]);
 
   useEffect(() => {
     if (!lastMessage || typeof lastMessage !== "object") return;
@@ -51,11 +25,6 @@ export function useWebSocketSync(lastMessage, setSnapshotMap) {
 
     const snapshot = snapshotFromWsMessage(lastMessage);
     if (!snapshot) return;
-
-    setSnapshotMap((prev) => ({
-      ...prev,
-      [poleId]: mergeTelemetrySnapshot(prev[poleId] || {}, snapshot),
-    }));
 
     const nextEvent = buildPoleEvent(
       poleId,
@@ -67,7 +36,7 @@ export function useWebSocketSync(lastMessage, setSnapshotMap) {
       if (isDuplicateEvent(prev[0], nextEvent)) return prev;
       return [nextEvent, ...prev].slice(0, 12);
     });
-  }, [lastMessage, setSnapshotMap]);
+  }, [lastMessage]);
 
   return { events };
 }

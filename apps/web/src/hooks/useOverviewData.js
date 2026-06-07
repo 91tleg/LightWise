@@ -1,69 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { loadPoleMetaMap, subscribeToPoleMetaChanges } from "../services/poleStorage";
-import {
-  isValidCoord,
-  mergeBackendAndLocalPoles,
-  pickBestCenter,
-} from "../utils/poleHelpers";
-import { mergePoleSnapshot } from "../utils/poleState";
-
-const CACHE_KEYS = {
-  SNAPSHOTS: "lightwise_overview_snapshots_cache_v6",
-  SELECTED: "lightwise_overview_selected_v6",
-};
-
-function readCache(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
-function writeCache(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-}
+import { isValidCoord, pickBestCenter } from "../utils/poleHelpers";
 
 export function useOverviewData({ streetlights = [], tenantId = "" } = {}) {
-  const [localMeta, setLocalMeta] = useState(() => loadPoleMetaMap());
-  const [snapshotMap, setSnapshotMap] = useState(() =>
-    readCache(CACHE_KEYS.SNAPSHOTS, {})
-  );
-  const [selectedId, setSelectedId] = useState(() =>
-    readCache(CACHE_KEYS.SELECTED, null)
-  );
-
-  useEffect(() => {
-    writeCache(CACHE_KEYS.SNAPSHOTS, snapshotMap);
-  }, [snapshotMap]);
-
-  useEffect(() => {
-    writeCache(CACHE_KEYS.SELECTED, selectedId);
-  }, [selectedId]);
-
-  useEffect(() => {
-    const refreshLocal = () => setLocalMeta(loadPoleMetaMap());
-    window.addEventListener("focus", refreshLocal);
-    const unsubscribe = subscribeToPoleMetaChanges(refreshLocal);
-
-    return () => {
-      window.removeEventListener("focus", refreshLocal);
-      unsubscribe();
-    };
-  }, []);
+  const [selectedId, setSelectedId] = useState(null);
 
   const mergedPoles = useMemo(() => {
-    return mergeBackendAndLocalPoles(streetlights, localMeta).map((pole) => {
-      return mergePoleSnapshot(
-        pole,
-        snapshotMap[pole.streetlight_id] || {}
-      );
-    });
-  }, [localMeta, snapshotMap, streetlights]);
+    return Array.isArray(streetlights) ? streetlights : [];
+  }, [streetlights]);
 
   const availablePoles = useMemo(() => {
     const activeTenantId = String(tenantId || "").trim();
@@ -116,8 +59,6 @@ export function useOverviewData({ streetlights = [], tenantId = "" } = {}) {
   }, [mapPoles, selectedPole]);
 
   return {
-    snapshotMap,
-    setSnapshotMap,
     selectedId,
     setSelectedId,
     availablePoles,

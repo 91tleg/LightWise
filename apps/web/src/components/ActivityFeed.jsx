@@ -93,7 +93,7 @@ export default function ActivityFeed({
 
                   <div className="lwActivityMetaRow">
                     <span className="lwActivityPole">
-                      {event.streetlightId || "Unknown pole"}
+                      {event.streetlightId || "Unknown streetlight"}
                     </span>
 
                     {value ? (

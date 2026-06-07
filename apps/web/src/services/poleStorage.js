@@ -2,8 +2,6 @@ const POLES_KEY = "lightwise_poles";
 const META_KEY = "lightwise_pole_meta_map";
 const TELEMETRY_KEY = "lightwise_telemetry_cache";
 const ACTIVE_POLE_KEY = "lightwise_active_pole_id";
-const OVERVIEW_SNAPSHOTS_KEY = "lightwise_overview_snapshots_cache_v6";
-const OVERVIEW_SELECTED_KEY = "lightwise_overview_selected_v6";
 export const POLE_META_UPDATED_EVENT = "lightwise:pole-meta-updated";
 
 /* ----------------------------- */
@@ -251,16 +249,6 @@ export function deletePoleCompletely(streetlightId) {
       localStorage.removeItem(ACTIVE_POLE_KEY);
     }
 
-    const overviewSelected = localStorage.getItem(OVERVIEW_SELECTED_KEY);
-    if (overviewSelected === JSON.stringify(id) || overviewSelected === id) {
-      localStorage.removeItem(OVERVIEW_SELECTED_KEY);
-    }
-
-    const overviewSnapshots = JSON.parse(localStorage.getItem(OVERVIEW_SNAPSHOTS_KEY) || "{}");
-    if (overviewSnapshots && typeof overviewSnapshots === "object" && overviewSnapshots[id]) {
-      delete overviewSnapshots[id];
-      localStorage.setItem(OVERVIEW_SNAPSHOTS_KEY, JSON.stringify(overviewSnapshots));
-    }
   } catch {
     // ignore storage failures
   }
@@ -307,20 +295,6 @@ export function pruneStoredPoleState(validStreetlightIds = []) {
       localStorage.removeItem(ACTIVE_POLE_KEY);
     }
 
-    const overviewSelected = JSON.parse(localStorage.getItem(OVERVIEW_SELECTED_KEY) || "null");
-    if (pruneUnknownId(overviewSelected)) {
-      localStorage.removeItem(OVERVIEW_SELECTED_KEY);
-    }
-
-    const overviewSnapshots = JSON.parse(localStorage.getItem(OVERVIEW_SNAPSHOTS_KEY) || "{}");
-    if (overviewSnapshots && typeof overviewSnapshots === "object") {
-      const nextSnapshots = Object.fromEntries(
-        Object.entries(overviewSnapshots).filter(([id]) => !pruneUnknownId(id))
-      );
-      if (Object.keys(nextSnapshots).length !== Object.keys(overviewSnapshots).length) {
-        localStorage.setItem(OVERVIEW_SNAPSHOTS_KEY, JSON.stringify(nextSnapshots));
-      }
-    }
   } catch {
     // ignore storage failures
   }

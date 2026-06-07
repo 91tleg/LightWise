@@ -67,16 +67,6 @@ export function StreetlightProvider({ children }) {
   }, [isAuthenticated, refreshStreetlights]);
 
   useEffect(() => {
-    if (!isAuthenticated) return undefined;
-
-    const timer = window.setInterval(() => {
-      refreshStreetlights();
-    }, 60 * 1000);
-
-    return () => window.clearInterval(timer);
-  }, [isAuthenticated, refreshStreetlights]);
-
-  useEffect(() => {
     if (!isAuthenticated) return;
     const prev = prevWsStatusRef.current;
     if (

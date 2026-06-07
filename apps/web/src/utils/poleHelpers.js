@@ -157,7 +157,7 @@ export function buildLocalOnlyPoles(localMeta = {}) {
 
     return {
       streetlight_id: id,
-      name: hasOwn(local, "name") ? local.name : "Unnamed pole",
+      name: hasOwn(local, "name") ? local.name : "Unnamed streetlight",
       health: null,
       site_id: null,
       model: null,

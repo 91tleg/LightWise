@@ -85,7 +85,7 @@ function makePoleIcon(pole, isSelected) {
   return L.divIcon({
     className: `lwLeafletMarkerIcon lwMapMarker-${tone}${isSelected ? " isSelected" : ""}`,
     html: `
-      <button type="button" class="lwLeafletMarkerButton" aria-label="Select pole ${safeId}">
+      <button type="button" class="lwLeafletMarkerButton" aria-label="Select streetlight ${safeId}">
         <span class="lwMapMarkerCore"></span>
       </button>
     `,
@@ -282,7 +282,7 @@ export default function MapEmbed({
           icon: makePoleIcon(pole, isSelected),
           keyboard: true,
           riseOnHover: true,
-          title: `Select pole ${pole.streetlight_id}`,
+          title: `Select streetlight ${pole.streetlight_id}`,
         });
 
         marker.on("click", () => {
@@ -408,7 +408,7 @@ export default function MapEmbed({
           {showPoleInfo && activePole ? (
             <div className="lwMapInfoWindow">
               <strong>{activePole.streetlight_id}</strong>
-              <span>{activePole.name || "Unnamed pole"}</span>
+              <span>{activePole.name || "Unnamed streetlight"}</span>
               {hasMotionFocus ? (
                 <small>Motion focus view - {activePole?.motion_focus_radius_m || focusRadiusMeters}m</small>
               ) : null}
@@ -424,7 +424,7 @@ export default function MapEmbed({
         </>
       ) : (
         <div className="lwTrendEmpty" style={{ margin: 12 }}>
-          No saved coordinates yet. Add pole latitude and longitude in Admin to show them here.
+          No saved coordinates yet. Add streetlight latitude and longitude in Admin to show them here.
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Layout from "../components/Layout";
 import MapEmbed from "../components/MapEmbed.js";
 import Card from "../components/Card";
@@ -7,7 +7,6 @@ import SummaryCard from "../components/SummaryCard";
 import MetricRow from "../components/MetricRow";
 import { useLightWise } from "../hooks/useLightWise";
 import { useOverviewData } from "../hooks/useOverviewData";
-import { useTelemetryLoader } from "../hooks/useTelemetryLoader";
 import { useWebSocketSync } from "../hooks/useWebSocketSync";
 import { formatTimestamp } from "../utils/formatters";
 import {
@@ -21,8 +20,6 @@ import {
 } from "../utils/poleState";
 import "../styles/lightwise.css";
 import "../styles/overview.css";
-
-const OVERVIEW_TELEMETRY_REFRESH_MS = 15000;
 
 function cleanDisplay(value, fallback = "Waiting for data") {
   if (value === null || value === undefined || value === "") return fallback;
@@ -53,15 +50,14 @@ function hasPoleTelemetry(pole) {
 
 export default function Overview() {
   const { wsStatus, lastMessage, streetlights, env } = useLightWise();
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const [mapMode, setMapMode] = useState("all");
   const [mapFitRequestKey, setMapFitRequestKey] = useState(0);
+  const currentTimeMs = Date.now();
   const {
     availablePoles,
     selectedId,
     selectedPole,
     setSelectedId,
-    setSnapshotMap,
     mapPoles,
     mapCenter,
   } = useOverviewData({
@@ -107,17 +103,7 @@ export default function Overview() {
     setMapFitRequestKey((current) => current + 1);
   }
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setNowMs(Date.now()), 30000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const { events } = useWebSocketSync(lastMessage, setSnapshotMap);
-  useTelemetryLoader(
-    overviewSelectedPole?.streetlight_id,
-    setSnapshotMap,
-    { refreshMs: OVERVIEW_TELEMETRY_REFRESH_MS }
-  );
+  const { events } = useWebSocketSync(lastMessage);
 
   const selectedPoleEvents = useMemo(() => {
     if (!overviewSelectedPole?.streetlight_id) return [];
@@ -129,7 +115,7 @@ export default function Overview() {
 
   const counts = useMemo(() => {
     const reportingPoles = overviewPoles.filter(
-      (pole) => !isPoleTelemetryStale(pole, nowMs)
+      (pole) => !isPoleTelemetryStale(pole, currentTimeMs)
     );
     const total = overviewPoles.length;
     const healthy = reportingPoles.filter((pole) => {
@@ -155,26 +141,15 @@ export default function Overview() {
         : "Offline";
 
     return { total, healthy, warning, critical, offline, reporting: reportingPoles.length, status };
-  }, [nowMs, overviewPoles]);
+  }, [currentTimeMs, overviewPoles]);
 
-  const brightnessAvg = useMemo(() => {
-    const values = overviewPoles
-      .filter((pole) => !isPoleTelemetryStale(pole, nowMs))
-      .map((pole) => pole.light_level)
-      .filter((value) => Number.isFinite(Number(value)))
-      .map(Number);
-
-    if (!values.length) return null;
-    return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
-  }, [nowMs, overviewPoles]);
-
-  const selectedPoleIsStale = isPoleTelemetryStale(overviewSelectedPole, nowMs);
   const selectedPoleHasTelemetry = hasPoleTelemetry(overviewSelectedPole);
-  const selectedPoleIsLive = selectedPoleHasTelemetry && !selectedPoleIsStale;
-  const showLiveReadings = wsStatus === "connected" && selectedPoleIsLive;
-  const combinedSensorHealth = selectedPoleIsStale
-    ? { label: "Waiting for data", tone: "neutral" }
-    : getCombinedSensorHealth(overviewSelectedPole);
+  const showLiveReadings = selectedPoleHasTelemetry;
+  const selectedBrightnessLevel =
+    showLiveReadings && overviewSelectedPole?.light_level != null
+      ? overviewSelectedPole.light_level
+      : null;
+  const combinedSensorHealth = getCombinedSensorHealth(overviewSelectedPole);
   const motionValue =
     showLiveReadings && typeof overviewSelectedPole?.motion_detected === "boolean"
       ? motionLabel(overviewSelectedPole.motion_detected)
@@ -196,16 +171,14 @@ export default function Overview() {
     ? toneForHealth(overviewSelectedPole?.health)
     : "neutral";
   const liveMetricFallback = "Waiting for data";
-  const lastSeenValue = showLiveReadings
-    ? "Now"
-    : formatTimestamp(overviewSelectedPole?.last_seen);
+  const lastSeenValue = formatTimestamp(overviewSelectedPole?.last_seen);
   const summaryCards = useMemo(
     () => [
       {
         icon: "shield",
         label: "System Status",
         value: counts.status,
-        note: `${counts.total} pole${counts.total === 1 ? "" : "s"} available`,
+        note: `${counts.total} streetlight${counts.total === 1 ? "" : "s"} available`,
         tone: counts.status === "Offline" ? "critical" : toneForHealth(counts.status),
       },
       {
@@ -221,15 +194,15 @@ export default function Overview() {
       {
         icon: "bolt",
         label: "Brightness Level",
-        value: brightnessAvg != null ? `${brightnessAvg}%` : "Waiting",
+        value: selectedBrightnessLevel != null ? `${selectedBrightnessLevel}%` : "Waiting",
         note:
-          brightnessAvg != null
-            ? "Latest average brightness"
+          selectedBrightnessLevel != null
+            ? "Selected streetlight brightness"
             : "Waiting for brightness readings",
-        tone: brightnessAvg != null ? "healthy" : "neutral",
+        tone: selectedBrightnessLevel != null ? "healthy" : "neutral",
       },
     ],
-    [brightnessAvg, counts]
+    [counts, selectedBrightnessLevel]
   );
 
   return (
@@ -244,7 +217,7 @@ export default function Overview() {
         <div className="lwOverviewMainGrid lwOverviewMainGridRebuild">
           <aside className="lwOverviewLeftRail">
             <div className="lwOverviewLeftRailScroll">
-              <Card title="Selected Pole" className="lwOperatorCard">
+              <Card title="Selected Streetlight" className="lwOperatorCard">
                 {overviewSelectedPole ? (
                   <div className="lwSelectedPoleSurface">
                     <div className="lwSelectedHeaderCompact">
@@ -253,7 +226,7 @@ export default function Overview() {
                           {overviewSelectedPole.streetlight_id}
                         </div>
                         <div className="lwSelectedPoleName">
-                          {cleanDisplay(overviewSelectedPole.name, "Unnamed pole")}
+                          {cleanDisplay(overviewSelectedPole.name, "Unnamed streetlight")}
                         </div>
                       </div>
                       <span
@@ -306,16 +279,16 @@ export default function Overview() {
                     </div>
                   </div>
                 ) : (
-                  <div className="lwTrendEmpty">Waiting for pole selection…</div>
+                  <div className="lwTrendEmpty">Waiting for streetlight selection...</div>
                 )}
               </Card>
 
-              <Card title="Pole List" className="lwOperatorCard">
+              <Card title="Streetlight List" className="lwOperatorCard">
                 <div className="lwPoleList">
                   {overviewPoles.map((pole) => {
                     const selected =
                       pole.streetlight_id === overviewSelectedPole?.streetlight_id;
-                    const poleIsStale = isPoleTelemetryStale(pole, nowMs);
+                    const poleIsStale = isPoleTelemetryStale(pole, currentTimeMs);
                     const poleHealthLabel = poleIsStale
                       ? "No live data"
                       : cleanDisplay(pole.health, "Waiting");
@@ -332,7 +305,7 @@ export default function Overview() {
                       >
                         <div>
                           <strong>{pole.streetlight_id}</strong>
-                          <small>{cleanDisplay(pole.name, "Unnamed pole")}</small>
+                          <small>{cleanDisplay(pole.name, "Unnamed streetlight")}</small>
                         </div>
                         <span
                           className={`lwMetricBadge ${poleHealthTone}`}

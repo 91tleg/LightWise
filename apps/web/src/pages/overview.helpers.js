@@ -14,7 +14,7 @@ function isSensorWarning(value) {
   return normalizeSensorHealth(value) === "DEGRADED";
 }
 
-export const POLE_OFFLINE_THRESHOLD_MS = 180 * 1000;
+export const POLE_OFFLINE_THRESHOLD_MS = 60 * 1000;
 
 export function getOverviewPoleList(poles) {
   const rows = Array.isArray(poles) ? poles : [];

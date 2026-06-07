@@ -1,4 +1,4 @@
-import { loadPoleMetaMap, pruneStoredPoleState } from "./poleStorage";
+import { pruneStoredPoleState } from "./poleStorage";
 import { normalizeStreetlightFromApi } from "../utils/poleHelpers";
 import { fetchIdTokenSilently, emitAuthRequired, redirectToSignIn } from "./auth";
 import { LIGHTWISE_ENV } from "../config/env";
@@ -210,25 +210,6 @@ function normalizeCommandHistoryResponse(data, streetlightId) {
   };
 }
 
-function mergeLocalMeta(streetlights) {
-  const list    = Array.isArray(streetlights) ? streetlights : [];
-  const metaMap = loadPoleMetaMap() || {};
-
-  return list.map((raw, index) => {
-    const row  = normalizeStreetlightFromApi(raw, index);
-    const id   = row?.streetlight_id;
-    const meta = id ? metaMap[id] : null;
-    if (!meta) return row;
-
-    return {
-      ...row,
-      ...(typeof meta?.name === "string" && meta.name.trim() ? { name: meta.name.trim() } : {}),
-      ...(typeof meta?.lat  === "number" && Number.isFinite(meta.lat)  ? { lat: meta.lat }  : {}),
-      ...(typeof meta?.lng  === "number" && Number.isFinite(meta.lng)  ? { lng: meta.lng }  : {}),
-    };
-  });
-}
-
 export async function getOperatorProfile(token) {
   if (LIGHTWISE_ENV.USE_MOCK) return normalizeOperatorProfile(MOCK_PROFILE);
   const data = await apiFetch("/auth/me", { method: "GET" }, { token });
@@ -241,20 +222,20 @@ export async function listStreetlights() {
   if (USE_MOCK) {
     const rows = mockListStreetlights(TENANT_ID);
     pruneStoredPoleState(rows.map((row) => row?.streetlight_id));
-    return mergeLocalMeta(rows);
+    return rows.map(normalizeStreetlightFromApi);
   }
   const data = await apiFetch("/streetlights", { method: "GET" });
   const rows = normalizeStreetlightListResponse(data);
   pruneStoredPoleState(rows.map((row) => row?.streetlight_id));
-  return mergeLocalMeta(rows);
+  return rows;
 }
 
 export async function getStreetlight(id) {
   if (!id) throw new Error("streetlight id is required");
   const { USE_MOCK, TENANT_ID } = LIGHTWISE_ENV;
-  if (USE_MOCK) return mergeLocalMeta([mockGetStreetlight(id, TENANT_ID)])[0];
+  if (USE_MOCK) return normalizeStreetlightFromApi(mockGetStreetlight(id, TENANT_ID));
   const data = await apiFetch(`/streetlights/${encodeURIComponent(id)}`, { method: "GET" });
-  return mergeLocalMeta([data])[0];
+  return normalizeStreetlightFromApi(data);
 }
 
 export async function getStreetlightTelemetry(
