@@ -12,12 +12,12 @@ import { formatTimestamp } from "../utils/formatters";
 import {
   getOverviewConnectionSummary,
   getCombinedSensorHealth,
+  getOverviewFaultSummary,
   getOverviewPoleList,
   isPoleTelemetryStale,
 } from "./overview.helpers";
 import {
   motionLabel,
-  toneForHealth,
 } from "../utils/poleState";
 import "../styles/lightwise.css";
 import "../styles/overview.css";
@@ -130,22 +130,11 @@ export default function Overview() {
     );
     const connection = getOverviewConnectionSummary(overviewPoles, currentTimeMs);
     const total = overviewPoles.length;
-    const healthy = reportingPoles.filter((pole) => {
-      const health = String(pole.health || "").toUpperCase();
-      return health === "OK" || health === "HEALTHY";
-    }).length;
-    const warning = reportingPoles.filter((pole) => {
-      const health = String(pole.health || "").toUpperCase();
-      return health === "DEGRADED" || health === "WARNING";
-    }).length;
-    const critical = reportingPoles.filter(
-      (pole) => String(pole.health || "").toUpperCase() === "CRITICAL"
-    ).length;
+    const faults = getOverviewFaultSummary(overviewPoles, currentTimeMs);
     return {
       total,
-      healthy,
-      warning,
-      critical,
+      warning: faults.warning,
+      critical: faults.critical,
       offline: connection.offline,
       reporting: reportingPoles.length,
       connection,
@@ -177,12 +166,12 @@ export default function Overview() {
   const selectedPoleHealthLabel = selectedPoleIsOffline
     ? "Offline"
     : showLiveReadings
-    ? cleanDisplay(overviewSelectedPole?.health, "Waiting for data")
+    ? "Online"
     : "Waiting for data";
   const selectedPoleHealthTone = selectedPoleIsOffline
-    ? "critical"
+    ? "warning"
     : showLiveReadings
-    ? toneForHealth(overviewSelectedPole?.health)
+    ? "healthy"
     : "neutral";
   const liveMetricFallback = "Waiting for data";
   const lastSeenValue = formatTimestamp(overviewSelectedPole?.last_seen);
@@ -299,7 +288,7 @@ export default function Overview() {
                     const poleHealthLabel = poleIsStale
                       ? "Offline"
                       : "Online";
-                    const poleHealthTone = poleIsStale ? "critical" : "healthy";
+                    const poleHealthTone = poleIsStale ? "warning" : "healthy";
 
                     return (
                       <button

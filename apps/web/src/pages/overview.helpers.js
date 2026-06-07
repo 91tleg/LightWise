@@ -83,7 +83,7 @@ export function getOverviewConnectionSummary(
       offline,
       status: "All Offline",
       note: `${offline} streetlight${offline === 1 ? "" : "s"} offline`,
-      tone: "critical",
+      tone: "warning",
     };
   }
 
@@ -141,4 +141,24 @@ export function getCombinedSensorHealth(pole) {
   }
 
   return { label: "All sensors OK", tone: "healthy" };
+}
+
+export function getOverviewFaultSummary(poles, nowValue = Date.now()) {
+  const reportingPoles = getOverviewPoleList(poles).filter(
+    (pole) => !isPoleTelemetryStale(pole, nowValue)
+  );
+
+  return reportingPoles.reduce(
+    (summary, pole) => {
+      const health = getCombinedSensorHealth(pole);
+      if (health.tone === "critical") {
+        return { ...summary, critical: summary.critical + 1 };
+      }
+      if (health.tone === "warning") {
+        return { ...summary, warning: summary.warning + 1 };
+      }
+      return summary;
+    },
+    { critical: 0, warning: 0 }
+  );
 }

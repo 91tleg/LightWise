@@ -1,4 +1,12 @@
-import React, { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import React, {
+  startTransition,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import AdminWsControls from "../components/AdminWsControls";
 import Layout from "../components/Layout";
 import MapEmbed from "../components/MapEmbed";
@@ -38,6 +46,7 @@ const DEFAULT_USER_FORM = {
   email: "",
   role: "operator",
 };
+const COMMAND_HISTORY_REFRESH_DELAYS_MS = [2000, 8000];
 const SECTION_ITEMS = [
   {
     id: "poles",
@@ -530,7 +539,11 @@ export default function Admin() {
   const [commandStatus, setCommandStatus] = useState(null);
   const [commandSending, setCommandSending] = useState(false);
   const [commandHistory, setCommandHistory] = useState([]);
+  const [commandHistoryLoading, setCommandHistoryLoading] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
+  const commandHistoryRequestRef = useRef(0);
+  const commandHistoryLoadingRequestRef = useRef(0);
+  const commandRefreshTimersRef = useRef([]);
 
   const deferredPoleSearch = useDeferredValue(poleSearch);
   const poles = useMemo(() => {
@@ -754,31 +767,82 @@ export default function Admin() {
     });
   }, [lastMessage]);
 
-  useEffect(() => {
-    const id = String(selectedCommandStreetlightId || "").trim();
-    if (!id) {
-      setCommandHistory([]);
-      return;
-    }
+  const refreshCommandHistory = useCallback(
+    async (
+      streetlightId = selectedCommandStreetlightId,
+      { showLoading = false, updateStatusOnError = true } = {}
+    ) => {
+      const id = String(streetlightId || "").trim();
+      const requestId = commandHistoryRequestRef.current + 1;
+      commandHistoryRequestRef.current = requestId;
 
-    let isCurrent = true;
-    getStreetlightCommandHistory(id)
-      .then((history) => {
-        if (!isCurrent) return;
-        setCommandHistory(Array.isArray(history?.commands) ? history.commands : []);
-      })
-      .catch((error) => {
-        if (!isCurrent) return;
-        setCommandStatus({
-          tone: "warning",
-          text: error?.message || "Command history unavailable.",
-        });
+      if (!id) {
+        setCommandHistory([]);
+        setCommandHistoryLoading(false);
+        return [];
+      }
+
+      if (showLoading) {
+        commandHistoryLoadingRequestRef.current = requestId;
+        setCommandHistoryLoading(true);
+      }
+
+      try {
+        const history = await getStreetlightCommandHistory(id);
+        if (commandHistoryRequestRef.current !== requestId) return null;
+
+        const commands = Array.isArray(history?.commands) ? history.commands : [];
+        setCommandHistory(commands);
+        return commands;
+      } catch (error) {
+        if (
+          commandHistoryRequestRef.current === requestId &&
+          updateStatusOnError
+        ) {
+          setCommandStatus({
+            tone: "warning",
+            text: error?.message || "Command history unavailable.",
+          });
+        }
+        return null;
+      } finally {
+        if (showLoading && commandHistoryLoadingRequestRef.current === requestId) {
+          setCommandHistoryLoading(false);
+        }
+      }
+    },
+    [selectedCommandStreetlightId]
+  );
+
+  const scheduleCommandHistoryRefreshes = useCallback(
+    (streetlightId) => {
+      const id = String(streetlightId || "").trim();
+      if (!id) return;
+
+      COMMAND_HISTORY_REFRESH_DELAYS_MS.forEach((delayMs) => {
+        const timer = window.setTimeout(() => {
+          commandRefreshTimersRef.current = commandRefreshTimersRef.current.filter(
+            (item) => item !== timer
+          );
+          refreshCommandHistory(id, { updateStatusOnError: false });
+        }, delayMs);
+
+        commandRefreshTimersRef.current.push(timer);
       });
+    },
+    [refreshCommandHistory]
+  );
 
+  useEffect(() => {
+    refreshCommandHistory(selectedCommandStreetlightId, { showLoading: true });
+  }, [refreshCommandHistory, selectedCommandStreetlightId]);
+
+  useEffect(() => {
     return () => {
-      isCurrent = false;
+      commandRefreshTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      commandRefreshTimersRef.current = [];
     };
-  }, [selectedCommandStreetlightId]);
+  }, []);
 
   function patchAdminState(updater) {
     setAdminState((current) => {
@@ -973,6 +1037,7 @@ export default function Admin() {
         tone: "healthy",
         text: `${nextCommand.command} accepted.`,
       });
+      scheduleCommandHistoryRefreshes(id);
       return true;
     } catch (error) {
       setCommandStatus({
@@ -1183,8 +1248,12 @@ export default function Admin() {
                           selectedStreetlightId={selectedCommandStreetlightId}
                           commandHistory={commandHistory}
                           commandStatus={commandStatus}
+                          isHistoryLoading={commandHistoryLoading}
                           isSending={commandSending}
                           onSendCommand={handleDownlinkSend}
+                          onRefreshCommandHistory={(streetlightId) =>
+                            refreshCommandHistory(streetlightId, { showLoading: true })
+                          }
                         />
                       </SectionCard>
                   </div>

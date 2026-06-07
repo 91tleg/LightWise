@@ -170,6 +170,14 @@ const paths = {
       <path d="M8 17h8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </>
   ),
+  refresh: (
+    <>
+      <path d="M20 11a8 8 0 0 0-14.4-4.8L4 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 4v4h4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 13a8 8 0 0 0 14.4 4.8L20 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 20v-4h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
   spark: (
     <>
       <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
