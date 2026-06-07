@@ -526,7 +526,7 @@ Resources:
         ListCommands:
           Type: Api
           Properties:
-            Path: /streetlights/{id}/commands
+            Path: /streetlights/{streetlight_id}/commands
             Method: get
 
   Streetlights:
