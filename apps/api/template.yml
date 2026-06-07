@@ -610,6 +610,8 @@ Resources:
       KeySchema:
         - AttributeName: connection_id
           KeyType: HASH
+        - AttributeName: streetlight_id
+          KeyType: RANGE
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
