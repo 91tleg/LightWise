@@ -370,13 +370,17 @@ export function mockRemoveUser(userId) {
 }
 
 export function mockSendStreetlightCommand(id, body = {}) {
+  const now = new Date().toISOString();
+
   return {
     command_id: `cmd-mock-${Date.now().toString(36)}`,
     streetlight_id: id,
-    command: body.command,
-    params: body.params || {},
+    issued_by: MOCK_PROFILE.email || MOCK_PROFILE.sub,
+    command_type: body.command,
+    payload: body.params || {},
     status: "pending",
-    dispatched_at: new Date().toISOString(),
+    created_at: now,
+    sent_at: now,
   };
 }
 

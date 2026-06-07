@@ -536,6 +536,7 @@ export default function Admin() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [userSaving, setUserSaving] = useState(false);
   const [remoteUsers, setRemoteUsers] = useState(null);
+  const [selectedCommandStreetlightId, setSelectedCommandStreetlightId] = useState("");
   const [commandStatus, setCommandStatus] = useState(null);
   const [commandSending, setCommandSending] = useState(false);
   const [commandHistory, setCommandHistory] = useState([]);
@@ -615,9 +616,6 @@ export default function Admin() {
     () => users.find((user) => user.id === selectedUserId) || null,
     [users, selectedUserId]
   );
-  const selectedCommandStreetlightId =
-    selectedPoleId || poles[0]?.streetlight_id || "";
-
   const sectionMeta = getSectionMeta(activeSection);
   const livePreviewPoint = useMemo(() => {
     if (!selectedPoleId) return null;
@@ -696,6 +694,25 @@ export default function Admin() {
     if (!selectedPoleId || !poles.some((pole) => pole.streetlight_id === selectedPoleId)) {
       setSelectedPoleId(poles[0].streetlight_id);
     }
+  }, [poles, selectedPoleId]);
+
+  useEffect(() => {
+    if (!poles.length) {
+      setSelectedCommandStreetlightId("");
+      return;
+    }
+
+    setSelectedCommandStreetlightId((current) => {
+      if (current && poles.some((pole) => pole.streetlight_id === current)) {
+        return current;
+      }
+
+      if (selectedPoleId && poles.some((pole) => pole.streetlight_id === selectedPoleId)) {
+        return selectedPoleId;
+      }
+
+      return poles[0].streetlight_id;
+    });
   }, [poles, selectedPoleId]);
 
   useEffect(() => {
@@ -1026,11 +1043,16 @@ export default function Admin() {
       }
 
       const command = await sendStreetlightCommand(id, envelope);
+      const issuedAt = command.created_at || command.dispatched_at || new Date().toISOString();
       const nextCommand = {
         ...command,
         streetlight_id: command.streetlight_id || id,
+        command_type: command.command_type || command.command || envelope.command,
+        command: command.command || command.command_type || envelope.command,
         params: command.params || envelope.params || {},
-        dispatched_at: command.dispatched_at || new Date().toISOString(),
+        issued_by: command.issued_by || operator?.email || operator?.name || operator?.sub || "",
+        created_at: issuedAt,
+        dispatched_at: command.dispatched_at || command.sent_at || issuedAt,
       };
       setCommandHistory((current) => [nextCommand, ...current.filter((item) => item.command_id !== nextCommand.command_id)]);
       setCommandStatus({
@@ -1246,6 +1268,7 @@ export default function Admin() {
                         <AdminWsControls
                           streetlights={poles}
                           selectedStreetlightId={selectedCommandStreetlightId}
+                          onStreetlightChange={setSelectedCommandStreetlightId}
                           commandHistory={commandHistory}
                           commandStatus={commandStatus}
                           isHistoryLoading={commandHistoryLoading}

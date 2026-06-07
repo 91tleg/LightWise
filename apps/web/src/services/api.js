@@ -175,14 +175,21 @@ function normalizeCommandStatus(value) {
 function normalizeCommandRecord(raw = {}) {
   const response = raw.response || null;
   const status = normalizeCommandStatus(raw.status);
+  const commandType = raw.command_type || raw.command || "";
+  const createdAt = raw.created_at || raw.createdAt || raw.dispatched_at || "";
+  const sentAt = raw.sent_at || raw.sentAt || "";
 
   return {
     command_id: raw.command_id || raw.id || "",
     streetlight_id: raw.streetlight_id || raw.streetlightId || "",
-    command: raw.command || raw.command_type || "",
+    command: commandType,
+    command_type: commandType,
     params: raw.params || raw.payload || {},
     status,
-    dispatched_at: raw.dispatched_at || raw.sent_at || raw.created_at || "",
+    issued_by: raw.issued_by || raw.issuedBy || "",
+    created_at: createdAt,
+    sent_at: sentAt,
+    dispatched_at: raw.dispatched_at || sentAt || createdAt,
     response:
       response ||
       (raw.acknowledged_at || raw.reason

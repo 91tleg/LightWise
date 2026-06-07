@@ -58,11 +58,16 @@ function buildParams(command, form) {
   }, {});
 }
 
-function formatCommandTime(value) {
+function formatCommandTimestamp(value) {
   if (!value) return "--";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--";
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return date.toLocaleString([], {
+    month: "short",
+    day: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function commandStatusTone(status) {
@@ -90,6 +95,7 @@ function commandStatusLabel(status) {
 export default function AdminWsControls({
   streetlights = [],
   selectedStreetlightId,
+  onStreetlightChange,
   commandHistory = [],
   commandStatus,
   isHistoryLoading = false,
@@ -138,6 +144,12 @@ export default function AdminWsControls({
     commandStatus?.text ||
     (flash === "err" ? "Command failed." : flash === "ok" ? "Command sent." : "Ready");
 
+  const handleStreetlightChange = (event) => {
+    const nextId = event.target.value;
+    setStreetlightId(nextId);
+    onStreetlightChange?.(nextId);
+  };
+
   const handleSendClick = async () => {
     const id = streetlightId.trim();
     if (!id) return;
@@ -173,7 +185,7 @@ export default function AdminWsControls({
           <select
             className="lwAdminSelect"
             value={streetlightId}
-            onChange={(event) => setStreetlightId(event.target.value)}
+            onChange={handleStreetlightChange}
             disabled={!streetlightOptions.length}
           >
             <option value="">
@@ -258,18 +270,27 @@ export default function AdminWsControls({
         </div>
         <div className="lwAdminCommandHistory">
           {recentCommands.length ? (
-            recentCommands.map((item) => (
-              <div key={item.command_id || `${item.command}-${item.dispatched_at}`} className="lwAdminCommandRow">
-                <div>
-                  <strong>{item.command || "Command"}</strong>
-                  <span>{item.command_id || "Pending correlation"}</span>
+            recentCommands.map((item, index) => {
+              const commandType = item.command_type || item.command || "Command";
+              const issuedAt = item.created_at || item.dispatched_at || item.sent_at;
+              const issuedBy = item.issued_by || "Unknown";
+
+              return (
+                <div
+                  key={item.command_id || `${commandType}-${issuedAt}-${index}`}
+                  className="lwAdminCommandRow"
+                >
+                  <div>
+                    <strong>{commandType}</strong>
+                    <span>By {issuedBy}</span>
+                  </div>
+                  <span className={`lwAdminChip ${commandStatusTone(item.status)}`}>
+                    {commandStatusLabel(item.status)}
+                  </span>
+                  <span>{formatCommandTimestamp(issuedAt)}</span>
                 </div>
-                <span className={`lwAdminChip ${commandStatusTone(item.status)}`}>
-                  {commandStatusLabel(item.status)}
-                </span>
-                <span>{formatCommandTime(item.dispatched_at)}</span>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="lwAdminInlineSurface">
               <strong>No command history</strong>
