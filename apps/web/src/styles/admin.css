@@ -567,6 +567,57 @@
   gap: 8px;
 }
 
+.lwAdminCommandHistoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lwAdminCommandHistoryHeader strong {
+  display: block;
+  color: #13273a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.lwAdminCommandHistoryHeader span {
+  display: block;
+  margin-top: 2px;
+  color: #617285;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.lwAdminCommandRefreshBtn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(190, 206, 221, 0.98);
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 246, 251, 0.95));
+  color: #23425e;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.lwAdminCommandRefreshBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(11, 99, 166, 0.24);
+  color: #0b63a6;
+}
+
+.lwAdminCommandRefreshBtn:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .lwAdminCommandRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -1111,6 +1162,7 @@ body.dark .lwAdminTimelineValue,
 body.dark .lwAdminTable td strong,
 body.dark .lwAdminModalTitle,
 body.dark .lwAdminInlineSurface strong,
+body.dark .lwAdminCommandHistoryHeader strong,
 body.dark .lwAdminRecordItem strong,
 body.dark .lwAdminCommandRow strong {
   color: #eef5ff;
@@ -1126,6 +1178,7 @@ body.dark .lwAdminRecordItem span,
 body.dark .lwAdminTimelineHours,
 body.dark .lwAdminModalCopy,
 body.dark .lwAdminInlineSurface span,
+body.dark .lwAdminCommandHistoryHeader span,
 body.dark .lwAdminTable td span,
 body.dark .lwAdminCommandRow span {
   color: #95a8bc;
@@ -1151,6 +1204,7 @@ body.dark .lwAdminTable thead th,
 body.dark .lwAdminSectionNavItem,
 body.dark .lwAdminSecondaryBtn,
 body.dark .lwAdminGhostBtn,
+body.dark .lwAdminCommandRefreshBtn,
 body.dark .lwAdminDayPill,
 body.dark .lwAdminTimelineTrackWrap {
   background: linear-gradient(180deg, rgba(14, 26, 41, 0.98), rgba(10, 21, 35, 0.96));

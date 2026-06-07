@@ -92,8 +92,10 @@ export default function AdminWsControls({
   selectedStreetlightId,
   commandHistory = [],
   commandStatus,
+  isHistoryLoading = false,
   isSending = false,
   onSendCommand,
+  onRefreshCommandHistory,
 }) {
   const [streetlightId, setStreetlightId] = useState(selectedStreetlightId || "");
   const [command, setCommand] = useState("REQUEST_UPLINK");
@@ -154,6 +156,13 @@ export default function AdminWsControls({
     } finally {
       setTimeout(() => setFlash("idle"), 1100);
     }
+  };
+
+  const handleRefreshClick = async () => {
+    const id = streetlightId.trim();
+    if (!id || isHistoryLoading) return;
+
+    await Promise.resolve(onRefreshCommandHistory?.(id));
   };
 
   return (
@@ -231,6 +240,22 @@ export default function AdminWsControls({
       </div>
 
       <div className="lwAdminDownlinkMeta">
+        <div className="lwAdminCommandHistoryHeader">
+          <div>
+            <strong>Command History</strong>
+            <span>{isHistoryLoading ? "Refreshing" : "Recent downlink status"}</span>
+          </div>
+          <button
+            className="lwAdminCommandRefreshBtn"
+            type="button"
+            onClick={handleRefreshClick}
+            disabled={!streetlightId.trim() || isHistoryLoading}
+            title="Refresh command history"
+            aria-label="Refresh command history"
+          >
+            <UiIcon name="refresh" size={15} />
+          </button>
+        </div>
         <div className="lwAdminCommandHistory">
           {recentCommands.length ? (
             recentCommands.map((item) => (

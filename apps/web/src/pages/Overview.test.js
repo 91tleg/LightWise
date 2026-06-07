@@ -1,6 +1,7 @@
 import {
   getCombinedSensorHealth,
   getOverviewConnectionSummary,
+  getOverviewFaultSummary,
   getOverviewPoleList,
   isPoleTelemetryStale,
 } from "./overview.helpers";
@@ -145,7 +146,65 @@ describe("getOverviewConnectionSummary", () => {
       offline: 1,
       status: "All Offline",
       note: "1 streetlight offline",
-      tone: "critical",
+      tone: "warning",
+    });
+  });
+});
+
+describe("getOverviewFaultSummary", () => {
+  test("counts only online sensor faults and ignores stale raw health", () => {
+    const now = new Date("2026-04-23T19:00:00Z");
+    const poles = [
+      {
+        streetlight_id: "LW-00001",
+        last_seen: "2026-04-23T18:59:45Z",
+        health: "CRITICAL",
+        diagnostics: {
+          overall_ok: true,
+          ambient_health: "SYSTEM_OK",
+          mmwave_health: "SYSTEM_OK",
+          th_ok: true,
+          light_ok: true,
+        },
+      },
+      {
+        streetlight_id: "LW-00002",
+        last_seen: "2026-04-23T18:58:00Z",
+        health: "CRITICAL",
+        diagnostics: {
+          overall_ok: false,
+        },
+      },
+    ];
+
+    expect(getOverviewFaultSummary(poles, now)).toEqual({
+      critical: 0,
+      warning: 0,
+    });
+  });
+
+  test("counts online sensor warnings and faults", () => {
+    const now = new Date("2026-04-23T19:00:00Z");
+
+    expect(
+      getOverviewFaultSummary(
+        [
+          {
+            streetlight_id: "LW-00001",
+            last_seen: "2026-04-23T18:59:45Z",
+            diagnostics: { ambient_health: "DEGRADED" },
+          },
+          {
+            streetlight_id: "LW-00002",
+            last_seen: "2026-04-23T18:59:50Z",
+            diagnostics: { light_ok: false },
+          },
+        ],
+        now
+      )
+    ).toEqual({
+      critical: 1,
+      warning: 1,
     });
   });
 });
