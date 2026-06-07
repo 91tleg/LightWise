@@ -171,36 +171,40 @@ User membership record (`SK = user_id`)
 
 ---
 
+```markdown
 ### WebSocketConnections
 
 #### Purpose
-Tracks active WebSocket connections established via API Gateway. Used to fan out real-time telemetry to connected clients. Records are written on `$connect` and deleted on `$disconnect`.
+Tracks active WebSocket connections and their streetlight subscriptions established via API Gateway. Used to fan out real-time telemetry to subscribed clients. Rows are written on `subscribe` and deleted on `$disconnect`.
 
 #### Primary Key
 ```
 PK: connection_id
+SK: streetlight_id
 ```
 
-#### GSI: ByTenant
+#### GSI: StreetlightIndex
 ```
-PK: tenant_id
+PK: streetlight_id
+SK: tenant_id
 ```
 
 #### Example Item
 ```json
 {
   "connection_id": "abc123==",
+  "streetlight_id": "LW-00001",
   "tenant_id": "tenant-001",
   "user_id": "u-123",
   "connected_at": "2026-02-24T10:00:00Z",
-  "streetlight_ids": ["LW-00100"]
+  "ttl": 1780809213
 }
 ```
 
 #### Access Patterns
-- Write connection record on `$connect`
-- Delete connection record on `$disconnect`
-- Query by `tenant_id` (via GSI) to find all active connections for fanout
+- Write one row per streetlight subscription on `subscribe` action
+- Delete all rows for a `connection_id` on `$disconnect`
+- Query by `streetlight_id` + `tenant_id` (via GSI) to find all connections to broadcast to
 - Clean up stale connections when a push returns `GoneException`
 
 ---
