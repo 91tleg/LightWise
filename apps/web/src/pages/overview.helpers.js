@@ -42,6 +42,61 @@ export function isPoleTelemetryStale(
   return nowMs - timestamp > thresholdMs;
 }
 
+export function getOverviewConnectionSummary(
+  poles,
+  nowValue = Date.now(),
+  thresholdMs = POLE_OFFLINE_THRESHOLD_MS
+) {
+  const rows = getOverviewPoleList(poles);
+  const total = rows.length;
+  const online = rows.filter(
+    (pole) => !isPoleTelemetryStale(pole, nowValue, thresholdMs)
+  ).length;
+  const offline = total - online;
+
+  if (!total) {
+    return {
+      total,
+      online,
+      offline,
+      status: "No Streetlights",
+      note: "Waiting for streetlight inventory",
+      tone: "neutral",
+    };
+  }
+
+  if (!offline) {
+    return {
+      total,
+      online,
+      offline,
+      status: "All Online",
+      note: `${online} streetlight${online === 1 ? "" : "s"} reporting`,
+      tone: "healthy",
+    };
+  }
+
+  if (!online) {
+    return {
+      total,
+      online,
+      offline,
+      status: "All Offline",
+      note: `${offline} streetlight${offline === 1 ? "" : "s"} offline`,
+      tone: "critical",
+    };
+  }
+
+  return {
+    total,
+    online,
+    offline,
+    status: `${online}/${total} Online`,
+    note: `${offline} offline / ${total} total`,
+    tone: "warning",
+  };
+}
+
 export function getCombinedSensorHealth(pole) {
   const diagnostics = pole?.diagnostics || {};
   const overallOk =
