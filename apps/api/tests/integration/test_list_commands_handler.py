@@ -15,7 +15,7 @@ def downlink_table(monkeypatch):
     from libs.config import settings
     from infrastructure.persistence.dynamo import client as dynamo_client
     from infrastructure.persistence.dynamo import downlink_command_repo
-    from infrastructure.handlers import streetlights_commands_list
+    from infrastructure.handlers import streetlights_list_commands
 
     settings.AWS_REGION = "us-west-2"
     settings.DYNAMO_ENDPOINT = DYNAMO_ENDPOINT
@@ -24,7 +24,7 @@ def downlink_table(monkeypatch):
 
     dynamo_client._DYNAMODB = None
     downlink_command_repo.get_downlink_command_repo.cache_clear()
-    streetlights_commands_list._use_case.cache_clear()
+    streetlights_list_commands._use_case.cache_clear()
 
     db = boto3.resource(
         "dynamodb",
@@ -48,7 +48,7 @@ def downlink_table(monkeypatch):
 def test_list_commands_through_handler_use_case_repo_and_dynamodb(
     downlink_table,
 ):
-    from infrastructure.handlers.streetlights_commands_list import handler
+    from infrastructure.handlers.streetlights_list_commands import handler
 
     tenant_id = "tenant-integration"
     streetlight_id = f"streetlight-{uuid.uuid4()}"
@@ -104,10 +104,11 @@ def test_list_commands_through_handler_use_case_repo_and_dynamodb(
     assert commands[0]["status"] == "SENT"
 
 
+@pytest.mark.integration
 def test_list_commands_for_tenant_through_handler_and_dynamodb(
     downlink_table,
 ):
-    from infrastructure.handlers.streetlights_commands_list import handler
+    from infrastructure.handlers.streetlights_list_commands import handler
 
     tenant_id = f"tenant-{uuid.uuid4()}"
     streetlight_id = f"streetlight-{uuid.uuid4()}"
