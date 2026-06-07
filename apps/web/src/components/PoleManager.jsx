@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 
 /**
  * PoleManager (presentational)
- * Poles = array of streetlight_id strings (ex: ["LW-00100"])
+ * Streetlights = array of streetlight_id strings (ex: ["LW-00100"])
  *
  * Props:
  *  - poles: string[]

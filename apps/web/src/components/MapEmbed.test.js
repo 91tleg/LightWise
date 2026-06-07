@@ -29,18 +29,18 @@ test("renders the native map surface, loading surface, and LightWise markers", a
     />
   );
 
-  expect(await screen.findByLabelText("Select pole LW-00043")).toBeTruthy();
-  expect(await screen.findByLabelText("Select pole LW-00044")).toBeTruthy();
+  expect(await screen.findByLabelText("Select streetlight LW-00043")).toBeTruthy();
+  expect(await screen.findByLabelText("Select streetlight LW-00044")).toBeTruthy();
   expect(container.querySelector(".lwMapLoadingSurface")).toBeTruthy();
   expect(container.querySelector(".lwMapRoadLayer")).toBeNull();
   expect(screen.getByRole("application", { name: "Network map" })).toBeTruthy();
   expect(container.querySelector("iframe")).toBeNull();
 });
 
-test("renders a marker for a single interactive pole", async () => {
+test("renders a marker for a single interactive streetlight", async () => {
   render(
     <MapEmbed
-      title="Single pole map"
+      title="Single streetlight map"
       poles={[poles[0]]}
       selectedId="LW-00043"
       interactive
@@ -48,7 +48,7 @@ test("renders a marker for a single interactive pole", async () => {
     />
   );
 
-  expect(await screen.findByLabelText("Select pole LW-00043")).toBeTruthy();
+  expect(await screen.findByLabelText("Select streetlight LW-00043")).toBeTruthy();
 });
 
 test("hides LightWise pole markers when marker rendering is disabled", () => {
@@ -62,7 +62,7 @@ test("hides LightWise pole markers when marker rendering is disabled", () => {
     />
   );
 
-  expect(screen.queryByLabelText("Select pole LW-00043")).toBeNull();
+  expect(screen.queryByLabelText("Select streetlight LW-00043")).toBeNull();
   expect(screen.queryByText("LW-00043")).toBeNull();
   expect(screen.getByRole("application", { name: "Hidden marker map" })).toBeTruthy();
 });

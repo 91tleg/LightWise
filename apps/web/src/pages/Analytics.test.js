@@ -273,7 +273,7 @@ describe("buildAnalyticsReport", () => {
     });
   });
 
-  test("uses the pole name instead of a fabricated central zone for single-pole analytics", () => {
+  test("uses the streetlight name instead of a fabricated central zone for single-streetlight analytics", () => {
     const report = buildAnalyticsReport(
       [
         {
@@ -370,7 +370,7 @@ describe("buildAnalyticsReport", () => {
 
     const csv = buildRawTelemetryCsv(report);
 
-    expect(csv).toContain("timestamp,pole_id,pole_name,zone,health,motion");
+    expect(csv).toContain("timestamp,streetlight_id,streetlight_name,zone,health,motion");
     expect(csv).toContain("LW-10001");
     expect(csv).toContain("Northwest Plaza");
     expect(csv).toContain("actual_kwh");

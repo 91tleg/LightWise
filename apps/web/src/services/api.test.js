@@ -7,7 +7,6 @@ var mockEnv = {
 var mockFetchIdTokenSilently = jest.fn();
 var mockEmitAuthRequired = jest.fn();
 var mockRedirectToSignIn = jest.fn();
-var mockLoadPoleMetaMap = jest.fn(() => ({}));
 var mockPruneStoredPoleState = jest.fn();
 
 jest.mock("../config/env", () => ({
@@ -23,7 +22,6 @@ jest.mock("./auth", () => ({
 }));
 
 jest.mock("./poleStorage", () => ({
-  loadPoleMetaMap: (...args) => mockLoadPoleMetaMap(...args),
   pruneStoredPoleState: (...args) => mockPruneStoredPoleState(...args),
 }));
 
@@ -49,8 +47,6 @@ describe("api service", () => {
     mockFetchIdTokenSilently.mockReset();
     mockEmitAuthRequired.mockReset();
     mockRedirectToSignIn.mockReset();
-    mockLoadPoleMetaMap.mockReset();
-    mockLoadPoleMetaMap.mockReturnValue({});
     mockPruneStoredPoleState.mockReset();
     global.fetch = jest.fn();
   });

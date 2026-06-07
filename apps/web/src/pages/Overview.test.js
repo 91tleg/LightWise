@@ -90,19 +90,19 @@ describe("isPoleTelemetryStale", () => {
     expect(isPoleTelemetryStale({}, new Date("2026-04-23T19:00:00Z"))).toBe(true);
   });
 
-  test("returns false when telemetry is recent", () => {
+  test("returns false when telemetry is within the heartbeat window", () => {
     expect(
       isPoleTelemetryStale(
-        { last_seen: "2026-04-23T18:58:00Z" },
+        { last_seen: "2026-04-23T18:59:30Z" },
         new Date("2026-04-23T19:00:00Z")
       )
     ).toBe(false);
   });
 
-  test("returns true when telemetry is stale", () => {
+  test("returns true when the heartbeat window has elapsed", () => {
     expect(
       isPoleTelemetryStale(
-        { last_seen: "2026-04-23T18:40:00Z" },
+        { last_seen: "2026-04-23T18:58:30Z" },
         new Date("2026-04-23T19:00:00Z")
       )
     ).toBe(true);

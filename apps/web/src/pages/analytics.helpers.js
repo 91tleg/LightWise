@@ -245,7 +245,7 @@ function buildFaultTimelineForPole(pole, rows = []) {
         if (openFault) {
           events.push({
             poleId: pole?.streetlight_id || "",
-            poleName: pole?.name || pole?.streetlight_id || "Unnamed pole",
+            poleName: pole?.name || pole?.streetlight_id || "Unnamed streetlight",
             zone: row?.zone || "Unassigned",
             timestamp,
             health: openFault,
@@ -258,7 +258,7 @@ function buildFaultTimelineForPole(pole, rows = []) {
         openFault = health;
         events.push({
           poleId: pole?.streetlight_id || "",
-          poleName: pole?.name || pole?.streetlight_id || "Unnamed pole",
+          poleName: pole?.name || pole?.streetlight_id || "Unnamed streetlight",
           zone: row?.zone || "Unassigned",
           timestamp,
           health,
@@ -274,7 +274,7 @@ function buildFaultTimelineForPole(pole, rows = []) {
     if (openFault) {
       events.push({
         poleId: pole?.streetlight_id || "",
-        poleName: pole?.name || pole?.streetlight_id || "Unnamed pole",
+        poleName: pole?.name || pole?.streetlight_id || "Unnamed streetlight",
         zone: row?.zone || "Unassigned",
         timestamp,
         health: openFault,
@@ -321,7 +321,7 @@ function buildPoleSummary(pole, rows, intervalHours, zone) {
       ...row,
       zone,
       poleId: pole?.streetlight_id || "",
-      poleName: pole?.name || pole?.streetlight_id || "Unnamed pole",
+      poleName: pole?.name || pole?.streetlight_id || "Unnamed streetlight",
       health: rowHealth,
       actualKwh: energy.actualKwh,
       baselineKwh: energy.baselineKwh,
@@ -338,7 +338,7 @@ function buildPoleSummary(pole, rows, intervalHours, zone) {
 
   return {
     streetlight_id: pole?.streetlight_id || "",
-    name: pole?.name || pole?.streetlight_id || "Unnamed pole",
+    name: pole?.name || pole?.streetlight_id || "Unnamed streetlight",
     health: normalizeHealth(pole?.health),
     zone,
     lat: getValidCoord(pole?.lat),
@@ -792,8 +792,8 @@ export function buildZoneCsv(report) {
     [
       "zone",
       "row_type",
-      "pole_id",
-      "pole_name",
+      "streetlight_id",
+      "streetlight_name",
       "health",
       "uptime_pct",
       "motion_activity_pct",
@@ -822,7 +822,7 @@ export function buildZoneCsv(report) {
     (zone.poles || []).forEach((pole) => {
       rows.push([
         zone.zone,
-        "pole",
+        "streetlight",
         pole.streetlight_id,
         pole.name,
         pole.health,
@@ -843,8 +843,8 @@ export function buildRawTelemetryCsv(report) {
   const rows = [
     [
       "timestamp",
-      "pole_id",
-      "pole_name",
+      "streetlight_id",
+      "streetlight_name",
       "zone",
       "health",
       "motion",
