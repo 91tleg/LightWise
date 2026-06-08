@@ -56,7 +56,7 @@ def test_list_users_through_handler_use_case_repo_and_dynamodb(
     users_table.put_item(
         Item={
             "tenant_id": tenant_id,
-            "user_id": user_id,
+            "user_id": f"USER#{user_id}",
             "email": "test.user@example.com",
             "role": "admin",
             "created_at": "2026-05-28T12:00:00Z",

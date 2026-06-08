@@ -74,7 +74,7 @@ def test_invite_user_through_handler_use_case_repo_and_dynamodb(
     users_table.put_item(
         Item={
             "tenant_id": tenant_id,
-            "user_id": "TENANT",
+            "user_id": "TENANT#META",
             "name": "Test Tenant",
             "owner_user_ids": [owner_user_id],
             "max_users": 5,
@@ -111,7 +111,7 @@ def test_invite_user_through_handler_use_case_repo_and_dynamodb(
     saved = users_table.get_item(
         Key={
             "tenant_id": tenant_id,
-            "user_id": invited_user_id,
+            "user_id": f"USER#{invited_user_id}",
         }
     )
 
