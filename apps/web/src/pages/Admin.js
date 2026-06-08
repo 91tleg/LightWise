@@ -19,6 +19,7 @@ import {
   removeUser,
   sendStreetlightCommand,
   updateStreetlightMetadata,
+  updateUser,
 } from "../services/api";
 import { loadPoleMetaMap, upsertPoleMeta } from "../services/poleStorage";
 import { formatTimestamp } from "../utils/formatters";
@@ -922,14 +923,6 @@ export default function Admin() {
       return;
     }
 
-    if (userEditorMode === "edit") {
-      setUserStatus({
-        tone: "critical",
-        text: "Editing users is not available yet.",
-      });
-      return;
-    }
-
     if (Object.keys(userErrors).length) {
       setUserStatus({ tone: "critical", text: "Complete the required user fields." });
       return;
@@ -947,7 +940,10 @@ export default function Admin() {
     setUserSaving(true);
 
     try {
-      const savedUser = await inviteUser(nextUser);
+      const savedUser =
+        userEditorMode === "edit" && selectedUser
+          ? await updateUser(selectedUser.user_id || selectedUser.id, nextUser)
+          : await inviteUser(nextUser);
 
       const mergedUser = {
         ...savedUser,
@@ -969,14 +965,20 @@ export default function Admin() {
 
       setRemoteUsers((current) => {
         if (!Array.isArray(current)) return current;
-        return [mergedUser, ...current];
+        return userEditorMode === "edit" && selectedUser
+          ? current.map((user) =>
+              user.id === selectedUser.id || user.user_id === selectedUser.user_id
+                ? mergedUser
+                : user
+            )
+          : [mergedUser, ...current];
       });
 
       setUserEditorMode("edit");
       setSelectedUserId(mergedUser.id);
       setUserStatus({
         tone: "healthy",
-        text: "Invite sent.",
+        text: userEditorMode === "edit" ? "User updated." : "Invite sent.",
       });
     } catch (error) {
       setUserStatus({
@@ -1388,6 +1390,7 @@ export default function Admin() {
                         <select
                           className="lwAdminSelect"
                           value={userForm.role}
+                          disabled={userEditorMode === "edit"}
                           onChange={(event) =>
                             setUserForm((current) => ({ ...current, role: event.target.value }))
                           }
