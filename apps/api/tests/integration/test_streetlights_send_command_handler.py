@@ -100,6 +100,7 @@ def test_send_command_through_handler_use_case_repo_and_dynamodb(
                 "claims": {
                     "custom:tenant_id": tenant_id,
                     "sub": user_id,
+                    "email": "operator@city.gov",
                 }
             }
         },
@@ -127,6 +128,6 @@ def test_send_command_through_handler_use_case_repo_and_dynamodb(
     )
 
     assert saved["Item"]["tenant_id"] == tenant_id
-    assert saved["Item"]["issued_by"] == user_id
+    assert saved["Item"]["issued_by"] == "operator@city.gov"
     assert saved["Item"]["command_type"] == "REBOOT"
     assert saved["Item"]["status"] == "SENT"

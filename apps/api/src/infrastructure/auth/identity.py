@@ -94,3 +94,21 @@ def map_cognito_claims(claims: dict) -> OperatorProfile:
         email=email,
         role=role,
     )
+
+
+def resolve_email(event: dict) -> str:
+    """
+    Extract email from REST API Gateway authorizer claims.
+    Falls back to sub if email is not present.
+    """
+    if not settings.AUTH_ENABLED:
+        return "anonymous"
+
+    claims = (
+        event
+        .get("requestContext", {})
+        .get("authorizer", {})
+        .get("claims") or {}
+    )
+
+    return claims.get("email") or claims.get("sub") or "unknown"
