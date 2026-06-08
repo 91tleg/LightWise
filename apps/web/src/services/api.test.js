@@ -26,6 +26,7 @@ jest.mock("./poleStorage", () => ({
 }));
 
 import {
+  getStreetlightCommandHistory,
   getOperatorProfile,
   getStreetlightTelemetry,
   listStreetlights,
@@ -117,5 +118,46 @@ describe("api service", () => {
         name: "Main & Bellevue way",
       }),
     ]);
+  });
+
+  test("preserves operator-facing command history fields", async () => {
+    mockFetchIdTokenSilently.mockResolvedValue("token-123");
+    global.fetch.mockResolvedValue(
+      jsonResponse({
+        streetlight_id: "LW-00043",
+        commands: [
+          {
+            command_id: "2026-05-26T12:00:00Z#cmd-001",
+            streetlight_id: "LW-00043",
+            issued_by: "operator@example.com",
+            command_type: "REBOOT",
+            payload: { reason: "test" },
+            status: "ACKNOWLEDGED",
+            created_at: "2026-05-26T12:00:00Z",
+            sent_at: "2026-05-26T12:00:01Z",
+          },
+        ],
+      })
+    );
+
+    const result = await getStreetlightCommandHistory("LW-00043");
+
+    expect(result).toEqual({
+      streetlight_id: "LW-00043",
+      commands: [
+        expect.objectContaining({
+          command_id: "2026-05-26T12:00:00Z#cmd-001",
+          streetlight_id: "LW-00043",
+          issued_by: "operator@example.com",
+          command_type: "REBOOT",
+          command: "REBOOT",
+          params: { reason: "test" },
+          status: "acked",
+          created_at: "2026-05-26T12:00:00Z",
+          sent_at: "2026-05-26T12:00:01Z",
+          dispatched_at: "2026-05-26T12:00:01Z",
+        }),
+      ],
+    });
   });
 });
