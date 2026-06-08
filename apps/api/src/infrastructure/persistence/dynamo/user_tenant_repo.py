@@ -10,11 +10,21 @@ from infrastructure.persistence.error import PersistenceError
 
 
 class UserTenantRepo:
-    TENANT_SK = "TENANT"
+    TENANT_SK = "TENANT#META"
+    USER_SK_PREFIX = "USER#"
 
     def __init__(self, table_name: str) -> None:
         self._db = get_dynamodb_resource()
         self._table = self._db.Table(table_name)
+
+    def _user_sk(self, user_id: str) -> str:
+        return f"{self.USER_SK_PREFIX}{user_id}"
+
+    @classmethod
+    def _strip_user_prefix(cls, user_sk: str) -> str:
+        if user_sk.startswith(cls.USER_SK_PREFIX):
+            return user_sk[len(cls.USER_SK_PREFIX):]
+        return user_sk
 
     def get_tenant(self, tenant_id: str) -> Tenant | None:
         try:
@@ -56,7 +66,7 @@ class UserTenantRepo:
     ) -> TenantUser | None:
         try:
             result = self._table.get_item(
-                Key={"tenant_id": tenant_id, "user_id": user_id}
+                Key={"tenant_id": tenant_id, "user_id": self._user_sk(user_id)}
             )
             item = result.get("Item")
             if not item:
@@ -72,7 +82,7 @@ class UserTenantRepo:
             result = self._table.query(
                 KeyConditionExpression=(
                     Key("tenant_id").eq(tenant_id)
-                    & Key("user_id").begins_with("u-")
+                    & Key("user_id").begins_with(self.USER_SK_PREFIX)
                 ),
                 Select="COUNT",
             )
@@ -88,7 +98,7 @@ class UserTenantRepo:
             kwargs = {
                 "KeyConditionExpression": (
                     Key("tenant_id").eq(tenant_id)
-                    & Key("user_id").begins_with("u-")
+                    & Key("user_id").begins_with(self.USER_SK_PREFIX)
                 )
             }
             while True:
@@ -108,7 +118,7 @@ class UserTenantRepo:
         try:
             self._table.put_item(Item={
                 "tenant_id": user.tenant_id,
-                "user_id": user.user_id,
+                "user_id": self._user_sk(user.user_id),
                 "email": user.email,
                 "role": user.role,
                 "created_at": user.created_at,
@@ -122,7 +132,7 @@ class UserTenantRepo:
     def delete_user(self, tenant_id: str, user_id: str) -> None:
         try:
             self._table.delete_item(
-                Key={"tenant_id": tenant_id, "user_id": user_id}
+                Key={"tenant_id": tenant_id, "user_id": self._user_sk(user_id)}
             )
         except ClientError as e:
             raise PersistenceError(
@@ -133,7 +143,7 @@ class UserTenantRepo:
     def _item_to_user(item: dict) -> TenantUser:
         return TenantUser(
             tenant_id=item["tenant_id"],
-            user_id=item["user_id"],
+            user_id=UserTenantRepo._strip_user_prefix(item["user_id"]),
             email=item["email"],
             role=item["role"],
             created_at=item["created_at"],

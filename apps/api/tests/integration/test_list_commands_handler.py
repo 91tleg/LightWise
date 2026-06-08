@@ -50,9 +50,9 @@ def test_list_commands_through_handler_use_case_repo_and_dynamodb(
 ):
     from infrastructure.handlers.streetlights_list_commands import handler
 
-    tenant_id = "tenant-integration"
+    tenant_id = f"tenant-{uuid.uuid4()}"
     streetlight_id = f"streetlight-{uuid.uuid4()}"
-    command_id = "2026-05-26T12:00:00Z#cmd-001"
+    command_id = f"2026-05-26T12:00:00Z#cmd-{uuid.uuid4()}"
 
     downlink_table.put_item(
         Item={
