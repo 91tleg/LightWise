@@ -202,7 +202,7 @@ export default function Overview() {
   );
 
   return (
-    <Layout>
+    <Layout pageClassName="lwOverviewViewport">
       <div className="lwOverviewPage lwOverviewRebuild">
         <div className="lwSummaryGrid">
           {summaryCards.map((card) => (

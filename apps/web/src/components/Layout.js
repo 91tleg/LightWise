@@ -4,7 +4,13 @@ import TopBar from "./TopBar";
 import { useDarkMode } from "../hooks/useDarkMode";
 import "../styles/lightwise.css";
 
-export default function Layout({ title, subtitle, children, backgroundImage }) {
+export default function Layout({
+  title,
+  subtitle,
+  children,
+  backgroundImage,
+  pageClassName = "",
+}) {
   const theme = useDarkMode();
   const pageStyle = backgroundImage
     ? {
@@ -21,6 +27,9 @@ export default function Layout({ title, subtitle, children, backgroundImage }) {
       {subtitle ? <p className="lwPageSubtitle">{subtitle}</p> : null}
     </header>
   ) : null;
+  const pageClassNames = ["lwPage", "lwPageLocked", pageClassName]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="lwAppShell">
@@ -28,7 +37,7 @@ export default function Layout({ title, subtitle, children, backgroundImage }) {
       <TopBar />
 
       <div className="lwMainShell">
-        <main className="lwPage lwPageLocked" style={pageStyle}>
+        <main className={pageClassNames} style={pageStyle}>
           {header}
           {typeof children === "function" ? children(theme) : children}
         </main>
