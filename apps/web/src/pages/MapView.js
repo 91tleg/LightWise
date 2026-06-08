@@ -60,20 +60,17 @@ export default function MapView() {
   const mapCenter = useMemo(() => pickBestCenter(validPoles), [validPoles]);
 
   return (
-    <Layout title="Map View" subtitle="Interactive network map.">
-      <Card title="Network Map" className="lwMapCardShell">
-        <div
-          style={{
-            width: "100%",
-            minWidth: 0,
-            borderRadius: "18px",
-            overflow: "hidden",
-          }}
-        >
+    <Layout
+      title="Map View"
+      subtitle="Interactive network map."
+      pageClassName="lwMapViewport"
+    >
+      <Card title="Network Map" className="lwMapCardShell lwMapViewCard">
+        <div className="lwMapViewFrame">
           <MapEmbed
             title="Interactive LightWise Map"
             height={760}
-            fillHeight={false}
+            fillHeight
             lat={mapCenter.lat}
             lng={mapCenter.lng}
             poles={validPoles}

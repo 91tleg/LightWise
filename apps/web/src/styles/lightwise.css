@@ -80,6 +80,12 @@ body.dark {
   box-sizing: border-box;
 }
 
+.lwPage.lwMapViewport {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
 .lwPageHeader {
   margin-bottom: 12px;
 }
@@ -968,6 +974,29 @@ body.dark {
   width: 100%;
   border-radius: 16px;
   overflow: hidden;
+}
+
+.lwMapViewCard {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lwMapViewFrame {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.lwMapViewFrame .lwMapBox,
+.lwMapViewFrame .lwInteractiveMap {
+  height: 100%;
+  min-height: 0;
 }
 
 .lwLegendCard {
