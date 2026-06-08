@@ -320,6 +320,19 @@
 .analyticsPoleList {
   display: grid;
   gap: 10px;
+  max-height: min(380px, 54vh);
+  overflow-y: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+}
+
+.analyticsPoleList::-webkit-scrollbar {
+  width: 8px;
+}
+
+.analyticsPoleList::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(13, 115, 168, 0.28);
 }
 
 .analyticsPoleListItem {
@@ -1239,6 +1252,10 @@ body.dark .analyticsHeroTitle {
 body.dark .analyticsPoleListItem.isSelected {
   border-color: rgba(99, 179, 255, 0.28);
   background: linear-gradient(180deg, rgba(18, 38, 59, 0.99), rgba(13, 28, 46, 0.98));
+}
+
+body.dark .analyticsPoleList::-webkit-scrollbar-thumb {
+  background: rgba(127, 211, 255, 0.34);
 }
 
 body.dark .analyticsPoleHealth {

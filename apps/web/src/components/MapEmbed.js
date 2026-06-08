@@ -78,8 +78,8 @@ function fitMapToPoints(map, points, { maxZoom = 14, padding = [48, 48] } = {}) 
   });
 }
 
-function makePoleIcon(pole, isSelected) {
-  const tone = toneForPole(pole);
+function makePoleIcon(pole, isSelected, markerTone = null) {
+  const tone = markerTone || toneForPole(pole);
   const safeId = escapeHtml(pole?.streetlight_id);
 
   return L.divIcon({
@@ -128,6 +128,7 @@ export default function MapEmbed({
   selectedZoom = 18,
   fitMaxZoom = 14,
   previewPoint = null,
+  markerTone = null,
 }) {
   const mapNodeRef = useRef(null);
   const mapRef = useRef(null);
@@ -279,7 +280,7 @@ export default function MapEmbed({
       validPoles.forEach((pole) => {
         const isSelected = pole?.streetlight_id === activePole?.streetlight_id;
         const marker = L.marker([pole.lat, pole.lng], {
-          icon: makePoleIcon(pole, isSelected),
+          icon: makePoleIcon(pole, isSelected, markerTone),
           keyboard: true,
           riseOnHover: true,
           title: `Select streetlight ${pole.streetlight_id}`,
@@ -347,6 +348,7 @@ export default function MapEmbed({
     normalizedPreviewPoint,
     showPoleMarkers,
     validPoles,
+    markerTone,
   ]);
 
   useEffect(() => {

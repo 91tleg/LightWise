@@ -690,6 +690,35 @@
   height: 100%;
 }
 
+.lwAdminMapSurface .lwMapMarker-admin .lwMapMarkerCore {
+  background: #8b5cf6;
+  border-color: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 0 0 5px rgba(139, 92, 246, 0.16),
+    0 10px 18px rgba(30, 20, 66, 0.24);
+}
+
+.lwAdminMapSurface .lwLeafletMarkerIcon.isSelected.lwMapMarker-admin .lwMapMarkerCore {
+  box-shadow:
+    0 0 0 9px rgba(139, 92, 246, 0.22),
+    0 12px 22px rgba(30, 20, 66, 0.3);
+}
+
+.lwAdminMapSurface .leaflet-tooltip.lwMapMarkerTooltip.isSelected {
+  background: #6d28d9;
+}
+
+.lwAdminMapSurface .leaflet-tooltip-top.lwMapMarkerTooltip.isSelected::before {
+  border-top-color: #6d28d9;
+}
+
+.lwAdminMapSurface .lwMapPreviewCore {
+  background: #8b5cf6;
+  box-shadow:
+    0 0 0 8px rgba(139, 92, 246, 0.18),
+    0 12px 22px rgba(30, 20, 66, 0.24);
+}
+
 .lwAdminMapOverlay {
   position: absolute;
   inset: 0;
@@ -797,18 +826,6 @@
   }
 }
 
-.lwAdminMapFooter {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 12px;
-  z-index: 700;
-  font-size: 12px;
-  font-weight: 700;
-  color: #617285;
-  pointer-events: none;
-}
-
 .lwAdminRecordList {
   display: grid;
   gap: 10px;
@@ -884,6 +901,14 @@
   padding: 11px 13px;
 }
 
+.lwAdminCoordinateCell {
+  color: #0f5f78;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
 .lwAdminTableCount {
   display: inline-flex;
   align-items: center;
@@ -954,6 +979,57 @@
   margin-top: 4px;
   color: #617285;
   font-size: 12px;
+}
+
+.lwAdminUserTable {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.lwAdminUserTable th:nth-child(1),
+.lwAdminUserTable td:nth-child(1) {
+  width: 24%;
+}
+
+.lwAdminUserTable th:nth-child(2),
+.lwAdminUserTable td:nth-child(2) {
+  width: 38%;
+}
+
+.lwAdminUserTable th:nth-child(3),
+.lwAdminUserTable td:nth-child(3) {
+  width: 16%;
+}
+
+.lwAdminUserTable th:nth-child(4),
+.lwAdminUserTable td:nth-child(4) {
+  width: 22%;
+}
+
+.lwAdminUserTable td {
+  vertical-align: middle;
+}
+
+.lwAdminUserNameCell strong,
+.lwAdminUserEmailCell span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lwAdminUserEmailCell span {
+  margin-top: 0;
+  color: #38536d;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.lwAdminUserTable .lwAdminChip {
+  display: inline-flex;
+  margin-top: 0;
+  max-width: 100%;
+  white-space: nowrap;
 }
 
 .lwAdminTableEmpty {
@@ -1173,7 +1249,6 @@ body.dark .lwAdminStatNote,
 body.dark .lwAdminSectionNavDesc,
 body.dark .lwAdminCardSubtitle,
 body.dark .lwAdminFieldHint,
-body.dark .lwAdminMapFooter,
 body.dark .lwAdminRecordItem span,
 body.dark .lwAdminTimelineHours,
 body.dark .lwAdminModalCopy,
@@ -1309,6 +1384,16 @@ body.dark .lwAdminTable tbody tr.isSelected {
 
 body.dark .lwAdminTable td {
   border-top-color: rgba(148, 163, 184, 0.12);
+}
+
+body.dark .lwAdminCoordinateCell,
+body.dark .lwAdminUserEmailCell span {
+  color: #99e6ff;
+}
+
+body.dark .lwAdminMapSurface .lwMapMarker-admin .lwMapMarkerCore,
+body.dark .lwAdminMapSurface .lwMapPreviewCore {
+  border-color: rgba(8, 18, 30, 0.98);
 }
 
 body.dark .lwAdminMapMarkerLabel {

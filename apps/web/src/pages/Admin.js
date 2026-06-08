@@ -27,7 +27,7 @@ import {
   mergeBackendAndLocalPoles,
   pickBestCenter,
 } from "../utils/poleHelpers";
-import { toneForHealth, validateCoordinate } from "../utils/poleState";
+import { validateCoordinate } from "../utils/poleState";
 import "../styles/lightwise.css";
 import "../styles/admin.css";
 
@@ -493,7 +493,7 @@ function AdminMapSurface({
       <MapEmbed
         title="Admin planning map"
         fillHeight
-        interactive={false}
+        interactive
         showInfo={false}
         showLegend={false}
         lat={center.lat}
@@ -504,11 +504,8 @@ function AdminMapSurface({
         fitToPoles
         fitMaxZoom={15}
         previewPoint={previewPoint}
+        markerTone="admin"
       />
-
-      <div className="lwAdminMapFooter">
-        Use this map to review streetlight locations before saving changes.
-      </div>
     </div>
   );
 }
@@ -655,7 +652,9 @@ export default function Admin() {
       const haystack = [
         pole.streetlight_id,
         pole.name || "",
-        pole.health || "",
+        isValidCoord(pole.lat) && isValidCoord(pole.lng)
+          ? `${pole.lat} ${pole.lng}`
+          : "",
       ]
         .join(" ")
         .toLowerCase();
@@ -1194,7 +1193,7 @@ export default function Admin() {
                     <SectionCard
                       icon="analytics"
                       title="Streetlight Table"
-                      subtitle="Search by streetlight ID, name, or health. Click a row to edit."
+                      subtitle="Search by streetlight ID, name, or coordinates. Click a row to edit."
                       actions={<span className="lwAdminTableCount">{filteredPoles.length} streetlight{filteredPoles.length === 1 ? "" : "s"}</span>}
                       className="lwAdminPoleTableCard"
                     >
@@ -1213,7 +1212,6 @@ export default function Admin() {
                           <thead>
                             <tr>
                               <th>Streetlight</th>
-                              <th>Health</th>
                               <th>Coordinates</th>
                             </tr>
                           </thead>
@@ -1231,12 +1229,7 @@ export default function Admin() {
                                     <strong>{pole.streetlight_id}</strong>
                                     <span>{pole.name || "Unnamed streetlight"}</span>
                                   </td>
-                                  <td>
-                                    <StatusChip tone={toneForHealth(pole.health)}>
-                                      {pole.health || "Unknown"}
-                                    </StatusChip>
-                                  </td>
-                                  <td>
+                                  <td className="lwAdminCoordinateCell">
                                     {isValidCoord(pole.lat) && isValidCoord(pole.lng)
                                       ? `${pole.lat}, ${pole.lng}`
                                       : "Needs coordinates"}
@@ -1245,7 +1238,7 @@ export default function Admin() {
                               ))
                             ) : (
                               <tr>
-                                <td colSpan="3" className="lwAdminTableEmpty">
+                                <td colSpan="2" className="lwAdminTableEmpty">
                                   No streetlights match the current search.
                                 </td>
                               </tr>
@@ -1305,10 +1298,11 @@ export default function Admin() {
                     }
                   >
                     <div className="lwAdminTableWrap">
-                      <table className="lwAdminTable">
+                      <table className="lwAdminTable lwAdminUserTable">
                         <thead>
                           <tr>
-                            <th>User</th>
+                            <th>Name</th>
+                            <th>Email</th>
                             <th>Role</th>
                             <th>Status</th>
                           </tr>
@@ -1325,8 +1319,10 @@ export default function Admin() {
                                   setUserStatus(null);
                                 }}
                               >
-                                <td>
+                                <td className="lwAdminUserNameCell">
                                   <strong>{user.name}</strong>
+                                </td>
+                                <td className="lwAdminUserEmailCell">
                                   <span>{user.email}</span>
                                 </td>
                                 <td>
@@ -1344,7 +1340,7 @@ export default function Admin() {
                             ))
                           ) : (
                             <tr>
-                              <td colSpan="3" className="lwAdminTableEmpty">
+                              <td colSpan="4" className="lwAdminTableEmpty">
                                 No users available.
                               </td>
                             </tr>

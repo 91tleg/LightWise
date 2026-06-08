@@ -62,7 +62,6 @@ export default function MapView() {
   return (
     <Layout
       title="Map View"
-      subtitle="Interactive network map."
       pageClassName="lwMapViewport"
     >
       <Card title="Network Map" className="lwMapCardShell lwMapViewCard">
