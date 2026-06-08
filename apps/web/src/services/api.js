@@ -18,6 +18,7 @@ import {
   mockRemoveUser,
   mockSendStreetlightCommand,
   mockUpdateMetadata,
+  mockUpdateUser,
 } from "./api.mock";
 
 const ALLOWED_INTERVALS = new Set([
@@ -330,6 +331,32 @@ export async function inviteUser(body) {
     body: payload,
   });
   return normalizeTenantUser(data, payload);
+}
+
+export async function updateUser(userId, body) {
+  const id = String(userId || "").trim();
+  if (!id) throw new Error("user id is required");
+  if (!body || typeof body !== "object") throw new Error("user body is required");
+
+  const payload = {
+    name: String(body.name || "").trim(),
+  };
+
+  if (!payload.name) throw new Error("name is required");
+
+  if (LIGHTWISE_ENV.USE_MOCK) {
+    return normalizeTenantUser(mockUpdateUser(id, { ...body, ...payload }), {
+      ...body,
+      ...payload,
+      id,
+    });
+  }
+
+  const data = await apiFetch(`/users/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: payload,
+  });
+  return normalizeTenantUser(data, { ...body, ...payload, id });
 }
 
 export async function removeUser(userId) {

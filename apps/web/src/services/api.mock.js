@@ -365,6 +365,20 @@ export function mockInviteUser(body = {}) {
   };
 }
 
+export function mockUpdateUser(userId, body = {}) {
+  const id = String(userId || "").trim();
+  const name = String(body.name || "").trim() || "Updated user";
+
+  return {
+    user_id: id,
+    name,
+    email: body.email || "updated.user@example.com",
+    role: body.role === "admin" ? "admin" : "operator",
+    tenant_id: MOCK_PROFILE.tenant_id,
+    created_at: body.created_at || new Date().toISOString(),
+  };
+}
+
 export function mockRemoveUser(userId) {
   return { message: "User removed (mock)", user_id: userId };
 }

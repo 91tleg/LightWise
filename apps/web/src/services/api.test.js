@@ -30,6 +30,7 @@ import {
   getOperatorProfile,
   getStreetlightTelemetry,
   listStreetlights,
+  updateUser,
 } from "./api";
 
 function jsonResponse(body, { status = 200 } = {}) {
@@ -118,6 +119,37 @@ describe("api service", () => {
         name: "Main & Bellevue way",
       }),
     ]);
+  });
+
+  test("updates users with PATCH /users/{id}", async () => {
+    mockFetchIdTokenSilently.mockResolvedValue("token-123");
+    global.fetch.mockResolvedValue(
+      jsonResponse({
+        user_id: "user-123",
+        name: "Updated User",
+        email: "updated@example.com",
+        role: "operator",
+        tenant_id: "tenant-001",
+        created_at: "2026-06-08T20:00:00Z",
+      })
+    );
+
+    const result = await updateUser("user-123", { name: "Updated User" });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://api.example.com/users/user-123",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ name: "Updated User" }),
+      })
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: "user-123",
+        name: "Updated User",
+        email: "updated@example.com",
+      })
+    );
   });
 
   test("preserves operator-facing command history fields", async () => {

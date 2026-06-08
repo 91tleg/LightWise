@@ -417,7 +417,7 @@ Resources:
             Path: /users/{id}
             Method: delete
 
-    UpdateUserFunction:
+  UpdateUserFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: infrastructure.handlers.user_update.handler
