@@ -28,7 +28,7 @@ Parameters:
 Globals:
   Api:
     Cors:
-      AllowMethods: "'GET,PUT,POST,DELETE,OPTIONS'"
+      AllowMethods: "'GET,PUT,POST,DELETE,PATCH,OPTIONS'"
       AllowHeaders: "'Content-Type,Authorization'"
       AllowOrigin: !Ref AllowedOrigin
     Auth:
@@ -330,9 +330,6 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: infrastructure.handlers.websocket_connect.handler
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref WebSocketConnections
 
   WebSocketDisconnectFunction:
     Type: AWS::Serverless::Function
