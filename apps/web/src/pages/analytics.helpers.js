@@ -465,6 +465,17 @@ function buildMetricSeries(metricBuckets = [], totalKey, countKey, transform = (
     }));
 }
 
+function buildCountMetricSeries(metricBuckets = [], totalKey, countKey) {
+  return metricBuckets
+    .filter((point) => point[countKey] > 0)
+    .map((point) => ({
+      timestamp: point.timestamp,
+      timestampValue: point.timestampValue,
+      value: point[totalKey],
+      sampleCount: point[countKey],
+    }));
+}
+
 function buildNetworkMetricSeries(poleSummaries = []) {
   const buckets = new Map();
 
@@ -526,12 +537,7 @@ function buildNetworkMetricSeries(poleSummaries = []) {
     lux: buildMetricSeries(sortedBuckets, "luxTotal", "luxCount"),
     temp_c: buildMetricSeries(sortedBuckets, "temperatureTotal", "temperatureCount"),
     humidity: buildMetricSeries(sortedBuckets, "humidityTotal", "humidityCount"),
-    motion: buildMetricSeries(
-      sortedBuckets,
-      "motionDetected",
-      "motionCount",
-      (value) => value * 100
-    ),
+    motion: buildCountMetricSeries(sortedBuckets, "motionDetected", "motionCount"),
   };
 }
 

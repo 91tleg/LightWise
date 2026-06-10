@@ -135,6 +135,7 @@ export default function MapEmbed({
   const markerLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
   const onSelectPoleRef = useRef(onSelectPole);
+  const fitPointsRef = useRef([]);
   const [mapReady, setMapReady] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
 
@@ -221,6 +222,10 @@ export default function MapEmbed({
   useEffect(() => {
     onSelectPoleRef.current = onSelectPole;
   }, [onSelectPole]);
+
+  useEffect(() => {
+    fitPointsRef.current = fitPoints;
+  }, [fitPoints]);
 
   useEffect(() => {
     if (!mapNodeRef.current || mapRef.current) return undefined;
@@ -354,10 +359,11 @@ export default function MapEmbed({
   useEffect(() => {
     if (!mapReady || !mapRef.current || !fitToPoles) return;
 
-    fitMapToPoints(mapRef.current, fitPoints.length ? fitPoints : [initialCenterRef.current], {
+    const points = fitPointsRef.current;
+    fitMapToPoints(mapRef.current, points.length ? points : [initialCenterRef.current], {
       maxZoom: fitMaxZoom,
     });
-  }, [fitMaxZoom, fitPoints, fitPointsKey, fitRequestKey, fitToPoles, mapReady]);
+  }, [fitMaxZoom, fitPointsKey, fitRequestKey, fitToPoles, mapReady]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || fitToPoles || !forceNativePin || !mapPinPoint) {
@@ -372,16 +378,20 @@ export default function MapEmbed({
   useEffect(() => {
     if (!mapReady || !mapRef.current || !focusSelected) return;
 
-    const focusPoint = motionFocusPoint || selectedPole;
-    if (!focusPoint || !isValidCoord(focusPoint.lat) || !isValidCoord(focusPoint.lng)) {
+    const hasMotionTarget =
+      isValidCoord(motionFocusPoint?.lat) && isValidCoord(motionFocusPoint?.lng);
+    const focusLat = hasMotionTarget ? motionFocusPoint.lat : selectedPole?.lat;
+    const focusLng = hasMotionTarget ? motionFocusPoint.lng : selectedPole?.lng;
+
+    if (!isValidCoord(focusLat) || !isValidCoord(focusLng)) {
       return;
     }
 
-    const zoom = motionFocusPoint
+    const zoom = hasMotionTarget
       ? getMotionZoom(activePole?.motion_focus_radius_m || focusRadiusMeters)
       : selectedZoom;
 
-    mapRef.current.setView([Number(focusPoint.lat), Number(focusPoint.lng)], zoom, {
+    mapRef.current.setView([Number(focusLat), Number(focusLng)], zoom, {
       animate: true,
     });
   }, [
@@ -389,8 +399,11 @@ export default function MapEmbed({
     focusRadiusMeters,
     focusSelected,
     mapReady,
-    motionFocusPoint,
-    selectedPole,
+    motionFocusPoint?.lat,
+    motionFocusPoint?.lng,
+    selectedPole?.lat,
+    selectedPole?.lng,
+    selectedPole?.streetlight_id,
     selectedZoom,
   ]);
 

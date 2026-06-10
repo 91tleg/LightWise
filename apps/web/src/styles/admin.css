@@ -565,6 +565,19 @@
 .lwAdminCommandHistory {
   display: grid;
   gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.lwAdminCommandHistory::-webkit-scrollbar {
+  width: 8px;
+}
+
+.lwAdminCommandHistory::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.4);
 }
 
 .lwAdminCommandHistoryHeader {
