@@ -269,7 +269,8 @@ describe("buildAnalyticsReport", () => {
     });
     expect(report.metricSeries.motion[0]).toMatchObject({
       timestamp: "2026-03-10T00:00:00",
-      value: 50,
+      value: 1,
+      sampleCount: 2,
     });
   });
 

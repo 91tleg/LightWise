@@ -94,7 +94,7 @@ const CHART_METRICS = {
     id: "motion",
     label: "Motion",
     title: "Motion Activity",
-    description: "Share of returned samples where motion was detected.",
+    description: "Count of returned samples where motion was detected.",
   },
 };
 
@@ -289,6 +289,19 @@ function formatEnergy(value) {
   }).format(numericValue)} kWh`;
 }
 
+function formatEnergyAxisValue(value, maxValue) {
+  const numericValue = Number(value);
+  const max = Math.abs(Number(maxValue));
+  if (!Number.isFinite(numericValue)) return "--";
+
+  const maximumFractionDigits =
+    max >= 100 ? 0 : max >= 10 ? 1 : max >= 1 ? 2 : max >= 0.01 ? 4 : 6;
+
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits,
+  }).format(numericValue);
+}
+
 function formatPercent(value) {
   if (value === null || value === undefined) return "--";
 
@@ -301,12 +314,21 @@ function formatMetricValue(metricId, value, compact = false) {
   if (value === null || value === undefined) return "--";
 
   const numericValue = Number(value);
+
+  if (metricId === "motion") {
+    const roundedValue = Math.round(numericValue);
+    const count = formatNumber(roundedValue);
+    return compact
+      ? count
+      : `${count} detection${roundedValue === 1 ? "" : "s"}`;
+  }
+
   const digits = compact ? (numericValue >= 100 ? 0 : 1) : 1;
   const number = new Intl.NumberFormat(undefined, {
     maximumFractionDigits: digits,
   }).format(numericValue);
 
-  if (metricId === "light_level" || metricId === "humidity" || metricId === "motion") {
+  if (metricId === "light_level" || metricId === "humidity") {
     return `${number}%`;
   }
 
@@ -319,6 +341,35 @@ function formatMetricValue(metricId, value, compact = false) {
   }
 
   return number;
+}
+
+function buildLinearTicks(maxValue, toY, count = 5) {
+  return Array.from({ length: count }, (_, index) => {
+    const value = (maxValue / Math.max(count - 1, 1)) * index;
+    return {
+      value,
+      y: toY(value),
+    };
+  });
+}
+
+function buildCountTicks(maxValue, toY) {
+  const topValue = Math.max(1, Math.ceil(Number(maxValue) || 1));
+  const step = topValue <= 4 ? 1 : Math.ceil(topValue / 4);
+  const values = [];
+
+  for (let value = 0; value <= topValue; value += step) {
+    values.push(value);
+  }
+
+  if (values[values.length - 1] !== topValue) {
+    values.push(topValue);
+  }
+
+  return values.map((value) => ({
+    value,
+    y: toY(value),
+  }));
 }
 
 function compareValues(left, right, direction = "desc") {
@@ -827,9 +878,12 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
     const seriesMax = Math.max(
       ...series.flatMap((point) => [point.actualKwh, point.baselineKwh]).map(Number)
     );
-    const maxValue = isLive
-      ? Math.max(0.0005, Number.isFinite(seriesMax) ? seriesMax * 1.2 : 0)
-      : Math.max(1, Number.isFinite(seriesMax) ? seriesMax : 0);
+    const maxValue =
+      Number.isFinite(seriesMax) && seriesMax > 0
+        ? seriesMax * 1.18
+        : isLive
+        ? 0.0005
+        : 0.1;
 
     const toX = (index) =>
       chartLeft + (index / Math.max(series.length - 1, 1)) * chartWidth;
@@ -845,13 +899,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
     const baselinePath = makePath("baselineKwh");
     const actualArea = `${actualPath} L ${chartRight} ${chartBottom} L ${chartLeft} ${chartBottom} Z`;
 
-    const yTicks = Array.from({ length: 5 }, (_, index) => {
-      const value = (maxValue / 4) * index;
-      return {
-        value,
-        y: toY(value),
-      };
-    });
+    const yTicks = buildLinearTicks(maxValue, toY);
 
     const xTicks = Array.from(
       new Set([
@@ -897,7 +945,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
                 textAnchor="end"
                 className="analyticsVizAxis"
               >
-                {isLive ? formatEnergy(tick.value) : Math.round(tick.value)}
+                {formatEnergyAxisValue(tick.value, maxValue)}
               </text>
             </g>
           ))}
@@ -962,10 +1010,14 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
   const chartBottom = height - bottomPad;
   const chartWidth = chartRight - chartLeft;
   const chartHeight = chartBottom - chartTop;
-  const maxValue = Math.max(
-    metricId === "light_level" || metricId === "humidity" || metricId === "motion" ? 100 : 1,
-    ...series.map((point) => Number(point.value || 0))
-  );
+  const seriesMaxValue = Math.max(...series.map((point) => Number(point.value || 0)));
+  const maxValue =
+    metricId === "motion"
+      ? Math.max(4, Math.ceil(seriesMaxValue))
+      : Math.max(
+          metricId === "light_level" || metricId === "humidity" ? 100 : 1,
+          seriesMaxValue
+        );
 
   const toX = (index) =>
     chartLeft + (index / Math.max(series.length - 1, 1)) * chartWidth;
@@ -977,13 +1029,10 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
     .join(" ");
   const areaPath = `${linePath} L ${chartRight} ${chartBottom} L ${chartLeft} ${chartBottom} Z`;
 
-  const yTicks = Array.from({ length: 5 }, (_, index) => {
-    const value = (maxValue / 4) * index;
-    return {
-      value,
-      y: toY(value),
-    };
-  });
+  const yTicks =
+    metricId === "motion"
+      ? buildCountTicks(maxValue, toY)
+      : buildLinearTicks(maxValue, toY);
 
   const xTicks = Array.from(
     new Set([
@@ -1708,6 +1757,37 @@ function AnalyticsSurface() {
         </Card>
       ) : (
         <>
+          <Card className="analyticsWideCard">
+            <SectionHeading
+              title={selectedChartMeta.title}
+              description={selectedChartMeta.description}
+              actions={
+                <div className="analyticsMetricSwitchGroup" role="tablist" aria-label="Chart metric">
+                  {CHART_METRIC_ORDER.map((metricId) => (
+                    <button
+                      key={metricId}
+                      type="button"
+                      className={`analyticsMetricSwitch${
+                        selectedChartMetric === metricId ? " isActive" : ""
+                      }`}
+                      onClick={() => setSelectedChartMetric(metricId)}
+                    >
+                      {CHART_METRICS[metricId].label}
+                    </button>
+                  ))}
+                </div>
+              }
+            />
+
+            <TrendChart
+              metricId={selectedChartMetric}
+              energySeries={report.energySeries}
+              metricSeries={report.metricSeries}
+              loading={showInitialSkeleton}
+              isLive={isLiveRange}
+            />
+          </Card>
+
           <AnalyticsPoleList
             poles={analyticsPoles}
             selectedId={selectedPole?.streetlight_id || ""}
@@ -1751,37 +1831,6 @@ function AnalyticsSurface() {
               loading={showInitialSkeleton}
             />
           </section>
-
-          <Card className="analyticsWideCard">
-            <SectionHeading
-              title={selectedChartMeta.title}
-              description={selectedChartMeta.description}
-              actions={
-                <div className="analyticsMetricSwitchGroup" role="tablist" aria-label="Chart metric">
-                  {CHART_METRIC_ORDER.map((metricId) => (
-                    <button
-                      key={metricId}
-                      type="button"
-                      className={`analyticsMetricSwitch${
-                        selectedChartMetric === metricId ? " isActive" : ""
-                      }`}
-                      onClick={() => setSelectedChartMetric(metricId)}
-                    >
-                      {CHART_METRICS[metricId].label}
-                    </button>
-                  ))}
-                </div>
-              }
-            />
-
-            <TrendChart
-              metricId={selectedChartMetric}
-              energySeries={report.energySeries}
-              metricSeries={report.metricSeries}
-              loading={showInitialSkeleton}
-              isLive={isLiveRange}
-            />
-          </Card>
 
           <div className="analyticsSplitGrid">
             <Card className="analyticsSectionCard">

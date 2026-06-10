@@ -53,7 +53,6 @@ function hasPoleTelemetry(pole) {
 
 export default function Overview() {
   const { wsStatus, lastMessage, streetlights, env } = useLightWise();
-  const [mapMode, setMapMode] = useState("all");
   const [mapFitRequestKey, setMapFitRequestKey] = useState(0);
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const {
@@ -98,11 +97,9 @@ export default function Overview() {
   function handlePoleSelect(poleId) {
     if (!poleId) return;
     setSelectedId(poleId);
-    setMapMode("selected");
   }
 
   function handleMapZoomOut() {
-    setMapMode("all");
     setMapFitRequestKey((current) => current + 1);
   }
 
@@ -341,8 +338,7 @@ export default function Overview() {
               selectedId={overviewSelectedPole?.streetlight_id}
               onSelectPole={(pole) => handlePoleSelect(pole.streetlight_id)}
               interactive
-              fitToPoles={mapMode === "all"}
-              focusSelected={mapMode === "selected"}
+              fitToPoles
               fitRequestKey={mapFitRequestKey}
               fitMaxZoom={13}
               selectedZoom={18}

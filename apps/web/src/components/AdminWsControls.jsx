@@ -137,7 +137,7 @@ export default function AdminWsControls({
   const isBusy = isSending || flash === "sending";
   const fields = useMemo(() => paramFieldsFor(command), [command]);
   const selectedCommand = COMMANDS.find((item) => item.value === command) || COMMANDS[0];
-  const recentCommands = Array.isArray(commandHistory) ? commandHistory.slice(0, 5) : [];
+  const recentCommands = Array.isArray(commandHistory) ? commandHistory : [];
 
   const statusTone = commandStatus?.tone || (flash === "err" ? "critical" : flash === "ok" ? "healthy" : "neutral");
   const statusText =
@@ -268,7 +268,11 @@ export default function AdminWsControls({
             <UiIcon name="refresh" size={15} />
           </button>
         </div>
-        <div className="lwAdminCommandHistory">
+        <div
+          className="lwAdminCommandHistory"
+          aria-label="Command history"
+          tabIndex={recentCommands.length > 5 ? 0 : undefined}
+        >
           {recentCommands.length ? (
             recentCommands.map((item, index) => {
               const commandType = item.command_type || item.command || "Command";
