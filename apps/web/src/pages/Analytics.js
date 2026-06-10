@@ -817,6 +817,17 @@ function AnalyticsPoleList({ poles, selectedId, onSelect }) {
         description="Analytics is scoped to the selected reporting streetlight."
       />
 
+      <label className="analyticsField analyticsPoleSelectField">
+        <span>Reporting streetlight</span>
+        <select value={selectedId} onChange={(event) => onSelect(event.target.value)}>
+          {poles.map((pole) => (
+            <option key={pole.streetlight_id} value={pole.streetlight_id}>
+              {pole.streetlight_id} - {pole.name || "Unnamed streetlight"}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <div className="analyticsPoleList">
         {poles.map((pole) => {
           const selected = pole.streetlight_id === selectedId;

@@ -317,10 +317,14 @@
   padding: 16px;
 }
 
+.analyticsPoleSelectField {
+  margin: 14px 0 12px;
+}
+
 .analyticsPoleList {
   display: grid;
   gap: 10px;
-  max-height: min(380px, 54vh);
+  max-height: min(232px, 38vh);
   overflow-y: auto;
   padding-right: 4px;
   overscroll-behavior: contain;
