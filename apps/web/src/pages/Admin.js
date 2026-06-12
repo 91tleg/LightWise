@@ -1,7 +1,6 @@
 import React, {
   startTransition,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -37,11 +36,6 @@ const LEGACY_DEMO_USER_EMAILS = new Set([
   "avery.brooks@city.gov",
   "jules.chen@city.gov",
 ]);
-const DEFAULT_POLE_FORM = {
-  name: "",
-  lat: "",
-  lng: "",
-};
 const DEFAULT_USER_FORM = {
   name: "",
   email: "",
@@ -219,16 +213,6 @@ function getRoleTone(role) {
   return role === "admin" ? "warning" : "neutral";
 }
 
-function makePoleForm(pole = null) {
-  return pole
-    ? {
-        name: pole.name || "",
-        lat: pole.lat != null ? String(pole.lat) : "",
-        lng: pole.lng != null ? String(pole.lng) : "",
-      }
-    : { ...DEFAULT_POLE_FORM };
-}
-
 function makeUserForm(user = null) {
   return user
     ? {
@@ -237,6 +221,19 @@ function makeUserForm(user = null) {
         role: user.role || "operator",
       }
     : { ...DEFAULT_USER_FORM };
+}
+
+function hasDraftValue(draft, key) {
+  return Boolean(draft && Object.prototype.hasOwnProperty.call(draft, key));
+}
+
+function coordInputValue(value) {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function getPoleDraftValue(drafts, pole, key, fallback) {
+  const draft = drafts?.[pole?.streetlight_id];
+  return hasDraftValue(draft, key) ? draft[key] : fallback;
 }
 
 function userNameFromEmail(email) {
@@ -308,22 +305,6 @@ function normalizeCommandAck(message) {
     reason_code: data.reason_code || "",
     received_at: message.timestamp || new Date().toISOString(),
   };
-}
-
-function validatePoleForm(form) {
-  const errors = {};
-
-  if (!String(form.name || "").trim()) {
-    errors.name = "Display name is required.";
-  }
-
-  const latError = validateCoordinate(form.lat, "Latitude");
-  const lngError = validateCoordinate(form.lng, "Longitude");
-
-  if (latError) errors.lat = latError;
-  if (lngError) errors.lng = lngError;
-
-  return errors;
 }
 
 function validateUserForm(form) {
@@ -524,9 +505,9 @@ export default function Admin() {
   const [adminState, setAdminState] = useState(null);
   const [activeSection, setActiveSection] = useState("poles");
   const [selectedPoleId, setSelectedPoleId] = useState(null);
-  const [poleForm, setPoleForm] = useState(DEFAULT_POLE_FORM);
-  const [poleSearch, setPoleSearch] = useState("");
+  const [poleDrafts, setPoleDrafts] = useState({});
   const [poleStatus, setPoleStatus] = useState(null);
+  const [savingPoleId, setSavingPoleId] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [userEditorMode, setUserEditorMode] = useState("edit");
   const [userForm, setUserForm] = useState(DEFAULT_USER_FORM);
@@ -544,7 +525,6 @@ export default function Admin() {
   const commandHistoryLoadingRequestRef = useRef(0);
   const commandRefreshTimersRef = useRef([]);
 
-  const deferredPoleSearch = useDeferredValue(poleSearch);
   const poles = useMemo(() => {
     const merged = mergeBackendAndLocalPoles(Array.isArray(streetlights) ? streetlights : [], metaMap);
     return [...merged].sort((a, b) =>
@@ -606,63 +586,32 @@ export default function Admin() {
     () => (adminState?.users ?? []).filter((user) => !isLegacyDemoUser(user)),
     [adminState?.users]
   );
-  const selectedPole = useMemo(
-    () => poles.find((pole) => pole.streetlight_id === selectedPoleId) || null,
-    [poles, selectedPoleId]
-  );
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) || null,
     [users, selectedUserId]
   );
   const sectionMeta = getSectionMeta(activeSection);
-  const livePreviewPoint = useMemo(() => {
-    if (!selectedPoleId) return null;
-
-    const latError = validateCoordinate(poleForm.lat, "Latitude");
-    const lngError = validateCoordinate(poleForm.lng, "Longitude");
-    if (latError || lngError) return null;
-
-    const lat = String(poleForm.lat || "").trim();
-    const lng = String(poleForm.lng || "").trim();
-    if (!lat || !lng) return null;
-
-    return {
-      lat: Number(lat),
-      lng: Number(lng),
-    };
-  }, [poleForm.lat, poleForm.lng, selectedPoleId]);
   const previewPoles = useMemo(() => {
-    if (!selectedPoleId) return poles;
-
     return poles.map((pole) => {
-      if (pole.streetlight_id !== selectedPoleId) return pole;
+      const draft = poleDrafts[pole.streetlight_id];
+      if (!draft) return pole;
+
+      const name = getPoleDraftValue(poleDrafts, pole, "name", pole.name || "");
+      const latInput = getPoleDraftValue(poleDrafts, pole, "lat", coordInputValue(pole.lat));
+      const lngInput = getPoleDraftValue(poleDrafts, pole, "lng", coordInputValue(pole.lng));
+      const latError = validateCoordinate(latInput, "Latitude");
+      const lngError = validateCoordinate(lngInput, "Longitude");
+      const lat = !latError && String(latInput).trim() ? Number(latInput) : pole.lat;
+      const lng = !lngError && String(lngInput).trim() ? Number(lngInput) : pole.lng;
 
       return {
         ...pole,
-        name: poleForm.name || pole.name,
-        lat: livePreviewPoint ? livePreviewPoint.lat : pole.lat,
-        lng: livePreviewPoint ? livePreviewPoint.lng : pole.lng,
+        name,
+        lat,
+        lng,
       };
     });
-  }, [livePreviewPoint, poleForm.name, poles, selectedPoleId]);
-  const filteredPoles = useMemo(() => {
-    const query = String(deferredPoleSearch || "").trim().toLowerCase();
-    if (!query) return poles;
-
-    return poles.filter((pole) => {
-      const haystack = [
-        pole.streetlight_id,
-        pole.name || "",
-        isValidCoord(pole.lat) && isValidCoord(pole.lng)
-          ? `${pole.lat} ${pole.lng}`
-          : "",
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(query);
-    });
-  }, [deferredPoleSearch, poles]);
+  }, [poleDrafts, poles]);
 
   const stats = useMemo(
     () => [
@@ -682,7 +631,6 @@ export default function Admin() {
     [poles, users]
   );
 
-  const poleErrors = useMemo(() => validatePoleForm(poleForm), [poleForm]);
   const userErrors = useMemo(() => validateUserForm(userForm), [userForm]);
 
   useEffect(() => {
@@ -714,12 +662,6 @@ export default function Admin() {
       return poles[0].streetlight_id;
     });
   }, [poles, selectedPoleId]);
-
-  useEffect(() => {
-    if (selectedPole) {
-      setPoleForm(makePoleForm(selectedPole));
-    }
-  }, [selectedPole]);
 
   useEffect(() => {
     if (userEditorMode === "create") return;
@@ -884,37 +826,60 @@ export default function Admin() {
     setPoleStatus(null);
   }
 
-  function handlePoleSave() {
-    if (!selectedPoleId) {
+  async function handlePoleMetadataSave(pole) {
+    const id = String(pole?.streetlight_id || "").trim();
+    if (!id) {
       setPoleStatus({ tone: "critical", text: "Select a streetlight to edit." });
       return;
     }
 
-    if (Object.keys(poleErrors).length) {
-      setPoleStatus({ tone: "critical", text: "Fix the streetlight form validation errors before saving." });
+    const name = String(getPoleDraftValue(poleDrafts, pole, "name", pole.name || "")).trim();
+    const latInput = String(getPoleDraftValue(poleDrafts, pole, "lat", coordInputValue(pole.lat))).trim();
+    const lngInput = String(getPoleDraftValue(poleDrafts, pole, "lng", coordInputValue(pole.lng))).trim();
+
+    if (!name) {
+      setPoleStatus({ tone: "critical", text: "Display name is required." });
+      return;
+    }
+
+    const latError = validateCoordinate(latInput, "Latitude");
+    const lngError = validateCoordinate(lngInput, "Longitude");
+
+    if (latError || lngError) {
+      setPoleStatus({
+        tone: "critical",
+        text: latError || lngError,
+      });
       return;
     }
 
     const patch = {
-      name: poleForm.name.trim(),
-      lat: poleForm.lat.trim() ? Number(poleForm.lat) : null,
-      lng: poleForm.lng.trim() ? Number(poleForm.lng) : null,
+      name,
+      lat: latInput ? Number(latInput) : null,
+      lng: lngInput ? Number(lngInput) : null,
     };
 
-    upsertPoleMeta(selectedPoleId, patch);
-    applyStreetlightLocalPatch(selectedPoleId, patch);
+    setSavingPoleId(id);
+    upsertPoleMeta(id, patch);
+    applyStreetlightLocalPatch(id, patch);
     setMetaMap(loadPoleMetaMap());
+    setPoleDrafts((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
 
-    updateStreetlightMetadata(selectedPoleId, patch)
-      .then(() => {
-        setPoleStatus({ tone: "healthy", text: "Streetlight details saved." });
-      })
-      .catch(() => {
-        setPoleStatus({
-          tone: "warning",
-          text: "Streetlight details were saved on this device. Try again to share them with the team.",
-        });
+    try {
+      await updateStreetlightMetadata(id, patch);
+      setPoleStatus({ tone: "healthy", text: `${id} details saved.` });
+    } catch {
+      setPoleStatus({
+        tone: "warning",
+        text: `${id} details were saved on this device. Try again to share them with the team.`,
       });
+    } finally {
+      setSavingPoleId("");
+    }
   }
 
   async function handleUserSave() {
@@ -933,7 +898,7 @@ export default function Admin() {
       user_id: userEditorMode === "edit" && selectedUser ? selectedUser.user_id || "" : "",
       name: userForm.name.trim(),
       email: userForm.email.trim(),
-      role: userForm.role,
+      role: userEditorMode === "edit" && selectedUser ? selectedUser.role || "operator" : userForm.role,
       created_at: userEditorMode === "edit" && selectedUser ? selectedUser.created_at || "" : "",
     };
 
@@ -1086,23 +1051,27 @@ export default function Admin() {
   return (
     <Layout>
       {() => (
-        <div className="lwAdminWorkspace">
-          <div className="lwAdminPageHeader">
-            <div>
-              <h1 className="lwAdminPageTitle">Admin</h1>
-              <p className="lwAdminPageSubtitle">{sectionMeta.description}</p>
-            </div>
-          </div>
-
-          <div className="lwAdminStatGrid">
-            {stats.map((stat) => (
-              <div key={stat.label} className="lwAdminStatCard">
-                <div className="lwAdminStatLabel">{stat.label}</div>
-                <div className="lwAdminStatValue">{stat.value}</div>
-                <div className="lwAdminStatNote">{stat.note}</div>
+        <div className={`lwAdminWorkspace${activeSection === "poles" ? " isPoleFocus" : ""}`}>
+          {activeSection === "poles" ? null : (
+            <>
+              <div className="lwAdminPageHeader">
+                <div>
+                  <h1 className="lwAdminPageTitle">Admin</h1>
+                  <p className="lwAdminPageSubtitle">{sectionMeta.description}</p>
+                </div>
               </div>
-            ))}
-          </div>
+
+              <div className="lwAdminStatGrid">
+                {stats.map((stat) => (
+                  <div key={stat.label} className="lwAdminStatCard">
+                    <div className="lwAdminStatLabel">{stat.label}</div>
+                    <div className="lwAdminStatValue">{stat.value}</div>
+                    <div className="lwAdminStatNote">{stat.note}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="lwAdminShell">
             <SectionNav
@@ -1123,103 +1092,57 @@ export default function Admin() {
                     <AdminMapSurface
                       poles={previewPoles}
                       selectedPoleId={selectedPoleId}
-                      previewPoint={livePreviewPoint}
                       onPoleClick={handlePoleMapClick}
                     />
                   </SectionCard>
 
-                  <div className="lwAdminStack">
-                    <SectionCard
-                      icon="settings"
-                      title="Edit Streetlight"
-                      subtitle="Click any row or marker to load it into the editor."
-                      className="lwAdminPoleEditorCard"
-                    >
-                      <div className="lwAdminFormGrid lwAdminPoleFormGrid">
-                        <label className="lwAdminField">
-                          <span className="lwAdminLabel">Display name</span>
-                          <input
-                            className="lwAdminInput"
-                            value={poleForm.name}
-                            onChange={(event) =>
-                              setPoleForm((current) => ({ ...current, name: event.target.value }))
-                            }
-                            placeholder="Civic Plaza / 5th Ave"
-                          />
-                          <FieldMessage error={poleErrors.name} />
-                        </label>
+                  <SectionCard
+                    icon="analytics"
+                    title="Streetlight Table"
+                    subtitle="Edit display names and coordinates inline. Click a row or marker to focus it on the map."
+                    actions={<span className="lwAdminTableCount">{poles.length} streetlight{poles.length === 1 ? "" : "s"}</span>}
+                    className="lwAdminPoleTableCard"
+                  >
+                    <div className="lwAdminTableWrap">
+                      <table className="lwAdminTable lwAdminStreetlightTable">
+                        <thead>
+                          <tr>
+                            <th>Streetlight</th>
+                            <th>Display Name</th>
+                            <th>Coordinates</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {poles.length ? (
+                            poles.map((pole) => {
+                              const draftName = getPoleDraftValue(
+                                poleDrafts,
+                                pole,
+                                "name",
+                                pole.name || ""
+                              );
+                              const draftLat = getPoleDraftValue(
+                                poleDrafts,
+                                pole,
+                                "lat",
+                                coordInputValue(pole.lat)
+                              );
+                              const draftLng = getPoleDraftValue(
+                                poleDrafts,
+                                pole,
+                                "lng",
+                                coordInputValue(pole.lng)
+                              );
+                              const savedName = pole.name || "";
+                              const savedLat = coordInputValue(pole.lat);
+                              const savedLng = coordInputValue(pole.lng);
+                              const hasMetadataChange =
+                                draftName.trim() !== savedName.trim() ||
+                                String(draftLat).trim() !== savedLat.trim() ||
+                                String(draftLng).trim() !== savedLng.trim();
 
-                        <label className="lwAdminField">
-                          <span className="lwAdminLabel">Latitude</span>
-                          <input
-                            className="lwAdminInput"
-                            value={poleForm.lat}
-                            onChange={(event) =>
-                              setPoleForm((current) => ({ ...current, lat: event.target.value }))
-                            }
-                            placeholder="47.6101"
-                          />
-                          <FieldMessage error={poleErrors.lat} hint="Valid range: -90 to 90" />
-                        </label>
-
-                        <label className="lwAdminField">
-                          <span className="lwAdminLabel">Longitude</span>
-                          <input
-                            className="lwAdminInput"
-                            value={poleForm.lng}
-                            onChange={(event) =>
-                              setPoleForm((current) => ({ ...current, lng: event.target.value }))
-                            }
-                            placeholder="-122.2015"
-                          />
-                          <FieldMessage error={poleErrors.lng} hint="Valid range: -180 to 180" />
-                        </label>
-
-                        <div className="lwAdminField lwAdminFieldFull">
-                          <div className="lwAdminInlineSurface">
-                            <strong>{selectedPole?.streetlight_id || "No streetlight selected"}</strong>
-                            <span>Last seen {formatTimestamp(selectedPole?.last_seen, "not available")}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="lwAdminButtonRow">
-                        <button type="button" className="lwAdminPrimaryBtn" onClick={handlePoleSave}>
-                          Save Streetlight
-                        </button>
-                      </div>
-
-                      {poleStatus ? <StatusChip tone={poleStatus.tone}>{poleStatus.text}</StatusChip> : null}
-                    </SectionCard>
-
-                    <SectionCard
-                      icon="analytics"
-                      title="Streetlight Table"
-                      subtitle="Search by streetlight ID, name, or coordinates. Click a row to edit."
-                      actions={<span className="lwAdminTableCount">{filteredPoles.length} streetlight{filteredPoles.length === 1 ? "" : "s"}</span>}
-                      className="lwAdminPoleTableCard"
-                    >
-                      <label className="lwAdminField lwAdminPoleTableSearch">
-                        <span className="lwAdminLabel">Search</span>
-                        <input
-                          className="lwAdminInput"
-                          value={poleSearch}
-                          onChange={(event) => setPoleSearch(event.target.value)}
-                          placeholder="Search streetlights"
-                        />
-                      </label>
-
-                      <div className="lwAdminTableWrap">
-                        <table className="lwAdminTable">
-                          <thead>
-                            <tr>
-                              <th>Streetlight</th>
-                              <th>Coordinates</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredPoles.length ? (
-                              filteredPoles.map((pole) => (
+                              return (
                                 <tr
                                   key={pole.streetlight_id}
                                   className={pole.streetlight_id === selectedPoleId ? "isSelected" : ""}
@@ -1227,29 +1150,107 @@ export default function Admin() {
                                     setSelectedPoleId(pole.streetlight_id);
                                   }}
                                 >
-                                  <td>
+                                  <td className="lwAdminStreetlightIdCell">
                                     <strong>{pole.streetlight_id}</strong>
-                                    <span>{pole.name || "Unnamed streetlight"}</span>
+                                    <span>Last seen {formatTimestamp(pole.last_seen, "not available")}</span>
+                                  </td>
+                                  <td className="lwAdminStreetlightNameCell">
+                                    <input
+                                      className="lwAdminInput lwAdminInlineNameInput"
+                                      value={draftName}
+                                      onClick={(event) => event.stopPropagation()}
+                                      onChange={(event) => {
+                                        const value = event.target.value;
+                                        setSelectedPoleId(pole.streetlight_id);
+                                        setPoleDrafts((current) => ({
+                                          ...current,
+                                          [pole.streetlight_id]: {
+                                            ...(current[pole.streetlight_id] || {}),
+                                            name: value,
+                                          },
+                                        }));
+                                      }}
+                                      placeholder="Unnamed streetlight"
+                                      aria-label={`Display name for ${pole.streetlight_id}`}
+                                    />
                                   </td>
                                   <td className="lwAdminCoordinateCell">
-                                    {isValidCoord(pole.lat) && isValidCoord(pole.lng)
-                                      ? `${pole.lat}, ${pole.lng}`
-                                      : "Needs coordinates"}
+                                    <div className="lwAdminCoordinateInputs">
+                                      <label>
+                                        <span>Lat</span>
+                                        <input
+                                          className="lwAdminInput lwAdminInlineCoordInput"
+                                          value={draftLat}
+                                          inputMode="decimal"
+                                          onClick={(event) => event.stopPropagation()}
+                                          onChange={(event) => {
+                                            const value = event.target.value;
+                                            setSelectedPoleId(pole.streetlight_id);
+                                            setPoleDrafts((current) => ({
+                                              ...current,
+                                              [pole.streetlight_id]: {
+                                                ...(current[pole.streetlight_id] || {}),
+                                                lat: value,
+                                              },
+                                            }));
+                                          }}
+                                          placeholder="47.6101"
+                                          aria-label={`Latitude for ${pole.streetlight_id}`}
+                                        />
+                                      </label>
+                                      <label>
+                                        <span>Lng</span>
+                                        <input
+                                          className="lwAdminInput lwAdminInlineCoordInput"
+                                          value={draftLng}
+                                          inputMode="decimal"
+                                          onClick={(event) => event.stopPropagation()}
+                                          onChange={(event) => {
+                                            const value = event.target.value;
+                                            setSelectedPoleId(pole.streetlight_id);
+                                            setPoleDrafts((current) => ({
+                                              ...current,
+                                              [pole.streetlight_id]: {
+                                                ...(current[pole.streetlight_id] || {}),
+                                                lng: value,
+                                              },
+                                            }));
+                                          }}
+                                          placeholder="-122.2015"
+                                          aria-label={`Longitude for ${pole.streetlight_id}`}
+                                        />
+                                      </label>
+                                    </div>
+                                  </td>
+                                  <td className="lwAdminTableActionCell">
+                                    <button
+                                      type="button"
+                                      className="lwAdminSecondaryBtn"
+                                      disabled={!hasMetadataChange || savingPoleId === pole.streetlight_id}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handlePoleMetadataSave(pole);
+                                      }}
+                                    >
+                                      {savingPoleId === pole.streetlight_id ? "Saving" : "Save"}
+                                    </button>
                                   </td>
                                 </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan="2" className="lwAdminTableEmpty">
-                                  No streetlights match the current search.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </SectionCard>
-                  </div>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan="4" className="lwAdminTableEmpty">
+                                No streetlights available.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {poleStatus ? <StatusChip tone={poleStatus.tone}>{poleStatus.text}</StatusChip> : null}
+                  </SectionCard>
                 </div>
               ) : null}
               {activeSection === "lorawan" ? (
@@ -1280,82 +1281,12 @@ export default function Admin() {
               ) : null}
 
               {activeSection === "users" ? (
-                <div className="lwAdminSectionGrid lwAdminSectionGridCompact">
-                  <SectionCard
-                    icon="user"
-                    title="User Management"
-                    subtitle="Add, remove, and assign operator or admin roles."
-                    actions={
-                      <div className="lwAdminButtonRow">
-                        {usersLoading ? <StatusChip tone="neutral">Syncing</StatusChip> : null}
-                        <button
-                          type="button"
-                          className="lwAdminSecondaryBtn"
-                          onClick={beginNewUser}
-                          disabled={userSaving}
-                        >
-                          Add User
-                        </button>
-                      </div>
-                    }
-                  >
-                    <div className="lwAdminTableWrap">
-                      <table className="lwAdminTable lwAdminUserTable">
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {users.length ? (
-                            users.map((user) => (
-                              <tr
-                                key={user.id}
-                                className={user.id === selectedUserId ? "isSelected" : ""}
-                                onClick={() => {
-                                  setUserEditorMode("edit");
-                                  setSelectedUserId(user.id);
-                                  setUserStatus(null);
-                                }}
-                              >
-                                <td className="lwAdminUserNameCell">
-                                  <strong>{user.name}</strong>
-                                </td>
-                                <td className="lwAdminUserEmailCell">
-                                  <span>{user.email}</span>
-                                </td>
-                                <td>
-                                  <StatusChip tone={getRoleTone(user.role)}>{user.role}</StatusChip>
-                                </td>
-                                <td>
-                                  {operator?.email &&
-                                  user.email.toLowerCase() === operator.email.toLowerCase() ? (
-                                    <StatusChip tone="healthy">Current session</StatusChip>
-                                  ) : (
-                                    <StatusChip tone="neutral">Active</StatusChip>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="4" className="lwAdminTableEmpty">
-                                No users available.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </SectionCard>
-
+                <div className="lwAdminSectionGrid lwAdminUserSectionGrid">
                   <SectionCard
                     icon="settings"
                     title={userEditorMode === "create" ? "Add User" : "Edit User"}
                     subtitle="Manage who can access LightWise."
+                    className="lwAdminUserEditorCard"
                   >
                     <div className="lwAdminFormGrid">
                       <label className="lwAdminField">
@@ -1385,21 +1316,22 @@ export default function Admin() {
                         <FieldMessage error={userErrors.email} />
                       </label>
 
-                      <label className="lwAdminField">
-                        <span className="lwAdminLabel">Role</span>
-                        <select
-                          className="lwAdminSelect"
-                          value={userForm.role}
-                          disabled={userEditorMode === "edit"}
-                          onChange={(event) =>
-                            setUserForm((current) => ({ ...current, role: event.target.value }))
-                          }
-                        >
-                          <option value="operator">Operator</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                        <FieldMessage error={userErrors.role} />
-                      </label>
+                      {userEditorMode === "create" ? (
+                        <label className="lwAdminField">
+                          <span className="lwAdminLabel">Role</span>
+                          <select
+                            className="lwAdminSelect"
+                            value={userForm.role}
+                            onChange={(event) =>
+                              setUserForm((current) => ({ ...current, role: event.target.value }))
+                            }
+                          >
+                            <option value="operator">Operator</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          <FieldMessage error={userErrors.role} />
+                        </label>
+                      ) : null}
                     </div>
 
                     <div className="lwAdminButtonRow">
@@ -1437,6 +1369,82 @@ export default function Admin() {
                     </div>
 
                     {userStatus ? <StatusChip tone={userStatus.tone}>{userStatus.text}</StatusChip> : null}
+                  </SectionCard>
+
+                  <SectionCard
+                    icon="user"
+                    title="User Management"
+                    subtitle="Add users, update display names, and remove access."
+                    className="lwAdminUserTableCard"
+                    actions={
+                      <div className="lwAdminButtonRow">
+                        {usersLoading ? <StatusChip tone="neutral">Syncing</StatusChip> : null}
+                        <button
+                          type="button"
+                          className="lwAdminSecondaryBtn"
+                          onClick={beginNewUser}
+                          disabled={userSaving}
+                        >
+                          Add User
+                        </button>
+                      </div>
+                    }
+                  >
+                    <div className="lwAdminTableWrap">
+                      <table className="lwAdminTable lwAdminUserTable">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.length ? (
+                            users.map((user) => (
+                              <tr
+                                key={user.id}
+                                className={user.id === selectedUserId ? "isSelected" : ""}
+                                onClick={() => {
+                                  setUserEditorMode("edit");
+                                  setSelectedUserId(user.id);
+                                  setUserStatus(null);
+                                }}
+                              >
+                                <td className="lwAdminUserNameCell">
+                                  <strong className="lwAdminWrappedText" title={user.name}>
+                                    {user.name}
+                                  </strong>
+                                </td>
+                                <td className="lwAdminUserEmailCell">
+                                  <span className="lwAdminWrappedText" title={user.email}>
+                                    {user.email}
+                                  </span>
+                                </td>
+                                <td className="lwAdminUserRoleCell">
+                                  <StatusChip tone={getRoleTone(user.role)}>{user.role}</StatusChip>
+                                </td>
+                                <td className="lwAdminUserStatusCell">
+                                  {operator?.email &&
+                                  user.email.toLowerCase() === operator.email.toLowerCase() ? (
+                                    <StatusChip tone="healthy">Current session</StatusChip>
+                                  ) : (
+                                    <StatusChip tone="neutral">Active</StatusChip>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="4" className="lwAdminTableEmpty">
+                                No users available.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </SectionCard>
                 </div>
               ) : null}

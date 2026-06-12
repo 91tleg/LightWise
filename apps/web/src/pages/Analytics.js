@@ -13,7 +13,6 @@ import {
   buildRawTelemetryCsv,
   buildReportDateLabel,
   buildZoneCsv,
-  formatHourLabel,
   getPresetRange,
   inferTelemetryInterval,
   normalizeTelemetryRows,
@@ -36,10 +35,6 @@ const RANGE_PRESETS = [
 
 const AGGREGATION_OPTIONS = [
   { id: "auto", label: "Auto" },
-  { id: "5s", label: "5 sec" },
-  { id: "10s", label: "10 sec" },
-  { id: "30s", label: "30 sec" },
-  { id: "1m", label: "1 min" },
   { id: "5m", label: "5 min" },
   { id: "10m", label: "10 min" },
   { id: "15m", label: "15 min" },
@@ -596,13 +591,6 @@ function buildFullReportSections(report, rangeLabel) {
     fault.recurring ? "Recurring" : "Single",
   ]);
 
-  const hourlyRows = (report?.hourlyMotion || []).map((bucket) => [
-    formatHourLabel(bucket.hour),
-    formatPercent(bucket.activityPct),
-    String(bucket.detections),
-    String(bucket.samples),
-  ]);
-
   return [
     `
       <section>
@@ -638,15 +626,6 @@ function buildFullReportSections(report, rangeLabel) {
         ${buildPrintableTable(
           ["Timestamp", "Fault", "Streetlight", "Zone", "Status", "Pattern"],
           faultRows.length ? faultRows : [["No fault activity in this range", "", "", "", "", ""]]
-        )}
-      </section>
-    `,
-    `
-      <section>
-        <h2>Motion by Hour</h2>
-        ${buildPrintableTable(
-          ["Hour", "Activity", "Detections", "Samples"],
-          hourlyRows
         )}
       </section>
     `,
@@ -810,6 +789,10 @@ function MetricCard({ icon, label, value, note, loading }) {
 }
 
 function AnalyticsPoleList({ poles, selectedId, onSelect }) {
+  const selectedPole =
+    poles.find((pole) => pole.streetlight_id === selectedId) || poles[0] || null;
+  const selectedHealth = selectedPole?.health || "Waiting";
+
   return (
     <Card className="analyticsSectionCard analyticsPoleListCard">
       <SectionHeading
@@ -817,39 +800,40 @@ function AnalyticsPoleList({ poles, selectedId, onSelect }) {
         description="Analytics is scoped to the selected reporting streetlight."
       />
 
-      <label className="analyticsField analyticsPoleSelectField">
-        <span>Reporting streetlight</span>
-        <select value={selectedId} onChange={(event) => onSelect(event.target.value)}>
-          {poles.map((pole) => (
-            <option key={pole.streetlight_id} value={pole.streetlight_id}>
-              {pole.streetlight_id} - {pole.name || "Unnamed streetlight"}
-            </option>
-          ))}
-        </select>
-      </label>
+      <label className="analyticsPoleSelectField">
+        <span className="analyticsPoleSelectEyebrow">Reporting streetlight</span>
+        <div className="analyticsPolePicker">
+          <select
+            className="analyticsPoleNativeSelect"
+            value={selectedId}
+            onChange={(event) => onSelect(event.target.value)}
+            aria-label="Reporting streetlight"
+          >
+            {poles.map((pole) => (
+              <option key={pole.streetlight_id} value={pole.streetlight_id}>
+                {pole.streetlight_id} - {pole.name || "Unnamed streetlight"}
+              </option>
+            ))}
+          </select>
 
-      <div className="analyticsPoleList">
-        {poles.map((pole) => {
-          const selected = pole.streetlight_id === selectedId;
-
-          return (
-            <button
-              key={pole.streetlight_id}
-              type="button"
-              className={`analyticsPoleListItem${selected ? " isSelected" : ""}`}
-              onClick={() => onSelect(pole.streetlight_id)}
+          <span className="analyticsPolePickerIcon" aria-hidden="true">
+            <UiIcon name="pin" size={18} />
+          </span>
+          <span className="analyticsPolePickerCopy" aria-hidden="true">
+            <strong>{selectedPole?.streetlight_id || "Select streetlight"}</strong>
+            <small>{selectedPole?.name || "Unnamed streetlight"}</small>
+          </span>
+          {selectedPole ? (
+            <span
+              className={`analyticsPolePickerHealth ${toneForHealth(selectedHealth)}`}
+              aria-hidden="true"
             >
-              <span>
-                <strong>{pole.streetlight_id}</strong>
-                <small>{pole.name || "Unnamed streetlight"}</small>
-              </span>
-              <span className={`analyticsPoleHealth ${toneForHealth(pole.health)}`}>
-                {pole.health || "Waiting"}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+              {selectedHealth}
+            </span>
+          ) : null}
+          <span className="analyticsPolePickerChevron" aria-hidden="true" />
+        </div>
+      </label>
     </Card>
   );
 }
@@ -1162,38 +1146,6 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
           </g>
         ))}
       </svg>
-    </div>
-  );
-}
-
-function MotionByHourChart({ data, loading }) {
-  if (loading) {
-    return <SkeletonBlock className="analyticsVizSkeleton" />;
-  }
-
-  if (!data.length || !data.some((bucket) => bucket.samples > 0)) {
-    return (
-      <EmptyState
-        title="No motion telemetry available"
-        description="As motion events arrive, this chart will show the average pedestrian activity pattern across the day."
-      />
-    );
-  }
-
-  return (
-    <div className="analyticsHourlyChart">
-      {data.map((bucket) => (
-        <div key={bucket.hour} className="analyticsHourlyColumn">
-          <div className="analyticsHourlyValue">{Math.round(bucket.activityPct)}%</div>
-          <div className="analyticsHourlyBarTrack">
-            <div
-              className="analyticsHourlyBar"
-              style={{ height: `${Math.max(6, bucket.activityPct)}%` }}
-            />
-          </div>
-          <div className="analyticsHourlyLabel">{bucket.hour % 3 === 0 ? bucket.label : ""}</div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -2038,32 +1990,18 @@ function AnalyticsSurface() {
             </Card>
           </div>
 
-          <div className="analyticsSplitGrid">
-            <Card className="analyticsSectionCard">
-              <SectionHeading
-                title="Motion Heatmap"
-                description="Activity intensity mapped only from live motion telemetry."
-              />
+          <Card className="analyticsSectionCard">
+            <SectionHeading
+              title="Motion Heatmap"
+              description="Activity intensity mapped only from live motion telemetry."
+            />
 
-              <MotionHeatmap
-                poles={report.motionMap}
-                center={report.center}
-                loading={showInitialSkeleton}
-              />
-            </Card>
-
-            <Card className="analyticsSectionCard">
-              <SectionHeading
-                title="Motion by Hour"
-                description="Average motion activity from returned telemetry samples."
-              />
-
-              <MotionByHourChart
-                data={report.hourlyMotion}
-                loading={showInitialSkeleton}
-              />
-            </Card>
-          </div>
+            <MotionHeatmap
+              poles={report.motionMap}
+              center={report.center}
+              loading={showInitialSkeleton}
+            />
+          </Card>
 
           <Card className="analyticsSectionCard">
             <SectionHeading

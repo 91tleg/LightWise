@@ -21,7 +21,14 @@ export function getOverviewPoleList(poles) {
 
   if (!rows.length) return [];
 
-  return rows.filter((pole) => String(pole?.streetlight_id || "").trim());
+  return rows
+    .filter((pole) => String(pole?.streetlight_id || "").trim())
+    .sort((a, b) =>
+      String(a.streetlight_id || "").localeCompare(String(b.streetlight_id || ""), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      })
+    );
 }
 
 export function isPoleTelemetryStale(

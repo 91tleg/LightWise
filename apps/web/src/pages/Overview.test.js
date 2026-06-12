@@ -7,7 +7,7 @@ import {
 } from "./overview.helpers";
 
 describe("getOverviewPoleList", () => {
-  test("returns every pole with an id", () => {
+  test("returns every pole with an id sorted by streetlight id", () => {
     const poles = [
       { streetlight_id: "LW-00043" },
       { streetlight_id: "LW-00100" },
@@ -17,8 +17,8 @@ describe("getOverviewPoleList", () => {
 
     expect(getOverviewPoleList(poles)).toEqual([
       { streetlight_id: "LW-00043" },
-      { streetlight_id: "LW-00100" },
       { streetlight_id: "LW-00044" },
+      { streetlight_id: "LW-00100" },
     ]);
   });
 

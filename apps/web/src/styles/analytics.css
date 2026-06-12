@@ -318,92 +318,143 @@
 }
 
 .analyticsPoleSelectField {
-  margin: 14px 0 12px;
-}
-
-.analyticsPoleList {
   display: grid;
-  gap: 10px;
-  max-height: min(232px, 38vh);
-  overflow-y: auto;
-  padding-right: 4px;
-  overscroll-behavior: contain;
+  gap: 8px;
+  margin: 14px 0 0;
+  min-width: 0;
 }
 
-.analyticsPoleList::-webkit-scrollbar {
-  width: 8px;
+.analyticsPoleSelectEyebrow {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5e7792;
 }
 
-.analyticsPoleList::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(13, 115, 168, 0.28);
-}
-
-.analyticsPoleListItem {
-  width: 100%;
-  min-height: 66px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff, #f7fbff);
-  color: #18324b;
-  display: flex;
+.analyticsPolePicker {
+  position: relative;
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
-  text-align: left;
+  border-radius: 18px;
+  border: 1px solid rgba(13, 115, 168, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 248, 252, 0.96));
+  box-shadow: inset 0 0 0 1px rgba(13, 115, 168, 0.04);
+  overflow: hidden;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.analyticsPolePicker:hover {
+  border-color: rgba(13, 115, 168, 0.32);
+  transform: translateY(-1px);
+}
+
+.analyticsPolePicker:focus-within {
+  border-color: rgba(13, 115, 168, 0.48);
+  box-shadow:
+    inset 0 0 0 1px rgba(13, 115, 168, 0.08),
+    0 0 0 3px rgba(13, 115, 168, 0.12);
+}
+
+.analyticsPoleNativeSelect {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
   cursor: pointer;
 }
 
-.analyticsPoleListItem strong,
-.analyticsPoleListItem small {
-  display: block;
-}
-
-.analyticsPoleListItem strong {
-  font-size: 14px;
-  font-weight: 1000;
-}
-
-.analyticsPoleListItem small {
-  margin-top: 4px;
-  color: #6b8097;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.analyticsPoleListItem.isSelected {
-  border-color: rgba(13, 115, 168, 0.28);
-  background: linear-gradient(180deg, #eef8ff, #e8f3fb);
-  box-shadow: inset 0 0 0 1px rgba(13, 115, 168, 0.08);
-}
-
-.analyticsPoleHealth {
+.analyticsPolePickerIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  background: rgba(13, 115, 168, 0.1);
+  color: #0d73a8;
+  pointer-events: none;
+}
+
+.analyticsPolePickerCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.analyticsPolePickerCopy strong {
+  color: #153049;
+  font-size: 16px;
+  font-weight: 1000;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analyticsPolePickerCopy small {
+  color: #657b91;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analyticsPolePickerHealth {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 132px;
+  min-height: 30px;
+  padding: 5px 10px;
   border-radius: 999px;
-  padding: 6px 10px;
   background: rgba(148, 163, 184, 0.14);
   color: #475569;
   font-size: 11px;
   font-weight: 1000;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
 }
 
-.analyticsPoleHealth.healthy {
+.analyticsPolePickerHealth.healthy {
   background: rgba(34, 197, 94, 0.14);
   color: #166534;
 }
 
-.analyticsPoleHealth.warning {
+.analyticsPolePickerHealth.warning {
   background: rgba(245, 158, 11, 0.14);
   color: #9a6500;
 }
 
-.analyticsPoleHealth.critical {
+.analyticsPolePickerHealth.critical {
   background: rgba(239, 68, 68, 0.14);
   color: #b42318;
+}
+
+.analyticsPolePickerChevron {
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid #2b4663;
+  border-bottom: 2px solid #2b4663;
+  transform: rotate(45deg) translateY(-2px);
+  pointer-events: none;
 }
 
 .analyticsWideCard,
@@ -906,47 +957,6 @@
   border-radius: 999px;
 }
 
-.analyticsHourlyChart {
-  display: grid;
-  grid-template-columns: repeat(24, minmax(0, 1fr));
-  gap: 6px;
-  align-items: end;
-  min-height: 310px;
-}
-
-.analyticsHourlyColumn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.analyticsHourlyValue,
-.analyticsHourlyLabel {
-  font-size: 11px;
-  font-weight: 900;
-  color: #6d8194;
-}
-
-.analyticsHourlyBarTrack {
-  position: relative;
-  width: 100%;
-  height: 210px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(13, 115, 168, 0.05), rgba(13, 115, 168, 0.01));
-}
-
-.analyticsHourlyBar {
-  width: 100%;
-  border-radius: 12px 12px 8px 8px;
-  background: linear-gradient(180deg, #13a6c2, #0d73a8);
-  box-shadow: 0 10px 22px rgba(13, 115, 168, 0.18);
-}
-
 .analyticsExportGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1089,9 +1099,6 @@
     flex: 1 1 220px;
   }
 
-  .analyticsHourlyChart {
-    gap: 4px;
-  }
 }
 
 @media (max-width: 760px) {
@@ -1118,8 +1125,12 @@
     min-width: 620px;
   }
 
-  .analyticsHourlyChart {
-    min-width: 720px;
+  .analyticsPolePicker {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .analyticsPolePickerHealth {
+    display: none;
   }
 }
 
@@ -1147,8 +1158,6 @@ body.dark .analyticsEmptyCopy,
 body.dark .analyticsMetricNote,
 body.dark .analyticsFaultMeta,
 body.dark .analyticsFaultMetaRow,
-body.dark .analyticsHourlyValue,
-body.dark .analyticsHourlyLabel,
 body.dark .analyticsHeatLegendItem,
 body.dark .analyticsLegendItem,
 body.dark .analyticsCellSubtext {
@@ -1167,7 +1176,6 @@ body.dark .analyticsMetricSwitch,
 body.dark .analyticsPresetButton,
 body.dark .analyticsActionButton,
 body.dark .analyticsFilterPill,
-body.dark .analyticsPoleListItem,
 body.dark .analyticsField input,
 body.dark .analyticsField select,
 body.dark .analyticsSearchInput {
@@ -1215,8 +1223,8 @@ body.dark .analyticsMetricSwitch.isActive {
 
 body.dark .analyticsRangeMetaLabel,
 body.dark .analyticsField span,
+body.dark .analyticsPoleSelectEyebrow,
 body.dark .analyticsMetricLabel,
-body.dark .analyticsPoleListItem small,
 body.dark .analyticsTable th,
 body.dark .analyticsVizAxis {
   color: #a8bed1;
@@ -1245,7 +1253,6 @@ body.dark .analyticsZoneRow.isExpanded {
 body.dark .analyticsTable td,
 body.dark .analyticsSectionTitle,
 body.dark .analyticsMetricValue,
-body.dark .analyticsPoleListItem strong,
 body.dark .analyticsFaultTitle,
 body.dark .analyticsEmptyTitle,
 body.dark .analyticsExportButton strong,
@@ -1253,39 +1260,58 @@ body.dark .analyticsHeroTitle {
   color: #f1f6fb;
 }
 
-body.dark .analyticsPoleListItem.isSelected {
-  border-color: rgba(99, 179, 255, 0.28);
-  background: linear-gradient(180deg, rgba(18, 38, 59, 0.99), rgba(13, 28, 46, 0.98));
+body.dark .analyticsPolePicker {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: linear-gradient(180deg, rgba(17, 29, 43, 0.96), rgba(11, 23, 37, 0.96));
+  box-shadow: inset 0 0 0 1px rgba(127, 211, 255, 0.04);
 }
 
-body.dark .analyticsPoleList::-webkit-scrollbar-thumb {
-  background: rgba(127, 211, 255, 0.34);
+body.dark .analyticsPolePicker:hover,
+body.dark .analyticsPolePicker:focus-within {
+  border-color: rgba(127, 211, 255, 0.34);
 }
 
-body.dark .analyticsPoleHealth {
+body.dark .analyticsPolePickerIcon {
+  background: rgba(127, 211, 255, 0.12);
+  color: #7fd3ff;
+}
+
+body.dark .analyticsPolePickerCopy strong {
+  color: #f1f6fb;
+}
+
+body.dark .analyticsPolePickerCopy small {
+  color: #a8bed1;
+}
+
+body.dark .analyticsPolePickerChevron {
+  border-color: #a8dff8;
+}
+
+body.dark .analyticsPolePickerHealth {
   background: rgba(148, 163, 184, 0.14);
   color: #dbe7f6;
 }
 
-body.dark .analyticsPoleHealth.healthy {
+body.dark .analyticsPolePickerHealth.healthy {
   background: rgba(34, 197, 94, 0.16);
   color: #7ee2a8;
+}
+
+body.dark .analyticsPolePickerHealth.warning {
+  background: rgba(245, 158, 11, 0.16);
+  color: #ffd082;
+}
+
+body.dark .analyticsPolePickerHealth.critical {
+  background: rgba(239, 68, 68, 0.16);
+  color: #ff9a9a;
 }
 
 body.dark .analyticsLiveReadout {
   background: rgba(34, 197, 94, 0.16);
   border-color: rgba(34, 197, 94, 0.26);
   color: #7ee2a8;
-}
-
-body.dark .analyticsPoleHealth.warning {
-  background: rgba(245, 158, 11, 0.16);
-  color: #ffd082;
-}
-
-body.dark .analyticsPoleHealth.critical {
-  background: rgba(239, 68, 68, 0.16);
-  color: #ff9a9a;
 }
 
 body.dark .analyticsActionButton,
@@ -1332,14 +1358,6 @@ body.dark .analyticsEnergyDot {
 
 body.dark .analyticsTrendDot {
   fill: #08111b;
-}
-
-body.dark .analyticsHourlyBarTrack {
-  background: linear-gradient(180deg, rgba(13, 115, 168, 0.18), rgba(13, 115, 168, 0.04));
-}
-
-body.dark .analyticsHourlyBar {
-  background: linear-gradient(180deg, #1ac6d9, #0c7eb9);
 }
 
 body.dark .analyticsHeatDotLabel {
