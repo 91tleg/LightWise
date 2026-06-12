@@ -7,6 +7,10 @@
   overflow: hidden;
 }
 
+.lwAdminWorkspace.isPoleFocus {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .lwAdminLoadingCard {
   padding: 24px;
   border-radius: 20px;
@@ -246,6 +250,20 @@
 
 .lwAdminSectionGridCompact {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 0;
+}
+
+.lwAdminUserSectionGrid {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.lwAdminUserEditorCard {
+  height: auto;
+}
+
+.lwAdminUserTableCard {
   min-height: 0;
 }
 
@@ -900,8 +918,14 @@
   min-height: 0;
 }
 
+.lwAdminPoleTableCard > .lwAdminChip {
+  align-self: flex-start;
+  margin-top: 12px;
+}
+
 .lwAdminPoleTableCard .lwAdminTable {
-  min-width: 0;
+  min-width: 880px;
+  table-layout: fixed;
 }
 
 .lwAdminPoleTableCard .lwAdminTable thead th {
@@ -911,15 +935,89 @@
 }
 
 .lwAdminPoleTableCard .lwAdminTable td {
-  padding: 11px 13px;
+  padding: 13px 14px;
+}
+
+.lwAdminStreetlightTable th:nth-child(1),
+.lwAdminStreetlightTable td:nth-child(1) {
+  width: 22%;
+}
+
+.lwAdminStreetlightTable th:nth-child(2),
+.lwAdminStreetlightTable td:nth-child(2) {
+  width: 28%;
+}
+
+.lwAdminStreetlightTable th:nth-child(3),
+.lwAdminStreetlightTable td:nth-child(3) {
+  width: 35%;
+}
+
+.lwAdminStreetlightTable th:nth-child(4),
+.lwAdminStreetlightTable td:nth-child(4) {
+  width: 15%;
+}
+
+.lwAdminStreetlightIdCell span {
+  line-height: 1.35;
+}
+
+.lwAdminStreetlightNameCell {
+  min-width: 0;
+}
+
+.lwAdminPoleTableCard .lwAdminTable td.lwAdminStreetlightNameCell,
+.lwAdminPoleTableCard .lwAdminTable td.lwAdminTableActionCell {
+  padding-top: 30px;
+}
+
+.lwAdminInlineNameInput {
+  min-height: 42px;
+  padding: 10px 12px;
+  font-weight: 850;
+}
+
+.lwAdminTableActionCell {
+  text-align: right;
+}
+
+.lwAdminTableActionCell .lwAdminSecondaryBtn {
+  min-height: 38px;
+  padding: 8px 12px;
+  white-space: nowrap;
 }
 
 .lwAdminCoordinateCell {
   color: #0f5f78;
+}
+
+.lwAdminCoordinateInputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.lwAdminCoordinateInputs label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.lwAdminCoordinateInputs span {
+  margin-top: 0;
+  font-size: 10px;
+  font-weight: 1000;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lwAdminInlineCoordInput {
+  min-height: 42px;
+  padding: 10px 11px;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 850;
-  white-space: nowrap;
 }
 
 .lwAdminTableCount {
@@ -995,53 +1093,62 @@
 }
 
 .lwAdminUserTable {
-  min-width: 0;
+  min-width: 720px;
   table-layout: fixed;
 }
 
 .lwAdminUserTable th:nth-child(1),
 .lwAdminUserTable td:nth-child(1) {
-  width: 24%;
+  width: 25%;
 }
 
 .lwAdminUserTable th:nth-child(2),
 .lwAdminUserTable td:nth-child(2) {
-  width: 38%;
+  width: 37%;
 }
 
 .lwAdminUserTable th:nth-child(3),
 .lwAdminUserTable td:nth-child(3) {
-  width: 16%;
+  width: 14%;
 }
 
 .lwAdminUserTable th:nth-child(4),
 .lwAdminUserTable td:nth-child(4) {
-  width: 22%;
+  width: 24%;
 }
 
 .lwAdminUserTable td {
   vertical-align: middle;
 }
 
-.lwAdminUserNameCell strong,
-.lwAdminUserEmailCell span {
+.lwAdminWrappedText {
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
 }
 
-.lwAdminUserEmailCell span {
+.lwAdminUserEmailCell .lwAdminWrappedText {
   margin-top: 0;
   color: #38536d;
   font-size: 13px;
   font-weight: 800;
 }
 
+.lwAdminUserRoleCell,
+.lwAdminUserStatusCell {
+  white-space: nowrap;
+}
+
 .lwAdminUserTable .lwAdminChip {
   display: inline-flex;
   margin-top: 0;
   max-width: 100%;
+  min-width: 0;
+  line-height: 1.2;
+  text-align: center;
   white-space: nowrap;
 }
 
