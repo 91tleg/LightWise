@@ -29,7 +29,7 @@ def test_build_query_matches_writer_multi_measure_schema():
     assert "streetlightId = 'LW-00043'" in query
     assert "AVG(temperature) AS temp_c" in query
     assert "AVG(humidity) AS hum_pct" in query
-    assert "AVG(motion) AS motion" in query
+    assert "SUM(motion) AS motion" in query
     assert "SUM(motion) AS motion_count" in query
     assert "COUNT(motion) AS motion_samples" in query
     assert "AVG(light_level) AS light_pct" in query

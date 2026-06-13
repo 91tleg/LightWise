@@ -108,16 +108,17 @@ the resolved interval.
 ```json
 {
   "streetlight_id": "LW-00100",
+  "motion_total": 42,
   "data": [
     {
       "time": "2026-02-27T03:00:00Z",
       "lux": 123.4,
       "temperature_c": 22.0,
       "humidity_pct": 48.0,
-      "motion": 0.25,
+      "light_level_pct": 80.0,
+      "motion": 3,
       "motion_count": 3,
-      "motion_samples": 12,
-      "light_level_pct": 80.0
+      "motion_samples": 12
     }
   ]
 }

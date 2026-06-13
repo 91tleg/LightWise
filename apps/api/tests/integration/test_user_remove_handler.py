@@ -70,7 +70,7 @@ def test_remove_user_through_handler_use_case_repo_and_dynamodb(
     users_table.put_item(
         Item={
             "tenant_id": tenant_id,
-            "user_id": "TENANT",
+            "user_id": "TENANT#META",
             "name": "Test Tenant",
             "owner_user_ids": [owner_user_id],
             "max_users": 5,
@@ -81,7 +81,7 @@ def test_remove_user_through_handler_use_case_repo_and_dynamodb(
     users_table.put_item(
         Item={
             "tenant_id": tenant_id,
-            "user_id": remove_user_id,
+            "user_id": f"USER#{remove_user_id}",
             "email": "remove.user@example.com",
             "role": "operator",
             "created_at": "2026-05-28T12:05:00Z",
@@ -113,7 +113,7 @@ def test_remove_user_through_handler_use_case_repo_and_dynamodb(
     saved = users_table.get_item(
         Key={
             "tenant_id": tenant_id,
-            "user_id": remove_user_id,
+            "user_id": f"USER#{remove_user_id}",
         }
     )
 

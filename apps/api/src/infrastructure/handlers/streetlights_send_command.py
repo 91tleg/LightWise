@@ -21,7 +21,7 @@ from application.streetlight.send_command import (
     StreetlightNotFoundError,
 )
 from domain.errors import AuthError
-from infrastructure.auth.identity import resolve_identity
+from infrastructure.auth.identity import resolve_identity, resolve_email
 from infrastructure.lorawan.downlink_encoder import (
     DownlinkCommandPayloadEncoder
 )
@@ -51,7 +51,8 @@ def _use_case() -> SendStreetlightCommand:
 
 def handler(event: dict, context: object) -> dict:
     try:
-        tenant_id, user_id = resolve_identity(event)
+        tenant_id, _ = resolve_identity(event)
+        issued_by = resolve_email(event)
     except AuthError:
         return error(401, "Unauthorized")
 
@@ -78,7 +79,7 @@ def handler(event: dict, context: object) -> dict:
     try:
         result = _use_case().execute(
             tenant_id=tenant_id,
-            issued_by=user_id,
+            issued_by=issued_by,
             streetlight_id=streetlight_id,
             command=command,
             params=params,
@@ -119,6 +120,7 @@ def handler(event: dict, context: object) -> dict:
             "streetlight_id": streetlight_id,
             "command": command,
             "command_id": result.command_id,
+            "issued_by": issued_by,
         },
     )
 
