@@ -185,7 +185,6 @@ export function getSensorHealthDetails(pole) {
       sensorHealthFromText(mmwaveHealth),
       sensorHealthFromPair(pole?.motion_primary_ok, pole?.motion_secondary_ok)
     ),
-    sensorHealthDetail("Brightness", lightStatus, ambientStatus),
     sensorHealthDetail("Temperature", temperatureHumidityStatus, ambientStatus),
     sensorHealthDetail("Humidity", temperatureHumidityStatus, ambientStatus),
     sensorHealthDetail("Lux", lightStatus, ambientStatus)

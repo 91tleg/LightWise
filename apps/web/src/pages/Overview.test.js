@@ -129,7 +129,6 @@ describe("getSensorHealthDetails", () => {
     ).toEqual([
       { label: "System", value: "OK", tone: "healthy" },
       { label: "Motion", value: "Degraded", tone: "warning" },
-      { label: "Brightness", value: "Critical", tone: "critical" },
       { label: "Temperature", value: "OK", tone: "healthy" },
       { label: "Humidity", value: "OK", tone: "healthy" },
       { label: "Lux", value: "Critical", tone: "critical" },
