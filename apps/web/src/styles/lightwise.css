@@ -1032,7 +1032,11 @@ body.dark {
 }
 
 .lwDot.red {
-  background: #e04343;
+  background: #ff1f2d;
+}
+
+.lwDot.offline {
+  background: #7f1d1d;
 }
 
 .lwDot.blue {

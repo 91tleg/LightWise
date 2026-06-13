@@ -13,7 +13,9 @@ import {
   getOverviewConnectionSummary,
   getCombinedSensorHealth,
   getOverviewFaultSummary,
+  getOverviewMarkerTone,
   getOverviewPoleList,
+  getSensorHealthDetails,
   isPoleTelemetryStale,
 } from "./overview.helpers";
 import {
@@ -51,10 +53,51 @@ function hasPoleTelemetry(pole) {
   );
 }
 
+function statusLabelForTone(tone, fallback = "Online") {
+  if (tone === "offline") return "Offline";
+  if (tone === "critical") return "Critical";
+  if (tone === "warning") return "Warning";
+  if (tone === "active") return "Motion";
+  if (tone === "healthy") return "Online";
+  return fallback;
+}
+
+function SensorHealthRow({ summary, details, isOpen, onToggle }) {
+  return (
+    <div className={`lwSensorHealthWrap${isOpen ? " isOpen" : ""}`}>
+      <button
+        type="button"
+        className="lwMetricRow lwSensorHealthTrigger"
+        aria-expanded={isOpen}
+        onClick={onToggle}
+      >
+        <span>Sensor Health</span>
+        <span className={`lwMetricBadge ${summary.tone}`}>{summary.label}</span>
+      </button>
+
+      <div className="lwSensorHealthPanel" role="list" aria-label="Sensor health details">
+        {details.map((sensor) => (
+          <div
+            key={sensor.label}
+            className={`lwSensorHealthItem ${sensor.tone}`}
+            role="listitem"
+          >
+            <span className="lwSensorHealthName">{sensor.label}</span>
+            <span className={`lwSensorHealthStatus ${sensor.tone}`}>
+              {sensor.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Overview() {
   const { wsStatus, lastMessage, streetlights, env } = useLightWise();
   const [mapFitRequestKey, setMapFitRequestKey] = useState(0);
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
+  const [sensorHealthOpen, setSensorHealthOpen] = useState(false);
   const {
     availablePoles,
     selectedId,
@@ -91,8 +134,13 @@ export default function Overview() {
       overviewPoles.map((pole) => pole?.streetlight_id).filter(Boolean)
     );
 
-    return mapPoles.filter((pole) => visibleIds.has(pole?.streetlight_id));
-  }, [mapPoles, overviewPoles]);
+    return mapPoles
+      .filter((pole) => visibleIds.has(pole?.streetlight_id))
+      .map((pole) => ({
+        ...pole,
+        marker_tone: getOverviewMarkerTone(pole, currentTimeMs),
+      }));
+  }, [currentTimeMs, mapPoles, overviewPoles]);
 
   function handlePoleSelect(poleId) {
     if (!poleId) return;
@@ -110,6 +158,10 @@ export default function Overview() {
     );
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setSensorHealthOpen(false);
+  }, [overviewSelectedPole?.streetlight_id]);
 
   const { events } = useWebSocketSync(lastMessage);
 
@@ -146,6 +198,15 @@ export default function Overview() {
   const combinedSensorHealth = selectedPoleIsOffline
     ? { label: "Waiting for data", tone: "neutral" }
     : getCombinedSensorHealth(overviewSelectedPole);
+  const sensorHealthDetails = useMemo(() => {
+    const details = getSensorHealthDetails(overviewSelectedPole);
+    if (!selectedPoleIsOffline) return details;
+    return details.map((sensor) => ({
+      ...sensor,
+      value: "Waiting for data",
+      tone: "neutral",
+    }));
+  }, [overviewSelectedPole, selectedPoleIsOffline]);
   const motionValue =
     showLiveReadings && typeof overviewSelectedPole?.motion_detected === "boolean"
       ? motionLabel(overviewSelectedPole.motion_detected)
@@ -162,11 +223,15 @@ export default function Overview() {
       : "Waiting for data";
   const selectedPoleHealthLabel = selectedPoleIsOffline
     ? "Offline"
+    : combinedSensorHealth.tone === "critical" || combinedSensorHealth.tone === "warning"
+    ? statusLabelForTone(combinedSensorHealth.tone)
     : showLiveReadings
     ? "Online"
     : "Waiting for data";
   const selectedPoleHealthTone = selectedPoleIsOffline
-    ? "warning"
+    ? "offline"
+    : combinedSensorHealth.tone === "critical" || combinedSensorHealth.tone === "warning"
+    ? combinedSensorHealth.tone
     : showLiveReadings
     ? "healthy"
     : "neutral";
@@ -264,10 +329,11 @@ export default function Overview() {
                         label="Last Seen"
                         value={lastSeenValue}
                       />
-                      <MetricRow
-                        label="Sensor Health"
-                        value={combinedSensorHealth.label}
-                        tone={combinedSensorHealth.tone}
+                      <SensorHealthRow
+                        summary={combinedSensorHealth}
+                        details={sensorHealthDetails}
+                        isOpen={sensorHealthOpen}
+                        onToggle={() => setSensorHealthOpen((current) => !current)}
                       />
                     </div>
                   </div>
@@ -282,10 +348,10 @@ export default function Overview() {
                     const selected =
                       pole.streetlight_id === overviewSelectedPole?.streetlight_id;
                     const poleIsStale = isPoleTelemetryStale(pole, currentTimeMs);
+                    const poleHealthTone = getOverviewMarkerTone(pole, currentTimeMs);
                     const poleHealthLabel = poleIsStale
                       ? "Offline"
-                      : "Online";
-                    const poleHealthTone = poleIsStale ? "warning" : "healthy";
+                      : statusLabelForTone(poleHealthTone);
 
                     return (
                       <button

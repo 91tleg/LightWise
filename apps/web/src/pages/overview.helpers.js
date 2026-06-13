@@ -5,13 +5,67 @@ function normalizeSensorHealth(value) {
 }
 
 function isSensorFault(value) {
-  return ["TOTAL_FAILURE", "PRIMARY_FAIL", "SECONDARY_FAIL"].includes(
-    normalizeSensorHealth(value)
-  );
+  return [
+    "TOTAL_FAILURE",
+    "PRIMARY_FAIL",
+    "SECONDARY_FAIL",
+    "CRITICAL",
+    "FAULT",
+    "FAILED",
+    "FAILURE",
+  ].includes(normalizeSensorHealth(value));
 }
 
 function isSensorWarning(value) {
-  return normalizeSensorHealth(value) === "DEGRADED";
+  return ["DEGRADED", "WARNING"].includes(normalizeSensorHealth(value));
+}
+
+function sensorHealthFromText(value) {
+  const health = normalizeSensorHealth(value);
+  if (!health) return null;
+
+  if (isSensorFault(health)) {
+    return { value: "Critical", tone: "critical" };
+  }
+
+  if (isSensorWarning(health)) {
+    return { value: "Degraded", tone: "warning" };
+  }
+
+  if (["SYSTEM_OK", "OK", "HEALTHY", "CONNECTED"].includes(health)) {
+    return { value: "OK", tone: "healthy" };
+  }
+
+  return { value: health.replaceAll("_", " "), tone: "neutral" };
+}
+
+function sensorHealthFromBool(value) {
+  if (value === true) return { value: "OK", tone: "healthy" };
+  if (value === false) return { value: "Critical", tone: "critical" };
+  return null;
+}
+
+function sensorHealthFromPair(primary, secondary) {
+  const checks = [primary, secondary].filter((value) => value !== null && value !== undefined);
+  if (!checks.length) return null;
+  if (checks.some((value) => value === false)) {
+    return { value: "Critical", tone: "critical" };
+  }
+  if (checks.every((value) => value === true)) {
+    return { value: "OK", tone: "healthy" };
+  }
+  return null;
+}
+
+function waitingSensorHealth() {
+  return { value: "Waiting for data", tone: "neutral" };
+}
+
+function sensorHealthDetail(label, ...candidates) {
+  return {
+    label,
+    ...(candidates.find(Boolean) || waitingSensorHealth()),
+  };
 }
 
 export const POLE_OFFLINE_THRESHOLD_MS = 60 * 1000;
@@ -90,7 +144,7 @@ export function getOverviewConnectionSummary(
       offline,
       status: "All Offline",
       note: `${offline} streetlight${offline === 1 ? "" : "s"} offline`,
-      tone: "warning",
+      tone: "offline",
     };
   }
 
@@ -100,8 +154,44 @@ export function getOverviewConnectionSummary(
     offline,
     status: `${online}/${total} Online`,
     note: `${offline} offline / ${total} total`,
-    tone: "warning",
+    tone: "offline",
   };
+}
+
+export function getSensorHealthDetails(pole) {
+  const diagnostics = pole?.diagnostics || {};
+  const overallOk =
+    diagnostics?.overall_ok ?? pole?.overall_ok ?? null;
+  const ambientHealth =
+    diagnostics?.ambient_health ?? pole?.ambient_health ?? null;
+  const mmwaveHealth =
+    diagnostics?.mmwave_health ?? pole?.mmwave_health ?? null;
+  const thOk = diagnostics?.th_ok ?? pole?.th_ok ?? null;
+  const lightOk = diagnostics?.light_ok ?? pole?.light_ok ?? null;
+  const ambientStatus = sensorHealthFromText(ambientHealth);
+  const temperatureHumidityStatus = sensorHealthFromBool(thOk);
+  const lightStatus = sensorHealthFromBool(lightOk);
+  const rows = [];
+  const systemStatus =
+    sensorHealthFromBool(overallOk) || sensorHealthFromText(pole?.health);
+
+  if (systemStatus) {
+    rows.push(sensorHealthDetail("System", systemStatus));
+  }
+
+  rows.push(
+    sensorHealthDetail(
+      "Motion",
+      sensorHealthFromText(mmwaveHealth),
+      sensorHealthFromPair(pole?.motion_primary_ok, pole?.motion_secondary_ok)
+    ),
+    sensorHealthDetail("Brightness", lightStatus, ambientStatus),
+    sensorHealthDetail("Temperature", temperatureHumidityStatus, ambientStatus),
+    sensorHealthDetail("Humidity", temperatureHumidityStatus, ambientStatus),
+    sensorHealthDetail("Lux", lightStatus, ambientStatus)
+  );
+
+  return rows;
 }
 
 export function getCombinedSensorHealth(pole) {
@@ -168,4 +258,21 @@ export function getOverviewFaultSummary(poles, nowValue = Date.now()) {
     },
     { critical: 0, warning: 0 }
   );
+}
+
+export function getOverviewMarkerTone(pole, nowValue = Date.now()) {
+  if (isPoleTelemetryStale(pole, nowValue)) {
+    return "offline";
+  }
+
+  const health = getCombinedSensorHealth(pole);
+  if (health.tone === "critical" || health.tone === "warning") {
+    return health.tone;
+  }
+
+  if (pole?.motion_detected === true) {
+    return "active";
+  }
+
+  return "healthy";
 }

@@ -2,7 +2,9 @@ import {
   getCombinedSensorHealth,
   getOverviewConnectionSummary,
   getOverviewFaultSummary,
+  getOverviewMarkerTone,
   getOverviewPoleList,
+  getSensorHealthDetails,
   isPoleTelemetryStale,
 } from "./overview.helpers";
 
@@ -111,6 +113,39 @@ describe("isPoleTelemetryStale", () => {
   });
 });
 
+describe("getSensorHealthDetails", () => {
+  test("returns per-sensor health rows from modern diagnostics", () => {
+    expect(
+      getSensorHealthDetails({
+        health: "OK",
+        diagnostics: {
+          overall_ok: true,
+          ambient_health: "SYSTEM_OK",
+          mmwave_health: "DEGRADED",
+          th_ok: true,
+          light_ok: false,
+        },
+      })
+    ).toEqual([
+      { label: "System", value: "OK", tone: "healthy" },
+      { label: "Motion", value: "Degraded", tone: "warning" },
+      { label: "Brightness", value: "Critical", tone: "critical" },
+      { label: "Temperature", value: "OK", tone: "healthy" },
+      { label: "Humidity", value: "OK", tone: "healthy" },
+      { label: "Lux", value: "Critical", tone: "critical" },
+    ]);
+  });
+
+  test("uses legacy primary and secondary motion checks", () => {
+    expect(
+      getSensorHealthDetails({
+        motion_primary_ok: true,
+        motion_secondary_ok: false,
+      }).find((sensor) => sensor.label === "Motion")
+    ).toEqual({ label: "Motion", value: "Critical", tone: "critical" });
+  });
+});
+
 describe("getOverviewConnectionSummary", () => {
   test("summarizes mixed online and offline streetlights", () => {
     const now = new Date("2026-04-23T19:00:00Z");
@@ -128,7 +163,7 @@ describe("getOverviewConnectionSummary", () => {
       offline: 4,
       status: "1/5 Online",
       note: "4 offline / 5 total",
-      tone: "warning",
+      tone: "offline",
     });
   });
 
@@ -146,8 +181,36 @@ describe("getOverviewConnectionSummary", () => {
       offline: 1,
       status: "All Offline",
       note: "1 streetlight offline",
-      tone: "warning",
+      tone: "offline",
     });
+  });
+});
+
+describe("getOverviewMarkerTone", () => {
+  test("uses dark red offline tone when the heartbeat is stale", () => {
+    expect(
+      getOverviewMarkerTone(
+        {
+          streetlight_id: "LW-00001",
+          last_seen: "2026-04-23T18:58:00Z",
+          diagnostics: { overall_ok: false },
+        },
+        new Date("2026-04-23T19:00:00Z")
+      )
+    ).toBe("offline");
+  });
+
+  test("uses critical tone for online sensor faults", () => {
+    expect(
+      getOverviewMarkerTone(
+        {
+          streetlight_id: "LW-00001",
+          last_seen: "2026-04-23T18:59:45Z",
+          diagnostics: { light_ok: false },
+        },
+        new Date("2026-04-23T19:00:00Z")
+      )
+    ).toBe("critical");
   });
 });
 

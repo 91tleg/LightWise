@@ -43,9 +43,14 @@
   color: #b45309;
 }
 
+.lwSummaryCardIcon.offline {
+  background: rgba(127, 29, 29, 0.14);
+  color: #7f1d1d;
+}
+
 .lwSummaryCardIcon.critical {
   background: rgba(239, 68, 68, 0.14);
-  color: #b91c1c;
+  color: #ff1f2d;
 }
 
 .lwSummaryCardLabel {
@@ -206,9 +211,15 @@
   color: #b45309;
 }
 
+.lwMetricBadge.offline {
+  background: rgba(127, 29, 29, 0.13);
+  border-color: rgba(127, 29, 29, 0.24);
+  color: #7f1d1d;
+}
+
 .lwMetricBadge.critical {
-  background: rgba(239, 68, 68, 0.14);
-  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(255, 31, 45, 0.16);
+  border-color: rgba(255, 31, 45, 0.3);
   color: #b91c1c;
 }
 
@@ -216,6 +227,96 @@
   background: rgba(14, 116, 144, 0.14);
   border-color: rgba(14, 116, 144, 0.22);
   color: #0f5f78;
+}
+
+.lwSensorHealthWrap {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+
+.lwSensorHealthTrigger {
+  width: 100%;
+  border: 1px solid rgba(214, 226, 237, 0.98);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lwSensorHealthPanel {
+  display: none;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 13px;
+  border: 1px solid rgba(205, 220, 233, 0.98);
+  background: rgba(248, 251, 254, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 10px 20px rgba(15, 23, 42, 0.08);
+}
+
+.lwSensorHealthWrap:hover .lwSensorHealthPanel,
+.lwSensorHealthWrap:focus-within .lwSensorHealthPanel,
+.lwSensorHealthWrap.isOpen .lwSensorHealthPanel {
+  display: grid;
+}
+
+.lwSensorHealthItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.lwSensorHealthName {
+  min-width: 0;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.lwSensorHealthStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 132px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.14);
+  color: #475569;
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.lwSensorHealthStatus.healthy {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.24);
+  color: #166534;
+}
+
+.lwSensorHealthStatus.warning {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.24);
+  color: #b45309;
+}
+
+.lwSensorHealthItem.critical {
+  border-color: rgba(255, 31, 45, 0.34);
+  background: rgba(255, 31, 45, 0.08);
+}
+
+.lwSensorHealthStatus.critical {
+  background: rgba(255, 31, 45, 0.18);
+  border-color: rgba(255, 31, 45, 0.36);
+  color: #b91c1c;
 }
 
 /* ================= POLE LIST ================= */
@@ -452,8 +553,21 @@
   background: #f59e0b;
 }
 
+.lwMapMarker-offline .lwMapMarkerCore {
+  background: #7f1d1d;
+  box-shadow:
+    0 0 0 5px rgba(127, 29, 29, 0.18),
+    0 8px 14px rgba(15, 23, 42, 0.24);
+}
+
 .lwMapMarker-critical .lwMapMarkerCore {
-  background: #ef4444;
+  background: #ff1f2d;
+  border-color: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 0 0 6px rgba(255, 31, 45, 0.22),
+    0 0 22px rgba(255, 31, 45, 0.84),
+    0 8px 14px rgba(15, 23, 42, 0.24);
+  animation: lwCriticalBreath 1.8s ease-in-out infinite;
 }
 
 .lwMapMarker-active .lwMapMarkerCore {
@@ -943,6 +1057,26 @@
   }
 }
 
+@keyframes lwCriticalBreath {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(255, 31, 45, 0.18),
+      0 0 12px rgba(255, 31, 45, 0.62);
+  }
+  50% {
+    box-shadow:
+      0 0 0 7px rgba(255, 31, 45, 0.28),
+      0 0 28px rgba(255, 31, 45, 0.96);
+  }
+}
+
+.lwMetricBadge.critical,
+.lwSensorHealthStatus.critical,
+.lwDot.criticalPulse {
+  animation: lwCriticalBreath 1.8s ease-in-out infinite;
+}
+
 /* ================= RESPONSIVE ================= */
 @media (max-width: 1200px) {
   .lwSummaryGrid {
@@ -1057,11 +1191,19 @@
     0 0 18px rgba(245, 158, 11, 0.6);
 }
 
-.lwStatusGlowDot.critical {
-  background: #ef4444;
+.lwStatusGlowDot.offline {
+  background: #7f1d1d;
   box-shadow:
-    0 0 0 4px rgba(239, 68, 68, 0.16),
-    0 0 18px rgba(239, 68, 68, 0.72);
+    0 0 0 4px rgba(127, 29, 29, 0.18),
+    0 0 16px rgba(127, 29, 29, 0.62);
+}
+
+.lwStatusGlowDot.critical {
+  background: #ff1f2d;
+  box-shadow:
+    0 0 0 4px rgba(255, 31, 45, 0.18),
+    0 0 18px rgba(255, 31, 45, 0.78);
+  animation: lwCriticalBreath 1.8s ease-in-out infinite;
 }
 
 .lwOverviewMainGrid.lwOverviewMainGridRebuild {
@@ -1199,6 +1341,21 @@
   text-overflow: ellipsis;
 }
 
+.lwOverviewLeftRail .lwSensorHealthPanel {
+  padding: 6px;
+  gap: 5px;
+}
+
+.lwOverviewLeftRail .lwSensorHealthItem {
+  min-height: 26px;
+  padding: 5px 6px;
+}
+
+.lwOverviewLeftRail .lwSensorHealthStatus {
+  max-width: 108px;
+  font-size: 9px;
+}
+
 .lwOverviewLeftRail .lwPoleList {
   max-height: 144px;
   gap: 6px;
@@ -1322,6 +1479,16 @@ body.dark .lwSummaryCardNote {
   color: #8da2b8;
 }
 
+body.dark .lwSummaryCardIcon.offline {
+  background: rgba(127, 29, 29, 0.28);
+  color: #ffb4b4;
+}
+
+body.dark .lwSummaryCardIcon.critical {
+  background: rgba(255, 31, 45, 0.18);
+  color: #ffc2c2;
+}
+
 body.dark .lwSelectedPoleSurface {
   background: linear-gradient(180deg, rgba(10, 21, 36, 0.98), rgba(8, 18, 31, 0.96));
   border-color: rgba(148, 163, 184, 0.12);
@@ -1372,10 +1539,16 @@ body.dark .lwMetricBadge.warning {
   color: #ffd082;
 }
 
+body.dark .lwMetricBadge.offline {
+  background: rgba(127, 29, 29, 0.26);
+  border-color: rgba(185, 28, 28, 0.34);
+  color: #ffb4b4;
+}
+
 body.dark .lwMetricBadge.critical {
-  background: rgba(239, 68, 68, 0.16);
-  border-color: rgba(239, 68, 68, 0.24);
-  color: #ff9a9a;
+  background: rgba(255, 31, 45, 0.18);
+  border-color: rgba(255, 31, 45, 0.32);
+  color: #ffc2c2;
 }
 
 body.dark .lwMetricBadge.active {
@@ -1403,6 +1576,52 @@ body.dark .lwPoleListItem.isSelected {
   box-shadow:
     inset 0 0 0 1px rgba(99, 179, 255, 0.1),
     0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+body.dark .lwSensorHealthPanel {
+  background: rgba(9, 19, 32, 0.98);
+  border-color: rgba(148, 163, 184, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 24px rgba(0, 0, 0, 0.24);
+}
+
+body.dark .lwSensorHealthItem {
+  background: rgba(15, 29, 46, 0.88);
+  border-color: rgba(148, 163, 184, 0.12);
+}
+
+body.dark .lwSensorHealthName {
+  color: #dce7f6;
+}
+
+body.dark .lwSensorHealthStatus {
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #dbe7f6;
+}
+
+body.dark .lwSensorHealthStatus.healthy {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.24);
+  color: #7ee2a8;
+}
+
+body.dark .lwSensorHealthStatus.warning {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.24);
+  color: #ffd082;
+}
+
+body.dark .lwSensorHealthItem.critical {
+  border-color: rgba(255, 31, 45, 0.34);
+  background: rgba(255, 31, 45, 0.1);
+}
+
+body.dark .lwSensorHealthStatus.critical {
+  background: rgba(255, 31, 45, 0.2);
+  border-color: rgba(255, 31, 45, 0.36);
+  color: #ffc2c2;
 }
 
 body.dark .lwActivityFeedHint,

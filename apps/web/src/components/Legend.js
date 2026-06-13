@@ -13,7 +13,11 @@ export default function Legend({ title = "Map Key", compact = false }) {
         <span>Warning</span>
       </div>
       <div className="lwLegendRow">
-        <span className="lwDot red" />
+        <span className="lwDot offline" />
+        <span>Offline</span>
+      </div>
+      <div className="lwLegendRow">
+        <span className="lwDot red criticalPulse" />
         <span>Critical</span>
       </div>
       <div className="lwLegendRow">
