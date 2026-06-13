@@ -68,6 +68,53 @@ function toBoolean(value) {
   return null;
 }
 
+function toNumberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function toMotionActivity(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "boolean") return value ? 100 : 0;
+  if (typeof value === "string") {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === "true") return 100;
+    if (lowered === "false") return 0;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+
+  return clamp(numeric <= 1 ? numeric * 100 : numeric, 0, 100);
+}
+
+function toMotionCount(value, fallbackMotion = null) {
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (typeof value === "string") {
+    const lowered = value.trim().toLowerCase();
+    if (lowered === "true") return 1;
+    if (lowered === "false") return 0;
+  }
+
+  const numeric = toNumberOrNull(value);
+  if (numeric !== null) return Math.max(0, Math.round(numeric));
+
+  if (typeof fallbackMotion === "boolean") return fallbackMotion ? 1 : 0;
+  if (typeof fallbackMotion === "string") {
+    const lowered = fallbackMotion.trim().toLowerCase();
+    if (lowered === "true") return 1;
+    if (lowered === "false") return 0;
+  }
+
+  const fallbackNumeric = toNumberOrNull(fallbackMotion);
+  if (fallbackNumeric !== null && Number.isInteger(fallbackNumeric)) {
+    return Math.max(0, fallbackNumeric);
+  }
+
+  return null;
+}
+
 function parseTimestamp(value) {
   if (!value) return null;
   const date = new Date(value);
@@ -332,8 +379,15 @@ function buildPoleSummary(pole, rows, intervalHours, zone) {
 
   const healthRows = enrichedRows.filter((row) => row.health && row.health !== "UNKNOWN");
   const healthyRows = healthRows.filter((row) => isHealthyHealth(row.health));
-  const motionRows = enrichedRows.filter((row) => typeof row.motion === "boolean");
-  const motionHits = motionRows.filter((row) => row.motion).length;
+  const motionActivityRows = enrichedRows.filter((row) => Number.isFinite(row.motion_activity_pct));
+  const motionCountRows = enrichedRows.filter((row) => Number.isFinite(row.motion_count));
+  const motionActivityTotal = sum(motionActivityRows.map((row) => row.motion_activity_pct));
+  const motionDetectionTotal = sum(motionCountRows.map((row) => row.motion_count));
+  const motionSampleTotal = sum(
+    motionCountRows.map((row) =>
+      Number.isFinite(row.motion_samples) ? row.motion_samples : 1
+    )
+  );
   const faultTimeline = buildFaultTimelineForPole(pole, enrichedRows);
 
   return {
@@ -351,15 +405,17 @@ function buildPoleSummary(pole, rows, intervalHours, zone) {
       healthRows.length > 0
         ? roundValue((healthyRows.length / healthRows.length) * 100, 1)
         : null,
-    motionRatePct:
-      motionRows.length > 0
-        ? roundValue((motionHits / motionRows.length) * 100, 1)
-        : null,
+    motionRatePct: motionSampleTotal > 0
+      ? roundValue((motionDetectionTotal / motionSampleTotal) * 100, 1)
+      : motionActivityRows.length > 0
+      ? roundValue(motionActivityTotal / motionActivityRows.length, 1)
+      : null,
+    motionDetections: roundValue(motionDetectionTotal, 2) ?? 0,
     activeFaults: faultTimeline.activeCount,
     faultsResolved: faultTimeline.resolvedCount,
     totalTelemetryRows: enrichedRows.length,
     healthSamples: healthRows.length,
-    motionSamples: motionRows.length,
+    motionSamples: motionSampleTotal || motionActivityRows.length,
     rows: enrichedRows,
     faults: faultTimeline.events,
   };
@@ -471,7 +527,7 @@ function buildCountMetricSeries(metricBuckets = [], totalKey, countKey) {
     .map((point) => ({
       timestamp: point.timestamp,
       timestampValue: point.timestampValue,
-      value: point[totalKey],
+      value: Math.max(0, Math.round(Number(point[totalKey]) || 0)),
       sampleCount: point[countKey],
     }));
 }
@@ -496,7 +552,7 @@ function buildNetworkMetricSeries(poleSummaries = []) {
         humidityTotal: 0,
         humidityCount: 0,
         motionDetected: 0,
-        motionCount: 0,
+        motionSamples: 0,
       };
 
       if (Number.isFinite(row?.light_level)) {
@@ -519,9 +575,11 @@ function buildNetworkMetricSeries(poleSummaries = []) {
         current.humidityCount += 1;
       }
 
-      if (typeof row?.motion === "boolean") {
-        current.motionDetected += row.motion ? 1 : 0;
-        current.motionCount += 1;
+      if (Number.isFinite(row?.motion_count)) {
+        current.motionDetected += row.motion_count;
+        current.motionSamples += Number.isFinite(row?.motion_samples)
+          ? row.motion_samples
+          : 1;
       }
 
       buckets.set(key, current);
@@ -537,7 +595,7 @@ function buildNetworkMetricSeries(poleSummaries = []) {
     lux: buildMetricSeries(sortedBuckets, "luxTotal", "luxCount"),
     temp_c: buildMetricSeries(sortedBuckets, "temperatureTotal", "temperatureCount"),
     humidity: buildMetricSeries(sortedBuckets, "humidityTotal", "humidityCount"),
-    motion: buildCountMetricSeries(sortedBuckets, "motionDetected", "motionCount"),
+    motion: buildCountMetricSeries(sortedBuckets, "motionDetected", "motionSamples"),
   };
 }
 
@@ -550,13 +608,15 @@ function buildHourlyMotion(poleSummaries = []) {
 
   poleSummaries.forEach((pole) => {
     pole.rows.forEach((row) => {
-      if (typeof row.motion !== "boolean") return;
+      if (!Number.isFinite(row.motion_count)) return;
       const timestamp = parseTimestamp(row.timestamp);
       if (timestamp === null) return;
 
       const hour = new Date(timestamp).getHours();
-      buckets[hour].samples += 1;
-      if (row.motion) buckets[hour].detections += 1;
+      buckets[hour].samples += Number.isFinite(row.motion_samples)
+        ? row.motion_samples
+        : 1;
+      buckets[hour].detections += row.motion_count;
     });
   });
 
@@ -565,7 +625,7 @@ function buildHourlyMotion(poleSummaries = []) {
     label: formatHourLabel(bucket.hour),
     activityPct:
       bucket.samples > 0 ? roundValue((bucket.detections / bucket.samples) * 100, 1) ?? 0 : 0,
-    detections: bucket.detections,
+    detections: roundValue(bucket.detections, 2) ?? 0,
     samples: bucket.samples,
   }));
 }
@@ -593,6 +653,22 @@ export function normalizeTelemetryRows(payload) {
 
     const data = item?.data || item;
     const rawMotion = data?.motion_detected ?? data?.motion;
+    const rawMotionActivity = data?.motion_activity_pct ?? data?.motion_pct;
+    const motionActivityPct = toMotionActivity(rawMotionActivity);
+    const explicitMotionSamples = toNumberOrNull(
+      data?.motion_samples ??
+        data?.motion_sample_count ??
+        data?.sample_count ??
+        data?.samples
+    );
+    const motionCount = toMotionCount(
+      data?.motion_count ??
+        data?.motion_detections ??
+        data?.motion_detected_count ??
+        data?.motion_sum,
+      rawMotion
+    );
+    const motionSamples = explicitMotionSamples ?? (motionCount !== null ? 1 : null);
     const rawHealth = item?.health ?? data?.health ?? null;
 
     return {
@@ -606,6 +682,9 @@ export function normalizeTelemetryRows(payload) {
       ),
       motion: toBoolean(rawMotion),
       motion_detected: toBoolean(rawMotion),
+      motion_activity_pct: motionActivityPct,
+      motion_count: motionCount,
+      motion_samples: motionSamples,
       light_level: roundWhole(
         data?.light_level ?? data?.light_level_pct ?? data?.light_pct
       ),
@@ -854,6 +933,8 @@ export function buildRawTelemetryCsv(report) {
       "zone",
       "health",
       "motion",
+      "motion_count",
+      "motion_samples",
       "light_level_pct",
       "lux",
       "temperature_c",
@@ -872,6 +953,8 @@ export function buildRawTelemetryCsv(report) {
       row.zone,
       row.health,
       typeof row.motion === "boolean" ? (row.motion ? "detected" : "clear") : "",
+      row.motion_count ?? "",
+      row.motion_samples ?? "",
       row.light_level ?? "",
       row.lux ?? "",
       row.temp_c ?? "",

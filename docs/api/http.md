@@ -114,6 +114,9 @@ the resolved interval.
       "lux": 123.4,
       "temperature_c": 22.0,
       "humidity_pct": 48.0,
+      "motion": 0.25,
+      "motion_count": 3,
+      "motion_samples": 12,
       "light_level_pct": 80.0
     }
   ]
