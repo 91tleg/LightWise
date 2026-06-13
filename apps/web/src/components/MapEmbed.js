@@ -79,7 +79,7 @@ function fitMapToPoints(map, points, { maxZoom = 14, padding = [48, 48] } = {}) 
 }
 
 function makePoleIcon(pole, isSelected, markerTone = null) {
-  const tone = markerTone || toneForPole(pole);
+  const tone = markerTone || pole?.marker_tone || pole?.markerTone || toneForPole(pole);
   const safeId = escapeHtml(pole?.streetlight_id);
 
   return L.divIcon({
@@ -92,6 +92,15 @@ function makePoleIcon(pole, isSelected, markerTone = null) {
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   });
+}
+
+function labelForMarkerTone(tone, fallback = "OK") {
+  if (tone === "offline") return "Offline";
+  if (tone === "critical") return "Critical";
+  if (tone === "warning") return "Warning";
+  if (tone === "active") return "Motion detected";
+  if (tone === "healthy") return "OK";
+  return fallback;
 }
 
 function makePreviewIcon() {
@@ -427,7 +436,12 @@ export default function MapEmbed({
               {hasMotionFocus ? (
                 <small>Motion focus view - {activePole?.motion_focus_radius_m || focusRadiusMeters}m</small>
               ) : null}
-              <small>{activePole.health || "OK"}</small>
+              <small>
+                {labelForMarkerTone(
+                  activePole.marker_tone || activePole.markerTone,
+                  activePole.health || "OK"
+                )}
+              </small>
             </div>
           ) : null}
 
