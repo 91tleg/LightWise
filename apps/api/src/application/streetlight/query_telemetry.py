@@ -8,8 +8,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol
 
-from domain.streetlight.interval import TelemetryInterval
-
 
 class TelemetryReader(Protocol):
     def get_telemetry(
@@ -27,18 +25,15 @@ class QueryTelemetry:
         self._reader = reader
 
     def execute(
-        self,
-        tenant_id: str,
-        streetlight_id: str,
-        from_dt: datetime,
-        to_dt: datetime,
-        interval: TelemetryInterval,
-    ) -> list[dict]:
+        self, tenant_id, streetlight_id, from_dt, to_dt, interval
+    ):
         resolved = interval.resolve_for_window(from_dt, to_dt)
-        return self._reader.get_telemetry(
+        rows = self._reader.get_telemetry(
             tenant_id=tenant_id,
             streetlight_id=streetlight_id,
             from_dt=from_dt,
             to_dt=to_dt,
             interval=resolved.value,
         )
+        motion_total = sum(r["motion"] or 0 for r in rows)
+        return {"rows": rows, "motion_total": motion_total}

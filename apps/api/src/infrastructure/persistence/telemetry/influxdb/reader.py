@@ -45,44 +45,39 @@ class InfluxTelemetryReader:
             ) from e
 
     def _build_query(
-        self,
-        tenant_id: str,
-        streetlight_id: str,
-        from_dt: datetime,
-        to_dt: datetime,
-        interval: str,
-    ) -> str:
+        self, tenant_id, streetlight_id, from_dt, to_dt, interval
+    ):
         from_str = from_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         to_str = to_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        # tenant_id and streetlight_id are resolved from DynamoDB metadata
-        # and are never supplied raw from user input - safe to interpolate.
-        # InfluxDB Flux does not support bind parameters.
         return f"""
-            from(bucket: "{self._bucket}")
-              |> range(start: {from_str}, stop: {to_str})
-              |> filter(fn: (r) => r._measurement == "streetlight_metrics")
-              |> filter(fn: (r) => r.tenant_id == "{tenant_id}")
-              |> filter(fn: (r) => r.streetlight_id == "{streetlight_id}")
-              |> filter(fn: (r) =>
-                    r._field == "lux"             or
-                    r._field == "temperature_c"   or
-                    r._field == "humidity_pct"    or
-                    r._field == "motion"          or
+            base = from(bucket: "{self._bucket}")
+            |> range(start: {from_str}, stop: {to_str})
+            |> filter(fn: (r) => r._measurement == "streetlight_metrics")
+            |> filter(fn: (r) => r.tenant_id == "{tenant_id}")
+            |> filter(fn: (r) => r.streetlight_id == "{streetlight_id}")
+
+            sensors = base
+            |> filter(fn: (r) =>
+                    r._field == "lux"           or
+                    r._field == "temperature_c" or
+                    r._field == "humidity_pct"  or
                     r._field == "light_level_pct"
-              )
-              |> aggregateWindow(
-                    every: {interval},
-                    fn: mean,
-                    createEmpty: false
-              )
-              |> pivot(
-                    rowKey: ["_time"],
-                    columnKey: ["_field"],
-                    valueColumn: "_value"
-              )
-              |> drop(columns: ["_start", "_stop", "_measurement"])
-              |> sort(columns: ["_time"])
+            )
+            |> aggregateWindow(every: {interval}, fn: mean, createEmpty: false)
+
+            motion = base
+            |> filter(fn: (r) => r._field == "motion")
+            |> aggregateWindow(every: {interval}, fn: sum, createEmpty: false)
+
+            union(tables: [sensors, motion])
+            |> pivot(
+                rowKey: ["_time"],
+                columnKey: ["_field"],
+                valueColumn: "_value"
+            )
+            |> drop(columns: ["_start", "_stop", "_measurement"])
+            |> sort(columns: ["_time"])
         """
 
     def _execute(self, query: str) -> list[dict]:
