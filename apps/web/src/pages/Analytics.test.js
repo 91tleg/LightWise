@@ -32,6 +32,9 @@ describe("normalizeTelemetryRows", () => {
         humidity: 60.7,
         motion: true,
         motion_detected: true,
+        motion_activity_pct: null,
+        motion_count: 1,
+        motion_samples: 1,
         light_level: 79,
         health: "OK",
       },
@@ -62,6 +65,9 @@ describe("normalizeTelemetryRows", () => {
         humidity: 50,
         motion: true,
         motion_detected: true,
+        motion_activity_pct: null,
+        motion_count: 1,
+        motion_samples: 1,
         light_level: 44,
         health: null,
       },
@@ -92,6 +98,9 @@ describe("normalizeTelemetryRows", () => {
         humidity: 61.1,
         motion: true,
         motion_detected: true,
+        motion_activity_pct: null,
+        motion_count: 1,
+        motion_samples: 1,
         light_level: 52,
         health: null,
       },
@@ -114,6 +123,62 @@ describe("normalizeTelemetryRows", () => {
     const result = normalizeTelemetryRows(payload);
 
     expect(result[0].timestamp).toBe("row-0");
+  });
+
+  test("does not fabricate a count from averaged backend motion", () => {
+    const result = normalizeTelemetryRows({
+      data: [
+        {
+          time: "2026-03-09T21:45:00Z",
+          motion: "0.375",
+        },
+      ],
+    });
+
+    expect(result[0]).toMatchObject({
+      motion: true,
+      motion_detected: true,
+      motion_activity_pct: null,
+      motion_count: null,
+      motion_samples: null,
+    });
+  });
+
+  test("keeps sample count without deriving count from averaged motion", () => {
+    const result = normalizeTelemetryRows({
+      data: [
+        {
+          time: "2026-03-09T21:48:00Z",
+          motion: "0.375",
+          motion_samples: "8",
+        },
+      ],
+    });
+
+    expect(result[0]).toMatchObject({
+      motion_activity_pct: null,
+      motion_count: null,
+      motion_samples: 8,
+    });
+  });
+
+  test("prefers backend motion count fields when available", () => {
+    const result = normalizeTelemetryRows({
+      data: [
+        {
+          time: "2026-03-09T21:50:00Z",
+          motion: "0.375",
+          motion_count: "3",
+          motion_samples: "8",
+        },
+      ],
+    });
+
+    expect(result[0]).toMatchObject({
+      motion_activity_pct: null,
+      motion_count: 3,
+      motion_samples: 8,
+    });
   });
 
   test("returns empty array for unsupported payload", () => {
@@ -272,6 +337,13 @@ describe("buildAnalyticsReport", () => {
       value: 1,
       sampleCount: 2,
     });
+    expect(report.metricSeries.motion.map((point) => point.value)).toEqual([
+      1,
+      1,
+      1,
+      1,
+      0,
+    ]);
   });
 
   test("uses the streetlight name instead of a fabricated central zone for single-streetlight analytics", () => {

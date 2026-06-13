@@ -89,7 +89,7 @@ const CHART_METRICS = {
     id: "motion",
     label: "Motion",
     title: "Motion Activity",
-    description: "Count of returned samples where motion was detected.",
+    description: "Count of returned telemetry samples where motion was detected.",
   },
 };
 
@@ -108,6 +108,7 @@ const LIVE_WINDOW_MS = 60 * 1000;
 const LIVE_REQUEST_INTERVAL = "5s";
 const LIVE_GRAPH_INTERVAL = "1s";
 const LIVE_MAX_ROWS_PER_POLE = 240;
+const MAX_UNIT_COUNT_TICK = 20;
 
 function readStoredRange() {
   const fallback = getPresetRange("30d");
@@ -311,11 +312,14 @@ function formatMetricValue(metricId, value, compact = false) {
   const numericValue = Number(value);
 
   if (metricId === "motion") {
-    const roundedValue = Math.round(numericValue);
-    const count = formatNumber(roundedValue);
+    const digits = Number.isInteger(numericValue) ? 0 : 1;
+    const count = new Intl.NumberFormat(undefined, {
+      maximumFractionDigits: digits,
+    }).format(numericValue);
+
     return compact
       ? count
-      : `${count} detection${roundedValue === 1 ? "" : "s"}`;
+      : `${count} detection${numericValue === 1 ? "" : "s"}`;
   }
 
   const digits = compact ? (numericValue >= 100 ? 0 : 1) : 1;
@@ -348,17 +352,30 @@ function buildLinearTicks(maxValue, toY, count = 5) {
   });
 }
 
+function getNiceCountStep(maxValue, targetSteps = 4) {
+  const roughStep = Math.max(1, Math.ceil(maxValue / targetSteps));
+  const power = 10 ** Math.floor(Math.log10(roughStep));
+  const normalized = roughStep / power;
+  const multiplier =
+    normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+
+  return multiplier * power;
+}
+
+function getNiceCountScale(maxValue) {
+  const rawTopValue = Math.max(1, Math.ceil(Number(maxValue) || 1));
+  const step = rawTopValue <= MAX_UNIT_COUNT_TICK ? 1 : getNiceCountStep(rawTopValue);
+  const topValue = Math.ceil(rawTopValue / step) * step;
+
+  return { step, topValue };
+}
+
 function buildCountTicks(maxValue, toY) {
-  const topValue = Math.max(1, Math.ceil(Number(maxValue) || 1));
-  const step = topValue <= 4 ? 1 : Math.ceil(topValue / 4);
+  const { step, topValue } = getNiceCountScale(maxValue);
   const values = [];
 
   for (let value = 0; value <= topValue; value += step) {
     values.push(value);
-  }
-
-  if (values[values.length - 1] !== topValue) {
-    values.push(topValue);
   }
 
   return values.map((value) => ({
@@ -794,7 +811,7 @@ function AnalyticsPoleList({ poles, selectedId, onSelect }) {
   const selectedHealth = selectedPole?.health || "Waiting";
 
   return (
-    <Card className="analyticsSectionCard analyticsPoleListCard">
+    <section className="analyticsPoleListCard">
       <SectionHeading
         title="Streetlight List"
         description="Analytics is scoped to the selected reporting streetlight."
@@ -834,7 +851,7 @@ function AnalyticsPoleList({ poles, selectedId, onSelect }) {
           <span className="analyticsPolePickerChevron" aria-hidden="true" />
         </div>
       </label>
-    </Card>
+    </section>
   );
 }
 
@@ -842,7 +859,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
   const meta = CHART_METRICS[metricId] || CHART_METRICS.energy;
   const width = 1180;
   const height = 360;
-  const leftPad = 56;
+  const leftPad = metricId === "motion" ? 72 : 56;
   const rightPad = 22;
   const topPad = 18;
   const bottomPad = 56;
@@ -1008,7 +1025,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
   const seriesMaxValue = Math.max(...series.map((point) => Number(point.value || 0)));
   const maxValue =
     metricId === "motion"
-      ? Math.max(4, Math.ceil(seriesMaxValue))
+      ? getNiceCountScale(Math.max(4, Math.ceil(seriesMaxValue))).topValue
       : Math.max(
           metricId === "light_level" || metricId === "humidity" ? 100 : 1,
           seriesMaxValue
@@ -1742,6 +1759,12 @@ function AnalyticsSurface() {
               }
             />
 
+            <AnalyticsPoleList
+              poles={analyticsPoles}
+              selectedId={selectedPole?.streetlight_id || ""}
+              onSelect={setSelectedPoleId}
+            />
+
             <TrendChart
               metricId={selectedChartMetric}
               energySeries={report.energySeries}
@@ -1750,12 +1773,6 @@ function AnalyticsSurface() {
               isLive={isLiveRange}
             />
           </Card>
-
-          <AnalyticsPoleList
-            poles={analyticsPoles}
-            selectedId={selectedPole?.streetlight_id || ""}
-            onSelect={setSelectedPoleId}
-          />
 
           <section className="analyticsMetricGrid">
             <MetricCard

@@ -29,7 +29,9 @@ def test_build_query_matches_writer_multi_measure_schema():
     assert "streetlightId = 'LW-00043'" in query
     assert "AVG(temperature) AS temp_c" in query
     assert "AVG(humidity) AS hum_pct" in query
-    assert "AVG(motion) AS motion" in query
+    assert "SUM(motion) AS motion" in query
+    assert "SUM(motion) AS motion_count" in query
+    assert "COUNT(motion) AS motion_samples" in query
     assert "AVG(light_level) AS light_pct" in query
 
 
@@ -49,6 +51,8 @@ def test_build_queries_includes_legacy_single_measure_schema():
     assert any("measure_value::double" in query for query in queries)
     assert any("temperature_c" in query for query in queries)
     assert any("light_level_pct" in query for query in queries)
+    assert any("motion_count" in query for query in queries)
+    assert any("motion_samples" in query for query in queries)
 
 
 def test_merge_rows_combines_legacy_and_multi_measure_buckets():
@@ -62,6 +66,8 @@ def test_merge_rows_combines_legacy_and_multi_measure_buckets():
             "time": "2026-04-21T19:00:00Z",
             "temp_c": "18",
             "motion": "1",
+            "motion_count": "3",
+            "motion_samples": "8",
         },
         {
             "time": "2026-04-21T19:01:00Z",
@@ -75,6 +81,8 @@ def test_merge_rows_combines_legacy_and_multi_measure_buckets():
             "lux": "91.2",
             "temp_c": "18",
             "motion": "1",
+            "motion_count": "3",
+            "motion_samples": "8",
         },
         {
             "time": "2026-04-21T19:01:00Z",

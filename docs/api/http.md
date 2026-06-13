@@ -116,7 +116,9 @@ the resolved interval.
       "temperature_c": 22.0,
       "humidity_pct": 48.0,
       "light_level_pct": 80.0,
-      "motion": 3
+      "motion": 3,
+      "motion_count": 3,
+      "motion_samples": 12
     }
   ]
 }
