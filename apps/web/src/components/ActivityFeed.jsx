@@ -1,4 +1,3 @@
-import React from "react";
 import UiIcon from "./UiIcon";
 import { formatTimestamp } from "../utils/formatters";
 

@@ -1,4 +1,3 @@
-import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LightWiseProvider } from "./context/LightWiseProvider";
 import { HostedUiEntryRoute, ProtectedRoute } from "./components/AuthGuard";

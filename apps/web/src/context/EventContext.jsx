@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { normalizeEvent } from "../utils/normalizers";
 import { AuthContext } from "./AuthContext";
 import { WSContext } from "./WSContext";

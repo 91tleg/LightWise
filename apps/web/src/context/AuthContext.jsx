@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { getOperatorProfile } from "../services/api";
 import {
   fetchIdTokenSilently,

@@ -1,4 +1,3 @@
-import React from "react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import { useDarkMode } from "../hooks/useDarkMode";
