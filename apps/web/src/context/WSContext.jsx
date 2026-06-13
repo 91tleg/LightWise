@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from "react";
+import { createContext, useContext } from "react";
 import { LIGHTWISE_ENV } from "../config/env";
 import { useWebSocket } from "../hooks/useWebSocket";
 import { fetchIdToken } from "../services/auth";

@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function Legend({ title = "Map Key", compact = false }) {
   return (
     <div className={compact ? "lwLegendCard lwLegendCompact" : "lwLegendCard"}>

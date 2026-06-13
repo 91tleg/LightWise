@@ -1,4 +1,3 @@
-import React from "react";
 import "../styles/lightwise.css";
 
 export default function AuthScreen({ title, message, actionLabel, onAction }) {

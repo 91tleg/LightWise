@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import AuthScreen from "../components/AuthScreen";
 import { useLightWise } from "../hooks/useLightWise";

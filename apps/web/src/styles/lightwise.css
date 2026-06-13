@@ -810,26 +810,9 @@ body.dark {
   background: #c4b5fd;
 }
 
-/* ================= KPI / PANELS / CARDS ================= */
-.lwKpiGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.lwKpiCard {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-}
-
-.lwKpiCard,
-.lwPanel,
+/* ================= CARDS ================= */
 .lwCard,
 .lwLegendCard,
-.lwBubbleCard,
 .lwOperatorCard,
 .lwMapCardShell,
 .lwSummaryCard {
@@ -837,59 +820,6 @@ body.dark {
   border: 1px solid var(--lw-line);
   border-radius: 18px;
   box-shadow: var(--lw-shadow);
-}
-
-.lwKpiIcon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.75);
-  font-size: 18px;
-}
-
-.lwKpiLabel {
-  font-size: 12px;
-  opacity: 0.7;
-  font-weight: 800;
-}
-
-.lwKpiValue {
-  font-size: 20px;
-  font-weight: 1000;
-}
-
-.lwKpiNote {
-  font-size: 12px;
-  opacity: 0.6;
-}
-
-.lwKpiDot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.lwPanelGrid {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.lwPanelTitle {
-  font-weight: 1000;
-  text-align: center;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
-  opacity: 0.85;
-}
-
-.lwPanelBody {
-  padding: 14px;
 }
 
 .lwCard {
@@ -922,54 +852,7 @@ body.dark {
   flex-wrap: wrap;
 }
 
-.lwBottomGrid {
-  display: grid;
-  grid-template-columns: 340px 1fr 340px;
-  gap: 14px;
-}
-
-.lwPoleRow {
-  display: flex;
-  gap: 12px;
-}
-
-.lwPoleAvatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.lwPoleMeta {
-  font-weight: 750;
-  opacity: 0.85;
-}
-
-.lwPoleMeta b {
-  margin-right: 6px;
-}
-
-/* ================= PLACEHOLDER ================= */
-.lwPlaceholder,
-.lwPlaceholderTall {
-  border-radius: 12px;
-  border: 1px dashed rgba(0, 87, 167, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.5;
-  font-weight: 900;
-}
-
-.lwPlaceholder {
-  height: 110px;
-}
-
-.lwPlaceholderTall {
-  height: 260px;
-}
-
-/* ================= MAP / LEGEND / PILLS ================= */
+/* ================= MAP / LEGEND ================= */
 .lwMapBox {
   width: 100%;
   border-radius: 16px;
@@ -1050,144 +933,6 @@ body.dark {
 .lwDot.pulse {
   box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.32);
   animation: lwPulse 1.6s infinite;
-}
-
-.lwPillRow {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.lwPill {
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 1000;
-  font-size: 12px;
-  color: #fff;
-}
-
-.lwPill.green {
-  background: #19b65b;
-}
-
-.lwPill.orange {
-  background: #f0a100;
-}
-
-.lwPill.red {
-  background: #e04343;
-}
-
-/* ================= ADMIN ================= */
-.lwBubbleGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(240px, 1fr));
-  gap: 14px;
-}
-
-.lwBubbleCard {
-  padding: 16px;
-  position: relative;
-  overflow: hidden;
-}
-
-.lwBubbleCard::before,
-.lwBubbleCard::after {
-  content: "";
-  position: absolute;
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  background: rgba(13, 115, 168, 0.1);
-}
-
-.lwBubbleCard::before {
-  top: -70px;
-  left: -60px;
-}
-
-.lwBubbleCard::after {
-  bottom: -80px;
-  right: -70px;
-  background: rgba(43, 212, 111, 0.1);
-}
-
-.lwBubbleTop {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 1;
-  position: relative;
-}
-
-.lwBubbleIcon {
-  width: 54px;
-  height: 54px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.08);
-}
-
-.lwBubbleTitle {
-  font-weight: 1000;
-  font-size: 18px;
-}
-
-.lwBubbleSub {
-  opacity: 0.75;
-  font-weight: 750;
-  font-size: 13px;
-  margin-top: 2px;
-}
-
-.lwBubblePills {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-  z-index: 1;
-  position: relative;
-}
-
-.lwBubblePill {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid var(--line);
-  font-weight: 900;
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.lwBubbleBtnRow {
-  display: flex;
-  gap: 10px;
-  margin-top: 14px;
-  position: relative;
-  z-index: 1;
-}
-
-.lwBubbleBtn {
-  border: 0;
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-weight: 1000;
-  cursor: pointer;
-  background: #0b63a6;
-  color: #ff7a00;
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.12);
-}
-
-.lwBubbleBtn.ghost {
-  background: rgba(255, 255, 255, 0.75);
-  color: #0b63a6;
-  border: 1px solid var(--line);
-  box-shadow: none;
 }
 
 /* ================= LOGIN ================= */
@@ -1409,18 +1154,6 @@ body.dark {
   color: #6a7d90;
 }
 
-@media (max-width: 1100px) {
-  .lwKpiGrid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .lwPanelGrid,
-  .lwBottomGrid,
-  .lwBubbleGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 900px) {
   .lwTopbarBrandImageWrap {
     width: 236px;
@@ -1469,12 +1202,6 @@ body.dark {
 
   .lwMenu {
     width: min(260px, calc(100vw - var(--railW) - 8px));
-  }
-}
-
-@media (max-width: 650px) {
-  .lwKpiGrid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -1539,10 +1266,7 @@ body.dark .lwMenuItem.isActive {
 }
 
 body.dark .lwCard,
-body.dark .lwPanel,
 body.dark .lwLegendCard,
-body.dark .lwBubbleCard,
-body.dark .lwKpiCard,
 body.dark .lwOperatorCard,
 body.dark .lwMapCardShell,
 body.dark .lwSummaryCard {
@@ -1553,7 +1277,6 @@ body.dark .lwSummaryCard {
 }
 
 body.dark .lwCardTitle,
-body.dark .lwPanelTitle,
 body.dark .lwLegendTitle,
 body.dark .lwOperatorMenuTitle,
 body.dark .lwPageTitle {
@@ -1607,12 +1330,6 @@ body.dark .lwPrimaryBtn {
 body.dark .lwSecondaryBtn {
   border-color: #5bb9ff;
   color: #9fd6ff;
-}
-
-body.dark .lwBubbleBtn.ghost {
-  background: rgba(255, 255, 255, 0.08);
-  color: #d9e9f5;
-  border-color: rgba(255, 255, 255, 0.08);
 }
 
 body.dark .lwLogin {

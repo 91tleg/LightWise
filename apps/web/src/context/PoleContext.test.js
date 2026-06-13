@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import { useContext } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AuthContext } from "./AuthContext";
 import { PoleContext, PoleProvider } from "./PoleContext";

@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function Card({ title, actions, children, className = "" }) {
   return (
     <section className={`lwCard ${className}`.trim()}>

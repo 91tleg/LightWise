@@ -61,6 +61,18 @@ function waitingSensorHealth() {
   return { value: "Waiting for data", tone: "neutral" };
 }
 
+function getSensorDiagnostics(pole) {
+  const diagnostics = pole?.diagnostics || {};
+
+  return {
+    overallOk: diagnostics?.overall_ok ?? pole?.overall_ok ?? null,
+    ambientHealth: diagnostics?.ambient_health ?? pole?.ambient_health ?? null,
+    mmwaveHealth: diagnostics?.mmwave_health ?? pole?.mmwave_health ?? null,
+    thOk: diagnostics?.th_ok ?? pole?.th_ok ?? null,
+    lightOk: diagnostics?.light_ok ?? pole?.light_ok ?? null,
+  };
+}
+
 function sensorHealthDetail(label, ...candidates) {
   return {
     label,
@@ -159,15 +171,13 @@ export function getOverviewConnectionSummary(
 }
 
 export function getSensorHealthDetails(pole) {
-  const diagnostics = pole?.diagnostics || {};
-  const overallOk =
-    diagnostics?.overall_ok ?? pole?.overall_ok ?? null;
-  const ambientHealth =
-    diagnostics?.ambient_health ?? pole?.ambient_health ?? null;
-  const mmwaveHealth =
-    diagnostics?.mmwave_health ?? pole?.mmwave_health ?? null;
-  const thOk = diagnostics?.th_ok ?? pole?.th_ok ?? null;
-  const lightOk = diagnostics?.light_ok ?? pole?.light_ok ?? null;
+  const {
+    overallOk,
+    ambientHealth,
+    mmwaveHealth,
+    thOk,
+    lightOk,
+  } = getSensorDiagnostics(pole);
   const ambientStatus = sensorHealthFromText(ambientHealth);
   const temperatureHumidityStatus = sensorHealthFromBool(thOk);
   const lightStatus = sensorHealthFromBool(lightOk);
@@ -194,15 +204,13 @@ export function getSensorHealthDetails(pole) {
 }
 
 export function getCombinedSensorHealth(pole) {
-  const diagnostics = pole?.diagnostics || {};
-  const overallOk =
-    diagnostics?.overall_ok ?? pole?.overall_ok ?? null;
-  const ambientHealth =
-    diagnostics?.ambient_health ?? pole?.ambient_health ?? null;
-  const mmwaveHealth =
-    diagnostics?.mmwave_health ?? pole?.mmwave_health ?? null;
-  const thOk = diagnostics?.th_ok ?? pole?.th_ok ?? null;
-  const lightOk = diagnostics?.light_ok ?? pole?.light_ok ?? null;
+  const {
+    overallOk,
+    ambientHealth,
+    mmwaveHealth,
+    thOk,
+    lightOk,
+  } = getSensorDiagnostics(pole);
   const legacyChecks = [
     pole?.ambient_primary_ok,
     pole?.ambient_secondary_ok,

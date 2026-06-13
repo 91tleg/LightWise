@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function MetricRow({ label, value, tone = "neutral" }) {
   return (
     <div className="lwMetricRow">

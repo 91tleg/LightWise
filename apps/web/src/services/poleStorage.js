@@ -4,9 +4,6 @@ const TELEMETRY_KEY = "lightwise_telemetry_cache";
 const ACTIVE_POLE_KEY = "lightwise_active_pole_id";
 export const POLE_META_UPDATED_EVENT = "lightwise:pole-meta-updated";
 
-/* ----------------------------- */
-/* basic safe localStorage utils */
-/* ----------------------------- */
 function safeRead(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -20,7 +17,7 @@ function safeWrite(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // ignore storage errors
+    // localStorage can be unavailable in private mode.
   }
 }
 
@@ -30,10 +27,6 @@ function emitPoleMetaUpdated() {
   window.dispatchEvent(new CustomEvent(POLE_META_UPDATED_EVENT));
 }
 
-/* ----------------------------- */
-/* poles list API               */
-/* used by LightWiseProvider    */
-/* ----------------------------- */
 export function loadPoles() {
   const value = safeRead(POLES_KEY, []);
   return Array.isArray(value) ? value : [];
@@ -43,12 +36,6 @@ export function savePoles(poles) {
   safeWrite(POLES_KEY, Array.isArray(poles) ? poles : []);
 }
 
-/* ----------------------------- */
-/* pole meta map API            */
-/* used by Admin / Map_View     */
-/* contract-aligned local keys: */
-/* streetlight_id, name, lat,lng*/
-/* ----------------------------- */
 export function loadPoleMetaMap() {
   const value = safeRead(META_KEY, {});
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -140,11 +127,6 @@ export function mergePoleWithLocalMeta(pole = {}) {
   };
 }
 
-/* ----------------------------- */
-/* compatibility exports        */
-/* so older code stops breaking */
-/* ----------------------------- */
-
 export function savePoleCoords(streetlightId, latitude, longitude) {
   upsertPoleMeta(streetlightId, {
     lat: latitude,
@@ -192,7 +174,6 @@ export function mergeCoordsWithBackend(streetlights = []) {
   );
 }
 
-/* telemetry compatibility no-op store */
 export function readTelemetryCache() {
   const value = safeRead(TELEMETRY_KEY, {});
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -248,9 +229,8 @@ export function deletePoleCompletely(streetlightId) {
     if (localStorage.getItem(ACTIVE_POLE_KEY) === id) {
       localStorage.removeItem(ACTIVE_POLE_KEY);
     }
-
   } catch {
-    // ignore storage failures
+    // localStorage can be unavailable in private mode.
   }
 
   emitPoleMetaUpdated();
@@ -294,9 +274,8 @@ export function pruneStoredPoleState(validStreetlightIds = []) {
     if (pruneUnknownId(localStorage.getItem(ACTIVE_POLE_KEY))) {
       localStorage.removeItem(ACTIVE_POLE_KEY);
     }
-
   } catch {
-    // ignore storage failures
+    // localStorage can be unavailable in private mode.
   }
 
   emitPoleMetaUpdated();

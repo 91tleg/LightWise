@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Layout from "../components/Layout";
 import Card from "../components/Card";
 import UiIcon from "../components/UiIcon";
@@ -1861,7 +1861,7 @@ function AnalyticsSurface() {
                         const expanded = expandedZones.includes(zone.zone);
 
                         return (
-                          <React.Fragment key={zone.zone}>
+                          <Fragment key={zone.zone}>
                             <tr className={`analyticsZoneRow${expanded ? " isExpanded" : ""}`}>
                               <td>
                                 <button
@@ -1909,7 +1909,7 @@ function AnalyticsSurface() {
                                   </tr>
                                 ))
                               : null}
-                          </React.Fragment>
+                          </Fragment>
                         );
                       })}
                     </tbody>
