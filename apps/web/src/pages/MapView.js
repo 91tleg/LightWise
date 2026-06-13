@@ -10,17 +10,22 @@ import {
   mergeBackendAndLocalPoles,
   pickBestCenter,
 } from "../utils/poleHelpers";
+import { getOverviewMarkerTone } from "./overview.helpers";
 import "../styles/lightwise.css";
 
+const MAP_STATUS_TICK_MS = 5 * 1000;
+
 export default function MapView() {
-  const { streetlights } = useLightWise();
+  const { streetlights, refreshStreetlights } = useLightWise();
 
   const [localMeta, setLocalMeta] = useState(() => loadPoleMetaMap());
   const [selectedId, setSelectedId] = useState(() => readActivePoleId());
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
 
   useEffect(() => {
     const onFocus = () => {
       setLocalMeta(loadPoleMetaMap());
+      refreshStreetlights?.();
     };
 
     window.addEventListener("focus", onFocus);
@@ -30,10 +35,20 @@ export default function MapView() {
       window.removeEventListener("focus", onFocus);
       unsubscribe();
     };
+  }, [refreshStreetlights]);
+
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setCurrentTimeMs(Date.now()),
+      MAP_STATUS_TICK_MS
+    );
+    return () => window.clearInterval(timer);
   }, []);
 
   const mergedPoles = useMemo(() => {
-    return mergeBackendAndLocalPoles(streetlights, localMeta);
+    return mergeBackendAndLocalPoles(streetlights, localMeta, {
+      preferBackendCoordinates: true,
+    });
   }, [streetlights, localMeta]);
 
   useEffect(() => {
@@ -52,10 +67,13 @@ export default function MapView() {
   }, [selectedId]);
 
   const validPoles = useMemo(() => {
-    return mergedPoles.filter(
-      (pole) => isValidCoord(pole?.lat) && isValidCoord(pole?.lng)
-    );
-  }, [mergedPoles]);
+    return mergedPoles
+      .filter((pole) => isValidCoord(pole?.lat) && isValidCoord(pole?.lng))
+      .map((pole) => ({
+        ...pole,
+        marker_tone: getOverviewMarkerTone(pole, currentTimeMs),
+      }));
+  }, [currentTimeMs, mergedPoles]);
 
   const mapCenter = useMemo(() => pickBestCenter(validPoles), [validPoles]);
 

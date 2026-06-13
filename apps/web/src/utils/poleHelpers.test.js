@@ -1,4 +1,7 @@
-import { normalizeStreetlightFromApi } from "./poleHelpers";
+import {
+  mergeBackendAndLocalPoles,
+  normalizeStreetlightFromApi,
+} from "./poleHelpers";
 
 describe("normalizeStreetlightFromApi", () => {
   test("reads nested location and diagnostics from the updated list contract", () => {
@@ -53,5 +56,60 @@ describe("normalizeStreetlightFromApi", () => {
         },
       })
     );
+  });
+});
+
+describe("mergeBackendAndLocalPoles", () => {
+  test("can prefer shared backend coordinates over stale local metadata", () => {
+    expect(
+      mergeBackendAndLocalPoles(
+        [
+          {
+            streetlight_id: "LW-00001",
+            name: "Main",
+            lat: 47.6,
+            lng: -122.2,
+          },
+        ],
+        {
+          "LW-00001": {
+            name: "Local Main",
+            lat: 1,
+            lng: 2,
+          },
+        },
+        { preferBackendCoordinates: true }
+      )
+    ).toEqual([
+      {
+        streetlight_id: "LW-00001",
+        name: "Local Main",
+        lat: 47.6,
+        lng: -122.2,
+      },
+    ]);
+  });
+
+  test("keeps local coordinates for local-only streetlights", () => {
+    expect(
+      mergeBackendAndLocalPoles(
+        [],
+        {
+          "LW-LOCAL": {
+            name: "Local only",
+            lat: 47.61,
+            lng: -122.2,
+          },
+        },
+        { preferBackendCoordinates: true }
+      )
+    ).toEqual([
+      expect.objectContaining({
+        streetlight_id: "LW-LOCAL",
+        name: "Local only",
+        lat: 47.61,
+        lng: -122.2,
+      }),
+    ]);
   });
 });
