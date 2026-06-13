@@ -23,8 +23,8 @@ def _window(hours: int = 1) -> tuple[datetime, datetime]:
 
 class TestDelegation:
     def test_returns_reader_data(self):
-        rows = [{"time": "2024-01-01T12:00:00Z", "lux": 123.4}]
-        use_case, reader = _use_case(data=rows)
+        rows = [{"time": "2024-01-01T12:00:00Z", "lux": 123.4, "motion": 3}]
+        use_case, _ = _use_case(data=rows)
         from_dt, to_dt = _window(hours=1)
         result = use_case.execute(
             tenant_id="tenant-1",
@@ -33,7 +33,7 @@ class TestDelegation:
             to_dt=to_dt,
             interval=TelemetryInterval("5m"),
         )
-        assert result == rows
+        assert result["rows"] == rows
 
     def test_reader_called_with_correct_args(self):
         use_case, reader = _use_case()
@@ -53,7 +53,7 @@ class TestDelegation:
             interval="5m",
         )
 
-    def test_returns_empty_list_when_no_data(self):
+    def test_returns_empty_rows_and_zero_motion_when_no_data(self):
         use_case, _ = _use_case(data=[])
         from_dt, to_dt = _window()
         result = use_case.execute(
@@ -63,7 +63,59 @@ class TestDelegation:
             to_dt=to_dt,
             interval=TelemetryInterval("5m"),
         )
-        assert result == []
+        assert result == {"rows": [], "motion_total": 0}
+
+
+class TestMotionTotal:
+    def test_sums_motion_across_rows(self):
+        rows = [
+            {"time": "2024-01-01T00:00:00Z", "motion": 10},
+            {"time": "2024-01-02T00:00:00Z", "motion": 25},
+            {"time": "2024-01-03T00:00:00Z", "motion": 7},
+        ]
+        use_case, _ = _use_case(data=rows)
+        from_dt, to_dt = _window(hours=72)
+        result = use_case.execute(
+            tenant_id="tenant-1",
+            streetlight_id="sl-001",
+            from_dt=from_dt,
+            to_dt=to_dt,
+            interval=TelemetryInterval("1d"),
+        )
+        assert result["motion_total"] == 42
+
+    def test_motion_total_zero_when_all_null(self):
+        rows = [
+            {"time": "2024-01-01T00:00:00Z", "motion": None},
+            {"time": "2024-01-02T00:00:00Z", "motion": None},
+        ]
+        use_case, _ = _use_case(data=rows)
+        from_dt, to_dt = _window(hours=48)
+        result = use_case.execute(
+            tenant_id="tenant-1",
+            streetlight_id="sl-001",
+            from_dt=from_dt,
+            to_dt=to_dt,
+            interval=TelemetryInterval("1d"),
+        )
+        assert result["motion_total"] == 0
+
+    def test_motion_total_skips_null_rows(self):
+        rows = [
+            {"time": "2024-01-01T00:00:00Z", "motion": 5},
+            {"time": "2024-01-02T00:00:00Z", "motion": None},
+            {"time": "2024-01-03T00:00:00Z", "motion": 8},
+        ]
+        use_case, _ = _use_case(data=rows)
+        from_dt, to_dt = _window(hours=72)
+        result = use_case.execute(
+            tenant_id="tenant-1",
+            streetlight_id="sl-001",
+            from_dt=from_dt,
+            to_dt=to_dt,
+            interval=TelemetryInterval("1d"),
+        )
+        assert result["motion_total"] == 13
 
 
 class TestIntervalResolution:

@@ -72,12 +72,11 @@ def handler(event: dict, context: object) -> dict:
             to_dt=to_dt,
             interval=interval,
         )
-        return success(
-            {
-                "streetlight_id": streetlight_id,
-                "data": data
-            }
-        )
+        return success({
+            "streetlight_id": streetlight_id,
+            "motion_total": data["motion_total"],
+            "data": data["rows"],
+        })
     except Exception:
         logger.exception(
             "Failed to query telemetry",
