@@ -85,14 +85,17 @@ export function normalizeStreetlightFromApi(pole, index = 0) {
   };
 }
 
-export function mergeLocalMetaIntoPole(pole, localMeta = {}) {
+export function mergeLocalMetaIntoPole(pole, localMeta = {}, options = {}) {
   const local = localMeta[pole?.streetlight_id] || {};
+  const preferBackendCoordinates = Boolean(options.preferBackendCoordinates);
+  const useBackendCoordinates =
+    preferBackendCoordinates && (hasOwn(pole, "lat") || hasOwn(pole, "lng"));
 
   return {
     ...pole,
     name: hasOwn(local, "name") ? local.name : pole.name,
-    lat: hasOwn(local, "lat") ? local.lat : pole.lat,
-    lng: hasOwn(local, "lng") ? local.lng : pole.lng,
+    lat: useBackendCoordinates ? pole.lat : hasOwn(local, "lat") ? local.lat : pole.lat,
+    lng: useBackendCoordinates ? pole.lng : hasOwn(local, "lng") ? local.lng : pole.lng,
   };
 }
 
@@ -186,16 +189,16 @@ export function buildLocalOnlyPoles(localMeta = {}) {
   });
 }
 
-export function mergeBackendAndLocalPoles(backendPoles = [], localMeta = {}) {
+export function mergeBackendAndLocalPoles(backendPoles = [], localMeta = {}, options = {}) {
   const mergedBackend = backendPoles.map((pole) =>
-    mergeLocalMetaIntoPole(pole, localMeta)
+    mergeLocalMetaIntoPole(pole, localMeta, options)
   );
 
   const seen = new Set(mergedBackend.map((pole) => pole.streetlight_id));
 
   const localOnly = buildLocalOnlyPoles(localMeta)
     .filter((pole) => !seen.has(pole.streetlight_id))
-    .map((pole) => mergeLocalMetaIntoPole(pole, localMeta));
+    .map((pole) => mergeLocalMetaIntoPole(pole, localMeta, options));
 
   return [...mergedBackend, ...localOnly];
 }
