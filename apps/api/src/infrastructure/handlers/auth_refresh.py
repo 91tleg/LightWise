@@ -12,7 +12,7 @@ import urllib.request
 
 from infrastructure.auth.cookie import build_auth_cookies, extract_cookie
 from infrastructure.auth.cognito_config import get_cognito_config
-from libs.response import error
+from libs.response import CORS_HEADERS, error
 
 _config = get_cognito_config()
 
@@ -28,6 +28,7 @@ def handler(event: dict, context: object) -> dict:
 
     return {
         "statusCode": 200,
+        "headers": CORS_HEADERS,
         "multiValueHeaders": {
             "Set-Cookie": build_auth_cookies(tokens),
         },

@@ -1,5 +1,3 @@
-import "./config/amplify";
-import "aws-amplify/auth/enable-oauth-listener";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";

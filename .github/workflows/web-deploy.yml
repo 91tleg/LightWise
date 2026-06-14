@@ -20,18 +20,11 @@ jobs:
         working-directory: apps/web
 
     env:
-      REACT_APP_WS_URL: ${{ secrets.REACT_APP_WS_URL }}
-      REACT_APP_API_BASE: ${{ secrets.REACT_APP_API_BASE }}
-      REACT_APP_COGNITO_USER_POOL_ID: ${{ secrets.REACT_APP_COGNITO_USER_POOL_ID }}
-      REACT_APP_COGNITO_DOMAIN: ${{ secrets.REACT_APP_COGNITO_DOMAIN }}
-      REACT_APP_COGNITO_CLIENT_ID: ${{ secrets.REACT_APP_COGNITO_CLIENT_ID }}
-      REACT_APP_COGNITO_REDIRECT_URI: ${{ secrets.REACT_APP_COGNITO_REDIRECT_URI }}
-      REACT_APP_COGNITO_LOGOUT_URI: ${{ secrets.REACT_APP_COGNITO_LOGOUT_URI }}
-      REACT_APP_COGNITO_SCOPES: ${{ secrets.REACT_APP_COGNITO_SCOPES }}
       REACT_APP_USE_MOCK: ${{ secrets.REACT_APP_USE_MOCK }}
       REACT_APP_TENANT_ID: ${{ secrets.REACT_APP_TENANT_ID }}
       REACT_APP_DEFAULT_STREETLIGHT_ID: ${{ secrets.REACT_APP_DEFAULT_STREETLIGHT_ID }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      API_STACK_NAME: ${{ secrets.API_STACK_NAME }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
 
     steps:
@@ -45,6 +38,54 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Load API stack outputs
+        run: |
+          STACK_NAME="${API_STACK_NAME:-lightwise-api}"
+          OUTPUTS="$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs" \
+            --output json)"
+
+          get_output() {
+            node -e "const outputs = JSON.parse(process.argv[1]); const key = process.argv[2]; const item = outputs.find((entry) => entry.OutputKey === key); process.stdout.write(item?.OutputValue || '');" "$OUTPUTS" "$1"
+          }
+
+          REACT_APP_WS_URL="$(get_output WebSocketEndpoint)"
+          REACT_APP_API_BASE="$(get_output RestApiEndpoint)"
+          REACT_APP_COGNITO_DOMAIN="$(get_output CognitoHostedUiDomain)"
+          REACT_APP_COGNITO_CLIENT_ID="$(get_output CognitoClientId)"
+          REACT_APP_COGNITO_REDIRECT_URI="$(get_output CognitoRedirectUri)"
+          REACT_APP_COGNITO_LOGOUT_URI="$(get_output CognitoLogoutUri)"
+
+          for name in \
+            REACT_APP_API_BASE \
+            REACT_APP_COGNITO_DOMAIN \
+            REACT_APP_COGNITO_CLIENT_ID \
+            REACT_APP_COGNITO_REDIRECT_URI \
+            REACT_APP_COGNITO_LOGOUT_URI
+          do
+            if [ -z "${!name}" ]; then
+              echo "Missing required CloudFormation output for $name"
+              exit 1
+            fi
+          done
+
+          {
+            echo "REACT_APP_WS_URL=$REACT_APP_WS_URL"
+            echo "REACT_APP_API_BASE=$REACT_APP_API_BASE"
+            echo "REACT_APP_COGNITO_DOMAIN=$REACT_APP_COGNITO_DOMAIN"
+            echo "REACT_APP_COGNITO_CLIENT_ID=$REACT_APP_COGNITO_CLIENT_ID"
+            echo "REACT_APP_COGNITO_REDIRECT_URI=$REACT_APP_COGNITO_REDIRECT_URI"
+            echo "REACT_APP_COGNITO_LOGOUT_URI=$REACT_APP_COGNITO_LOGOUT_URI"
+          } >> "$GITHUB_ENV"
+
       - name: Install dependencies
         run: npm ci
 
@@ -56,13 +97,6 @@ jobs:
 
       - name: Add SPA fallback
         run: cp build/index.html build/404.html
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Upload hashed static assets
         run: |

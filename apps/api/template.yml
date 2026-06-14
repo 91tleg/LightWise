@@ -711,6 +711,12 @@ Outputs:
   CognitoHostedUiDomain:
     Description: Cognito Hosted UI base URL
     Value: !Sub "https://${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
+  CognitoRedirectUri:
+    Description: Cognito callback URI handled by the API
+    Value: !Ref CognitoRedirectUri
+  CognitoLogoutUri:
+    Description: Frontend URI Cognito redirects to after logout
+    Value: !Ref CognitoLogoutUri
   CognitoLoginUrl:
     Description: Direct login URL for the Hosted UI
     Value: !Sub "https://${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com/login?client_id=${CognitoAppClient}&response_type=code&scope=email+openid+profile&redirect_uri=${CognitoRedirectUri}"
