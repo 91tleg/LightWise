@@ -28,7 +28,7 @@ def handler(event: dict, context: object) -> dict:
         return error(401, "Token exchange failed")
 
     return {
-        "statusCode": 302,
+        "statusCode": 200,
         "multiValueHeaders": {
             "Location": [settings.FRONTEND_URL],
             "Set-Cookie": build_auth_cookies(tokens),

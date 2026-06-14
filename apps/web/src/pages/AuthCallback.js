@@ -9,7 +9,17 @@ export default function AuthCallback() {
       window.location.href = "/";
       return;
     }
-    window.location.href = `${process.env.REACT_APP_API_BASE}/auth/callback?code=${code}`;
+
+    fetch(`${process.env.REACT_APP_API_BASE}/auth/callback?code=${code}`, {
+      method: "GET",
+      credentials: "include",
+    })
+      .then(() => {
+        window.location.href = "/";
+      })
+      .catch(() => {
+        window.location.href = "/";
+      });
   }, []);
 
   return (
