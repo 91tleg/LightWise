@@ -1,11 +1,9 @@
 import json
-import os
+from libs.config import settings
 
-
-_ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost:3001")
 
 CORS_HEADERS = {
-    "Access-Control-Allow-Origin": _ALLOWED_ORIGIN,
+    "Access-Control-Allow-Origin": settings.ALLOWED_ORIGIN,
     "Access-Control-Allow-Headers": "Content-Type,Cookie",
     "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,PATCH,OPTIONS",
     "Access-Control-Allow-Credentials": "true",
@@ -17,7 +15,7 @@ def success(body):
     return {
         "statusCode": 200,
         "headers": CORS_HEADERS,
-        "body": json.dumps(body)
+        "body": json.dumps(body),
     }
 
 
@@ -25,5 +23,5 @@ def error(status_code, message):
     return {
         "statusCode": status_code,
         "headers": CORS_HEADERS,
-        "body": json.dumps({"error": message})
+        "body": json.dumps({"error": message}),
     }
