@@ -86,6 +86,10 @@ Resources:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Sub "lightwise-${Env}"
+      LambdaConfig:
+        PreTokenGenerationConfig:
+          LambdaArn: !GetAtt PreTokenGenerationFunction.Arn
+          LambdaVersion: V2_0
 
       UsernameAttributes:
         - email
@@ -177,6 +181,7 @@ Resources:
         - openid
         - phone
         - profile
+        - offline_access
 
       CallbackURLs:
         - !Ref CognitoRedirectUri
@@ -419,6 +424,19 @@ Resources:
           Properties:
             Path: /streetlights/{id}/commands
             Method: get
+
+  PreTokenGenerationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.pre_token_generation.handler
+
+  PreTokenGenerationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PreTokenGenerationFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt CognitoUserPool.Arn
 
   WebSocketApi:
     Type: AWS::ApiGatewayV2::Api
