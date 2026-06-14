@@ -11,7 +11,7 @@ def extract_cookie(event: dict, name: str) -> str | None:
 
 
 def build_auth_cookies(tokens: dict) -> list[str]:
-    secure = "HttpOnly; SameSite=Lax"
+    secure = "HttpOnly; Secure; SameSite=None"
 
     access_cookie = (
         f"access_token={tokens['access_token']}; "
@@ -23,9 +23,13 @@ def build_auth_cookies(tokens: dict) -> list[str]:
         f"{secure}; Path=/; Max-Age=3600"
     )
 
-    refresh_cookie = (
-        f"refresh_token={tokens.get('refresh_token', '')}; "
-        f"{secure}; Path=/auth/refresh; Max-Age=2592000"
-    )
+    cookies = [access_cookie, id_cookie]
 
-    return [access_cookie, id_cookie, refresh_cookie]
+    if tokens.get("refresh_token"):
+        refresh_cookie = (
+            f"refresh_token={tokens['refresh_token']}; "
+            f"{secure}; Path=/; Max-Age=2592000"
+        )
+        cookies.append(refresh_cookie)
+
+    return cookies
