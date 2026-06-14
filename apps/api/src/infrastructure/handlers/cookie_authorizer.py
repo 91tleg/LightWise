@@ -11,6 +11,7 @@ from infrastructure.auth.cookie import extract_cookie
 from infrastructure.auth.cognito_config import get_cognito_config
 from infrastructure.auth.cognito_verifier import CognitoVerifier
 from infrastructure.auth.iam import allow_policy
+from libs.logging import logger
 
 
 _verifier = CognitoVerifier(get_cognito_config())
@@ -19,12 +20,22 @@ _verifier = CognitoVerifier(get_cognito_config())
 def handler(event: dict, context: object) -> dict:
     token = extract_cookie(event, "access_token")
     if not token:
+        logger.error(
+            "No access_token cookie found. Headers: %s", event.get("headers")
+        )
         raise Exception("Unauthorized")
 
     try:
         claims = _verifier.verify(token)
-    except AuthError:
+    except AuthError as e:
+        logger.error("Token verification failed: %s", str(e))
         raise Exception("Unauthorized")
+
+    logger.info(
+        "Authorized sub=%s tenant_id=%s",
+        claims.sub,
+        claims.tenant_id,
+    )
 
     return allow_policy(
         principal_id=claims.sub,
