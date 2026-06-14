@@ -1,11 +1,15 @@
 """
 Auth callback handler.
+
 Trigger: API Gateway REST GET /auth/callback
+
 Exchanges a Cognito authorization code for tokens and sets HttpOnly cookies.
 Cognito redirects here after successful login with ?code=xxx.
 """
+
 from __future__ import annotations
 
+import json
 import urllib.parse
 import urllib.request
 
@@ -30,10 +34,15 @@ def handler(event: dict, context: object) -> dict:
     return {
         "statusCode": 200,
         "multiValueHeaders": {
-            "Location": [settings.FRONTEND_URL],
             "Set-Cookie": build_auth_cookies(tokens),
         },
-        "body": "",
+        "headers": {
+            "Access-Control-Allow-Origin": settings.ALLOWED_ORIGIN,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Headers": "Content-Type,Cookie",
+            "Content-Type": "application/json",
+        },
+        "body": json.dumps({"ok": True}),
     }
 
 
@@ -42,11 +51,11 @@ def _exchange_code(code: str) -> dict | None:
         "grant_type":   "authorization_code",
         "client_id":    _config.client_id,
         "code":         code,
-        "redirect_uri": settings.COGNITO_REDIRECT_URI,
+        "redirect_uri": _config.redirect_uri,
     }).encode()
 
     req = urllib.request.Request(
-        f"https://{settings.COGNITO_DOMAIN}/oauth2/token",
+        _config.token_url,
         data=payload,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         method="POST",
@@ -54,7 +63,6 @@ def _exchange_code(code: str) -> dict | None:
 
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
-            import json
             return json.loads(r.read())
     except Exception:
         return None

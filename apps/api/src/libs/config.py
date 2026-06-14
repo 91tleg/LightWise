@@ -53,6 +53,7 @@ class Config:
         self.COGNITO_DOMAIN = os.getenv("COGNITO_DOMAIN", "")
         self.COGNITO_REDIRECT_URI = os.getenv("COGNITO_REDIRECT_URI", "")
         self.FRONTEND_URL = os.getenv("FRONTEND_URL", "")
+        self.ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "")
         self.AUTH_ENABLED = os.getenv(
             "AUTH_ENABLED", "true"
         ).lower() == "true"
