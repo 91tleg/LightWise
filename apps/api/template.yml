@@ -82,6 +82,30 @@ Globals:
         INFLUX_BUCKET:                   streetlight-telemetry
 
 Resources:
+  GatewayResponseUnauthorized:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref ServerlessRestApi
+      ResponseType: UNAUTHORIZED
+      StatusCode: "401"
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
+        gatewayresponse.header.Access-Control-Allow-Credentials: "'true'"
+      ResponseTemplates:
+        application/json: '{"error": "Unauthorized"}'
+
+  GatewayResponseDenied:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref ServerlessRestApi
+      ResponseType: ACCESS_DENIED
+      StatusCode: "403"
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
+        gatewayresponse.header.Access-Control-Allow-Credentials: "'true'"
+      ResponseTemplates:
+        application/json: '{"error": "Forbidden"}'
+
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -429,6 +453,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: infrastructure.handlers.pre_token_generation.handler
+      Environment:
+        Variables:
+          ENV: !Ref Env
 
   PreTokenGenerationPermission:
     Type: AWS::Lambda::Permission
@@ -436,7 +463,7 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref PreTokenGenerationFunction
       Principal: cognito-idp.amazonaws.com
-      SourceArn: !GetAtt CognitoUserPool.Arn
+      SourceArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*"
 
   WebSocketApi:
     Type: AWS::ApiGatewayV2::Api
