@@ -23,7 +23,7 @@ Parameters:
     Default: "true"
   AllowedOrigin:
     Type: String
-    Default: "'*'"
+    Default: "http://localhost:3001"
   FrontendUrl:
     Type: String
     Default: "http://localhost:3001"
@@ -39,7 +39,7 @@ Globals:
     Cors:
       AllowMethods: "'GET,PUT,POST,DELETE,PATCH,OPTIONS'"
       AllowHeaders: "'Content-Type,Cookie'"
-      AllowOrigin: !Ref AllowedOrigin
+      AllowOrigin: !Sub "'${AllowedOrigin}'"
       AllowCredentials: true
     Auth:
       DefaultAuthorizer: CookieAuthorizer
