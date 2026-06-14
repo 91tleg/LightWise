@@ -1,6 +1,6 @@
 import { pruneStoredPoleState } from "./poleStorage";
 import { normalizeStreetlightFromApi } from "../utils/poleHelpers";
-import { fetchIdTokenSilently, emitAuthRequired, redirectToSignIn } from "./auth";
+import { emitAuthRequired, redirectToSignIn } from "./auth";
 import { LIGHTWISE_ENV } from "../config/env";
 import {
   normalizeOperatorProfile,
@@ -27,19 +27,11 @@ const ALLOWED_INTERVALS = new Set([
   "1h", "6h", "12h", "1d", "7d", "30d",
 ]);
 
-async function apiFetch(path, { method = "GET", body, headers, query } = {}, { token } = {}) {
+async function apiFetch(path, { method = "GET", body, headers, query } = {}) {
   const { API_BASE } = LIGHTWISE_ENV;
   if (!API_BASE) throw new Error("LightWise is not ready yet. Please try again later.");
 
   const url      = buildUrl(path, query);
-  const idToken  = String(token || "").trim() || (await fetchIdTokenSilently());
-
-  if (!idToken) {
-    emitAuthRequired("missing_token");
-    await redirectToSignIn();
-    throw apiError("Please sign in again.", 401);
-  }
-
   const hasBody = body !== undefined && body !== null;
 
   let res;
@@ -49,8 +41,8 @@ async function apiFetch(path, { method = "GET", body, headers, query } = {}, { t
       headers: {
         ...(hasBody ? { "Content-Type": "application/json" } : {}),
         ...(headers || {}),
-        Authorization: idToken,
       },
+      credentials: "include",
       body: hasBody ? JSON.stringify(body) : undefined,
     });
   } catch (cause) {
@@ -218,9 +210,9 @@ function normalizeCommandHistoryResponse(data, streetlightId) {
   };
 }
 
-export async function getOperatorProfile(token) {
+export async function getOperatorProfile() {
   if (LIGHTWISE_ENV.USE_MOCK) return normalizeOperatorProfile(MOCK_PROFILE);
-  const data = await apiFetch("/auth/me", { method: "GET" }, { token });
+  const data = await apiFetch("/auth/me", { method: "GET" });
   return normalizeOperatorProfile(data);
 }
 

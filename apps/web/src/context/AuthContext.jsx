@@ -1,11 +1,12 @@
 import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { getOperatorProfile } from "../services/api";
 import {
-  fetchIdTokenSilently,
-  waitForIdToken,
   subscribeToAuthRequired,
   redirectToSignIn,
   redirectToSignOut,
+  refreshTokens,
+  startTokenRefresh,
+  stopTokenRefresh,
 } from "../services/auth";
 
 export const AuthContext = createContext(null);
@@ -24,6 +25,7 @@ export function AuthProvider({ children }) {
   const inflightRef = useRef(null);
 
   const clearAuth = useCallback(() => {
+    stopTokenRefresh();
     setOperator(null);
     setAuthStatus("unauthenticated");
     setAuthError(null);
@@ -31,7 +33,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => subscribeToAuthRequired(clearAuth), [clearAuth]);
 
-  const loadProfile = useCallback(async ({ token = "", force = false } = {}) => {
+  const loadProfile = useCallback(async ({ force = false } = {}) => {
     if (!force && operator) { setAuthStatus("authenticated"); return operator; }
     if (!force && inflightRef.current) return inflightRef.current;
 
@@ -39,13 +41,15 @@ export function AuthProvider({ children }) {
       setAuthStatus("loading");
       setAuthError(null);
 
-      const idToken = String(token || "").trim() || (await fetchIdTokenSilently());
-      if (!idToken) { clearAuth(); return null; }
+      try {
+        await refreshTokens({ emitOnFailure: false });
+      } catch {}
 
       try {
-        const profile = await getOperatorProfile(idToken);
+        const profile = await getOperatorProfile();
         setOperator(profile);
         setAuthStatus("authenticated");
+        startTokenRefresh();
         return profile;
       } catch (err) {
         if (err?.status === 401) { clearAuth(); return null; }
@@ -61,10 +65,8 @@ export function AuthProvider({ children }) {
     return promise;
   }, [clearAuth, operator]);
 
-  // Called from AuthCallback after OAuth redirect
   const completeAuthentication = useCallback(async () => {
-    const token = await waitForIdToken();
-    return loadProfile({ token, force: true });
+    return loadProfile({ force: true });
   }, [loadProfile]);
 
   const signOut = useCallback(async () => {

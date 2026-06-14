@@ -4,7 +4,6 @@ var mockEnv = {
   TENANT_ID: "tenant-001",
 };
 
-var mockFetchIdTokenSilently = jest.fn();
 var mockEmitAuthRequired = jest.fn();
 var mockRedirectToSignIn = jest.fn();
 var mockPruneStoredPoleState = jest.fn();
@@ -16,7 +15,6 @@ jest.mock("../config/env", () => ({
 }));
 
 jest.mock("./auth", () => ({
-  fetchIdTokenSilently: (...args) => mockFetchIdTokenSilently(...args),
   emitAuthRequired: (...args) => mockEmitAuthRequired(...args),
   redirectToSignIn: (...args) => mockRedirectToSignIn(...args),
 }));
@@ -46,7 +44,6 @@ describe("api service", () => {
     mockEnv.API_BASE = "https://api.example.com";
     mockEnv.USE_MOCK = false;
     mockEnv.TENANT_ID = "tenant-001";
-    mockFetchIdTokenSilently.mockReset();
     mockEmitAuthRequired.mockReset();
     mockRedirectToSignIn.mockReset();
     mockPruneStoredPoleState.mockReset();
@@ -58,7 +55,6 @@ describe("api service", () => {
   });
 
   test("surfaces operator profile fetch failures when mocks are disabled", async () => {
-    mockFetchIdTokenSilently.mockResolvedValue("token-123");
     global.fetch.mockRejectedValue(new TypeError("network down"));
 
     await expect(getOperatorProfile()).rejects.toThrow(
@@ -67,7 +63,6 @@ describe("api service", () => {
   });
 
   test("surfaces streetlight inventory fetch failures instead of falling back", async () => {
-    mockFetchIdTokenSilently.mockResolvedValue("token-123");
     global.fetch.mockRejectedValue(new TypeError("service unavailable"));
 
     await expect(listStreetlights()).rejects.toThrow(
@@ -76,7 +71,6 @@ describe("api service", () => {
   });
 
   test("surfaces telemetry fetch failures instead of returning mock telemetry", async () => {
-    mockFetchIdTokenSilently.mockResolvedValue("token-123");
     global.fetch.mockRejectedValue(new TypeError("timeout"));
 
     await expect(
@@ -104,7 +98,6 @@ describe("api service", () => {
   });
 
   test("continues to return live API data when the request succeeds", async () => {
-    mockFetchIdTokenSilently.mockResolvedValue("token-123");
     global.fetch.mockResolvedValue(
       jsonResponse({
         data: [{ streetlight_id: "LW-00043", name: "Main & Bellevue way" }],
@@ -113,6 +106,13 @@ describe("api service", () => {
 
     const result = await listStreetlights();
 
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://api.example.com/streetlights",
+      expect.objectContaining({
+        credentials: "include",
+        headers: {},
+      })
+    );
     expect(result).toEqual([
       expect.objectContaining({
         streetlight_id: "LW-00043",
@@ -122,7 +122,6 @@ describe("api service", () => {
   });
 
   test("updates users with PATCH /users/{id}", async () => {
-    mockFetchIdTokenSilently.mockResolvedValue("token-123");
     global.fetch.mockResolvedValue(
       jsonResponse({
         user_id: "user-123",
@@ -140,6 +139,8 @@ describe("api service", () => {
       "https://api.example.com/users/user-123",
       expect.objectContaining({
         method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "Updated User" }),
       })
     );
@@ -153,7 +154,6 @@ describe("api service", () => {
   });
 
   test("preserves operator-facing command history fields", async () => {
-    mockFetchIdTokenSilently.mockResolvedValue("token-123");
     global.fetch.mockResolvedValue(
       jsonResponse({
         streetlight_id: "LW-00043",
@@ -191,5 +191,14 @@ describe("api service", () => {
         }),
       ],
     });
+  });
+
+  test("emits auth-required and redirects on 401 responses", async () => {
+    global.fetch.mockResolvedValue(jsonResponse({ error: "Unauthorized" }, { status: 401 }));
+
+    await expect(listStreetlights()).rejects.toMatchObject({ status: 401 });
+
+    expect(mockEmitAuthRequired).toHaveBeenCalledWith("http_401");
+    expect(mockRedirectToSignIn).toHaveBeenCalled();
   });
 });

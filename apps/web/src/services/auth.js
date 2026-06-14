@@ -1,68 +1,56 @@
-import { fetchAuthSession, signInWithRedirect, signOut } from "aws-amplify/auth";
-import { COGNITO_ENV } from "../config/env";
+import { COGNITO_ENV, LIGHTWISE_ENV } from "../config/env";
 
-const SESSION_TIMEOUT_MS = 3000;
 const AUTH_REQUIRED_EVENT = "lightwise:auth-required";
+const REFRESH_INTERVAL_MS = 50 * 60 * 1000;
+const HOSTED_UI_SCOPES = "email openid profile";
 
-function buildUnauthorizedError(message = "Unauthenticated") {
-  const error = new Error(message);
-  error.status = 401;
-  return error;
+let refreshTimer = null;
+
+function normalizeBaseUrl(value = "") {
+  return String(value || "").trim().replace(/\/$/, "");
 }
 
-function withTimeout(promise, ms, message) {
-  let id;
-  const timeout = new Promise((_, reject) => {
-    id = setTimeout(() => reject(buildUnauthorizedError(message)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(id));
+function normalizeCognitoDomain(domain = "") {
+  const value = normalizeBaseUrl(domain);
+  if (!value) return "";
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function getRedirectUri() {
+  return (
+    COGNITO_ENV.REDIRECT_URI ||
+    (LIGHTWISE_ENV.API_BASE ? `${normalizeBaseUrl(LIGHTWISE_ENV.API_BASE)}/auth/callback` : "")
+  );
 }
 
-function getLogoutUrl() {
+function getLogoutUri() {
   return COGNITO_ENV.LOGOUT_URI || (typeof window !== "undefined" ? `${window.location.origin}/` : "");
 }
 
-export async function fetchIdToken(options = {}) {
-  const { timeoutMs = SESSION_TIMEOUT_MS, ...sessionOptions } = options;
-  const session = await withTimeout(
-    fetchAuthSession(sessionOptions),
-    timeoutMs,
-    "Sign-in is taking longer than expected. Please try again."
-  );
-  const token = session?.tokens?.idToken?.toString() ?? "";
-  if (!token) throw buildUnauthorizedError("Please sign in again.");
-  return token;
-}
+function buildHostedUiUrl(path, params) {
+  const domain = normalizeCognitoDomain(COGNITO_ENV.DOMAIN);
+  if (!domain || !COGNITO_ENV.CLIENT_ID) {
+    throw new Error("Cognito Hosted UI is not configured.");
+  }
 
-/** Retries on failure — use in AuthCallback after redirect */
-export async function waitForIdToken({ attempts = 8, delayMs = 200, ...options } = {}) {
-  let lastError;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await fetchIdToken(options);
-    } catch (err) {
-      lastError = err;
-      if (i < attempts - 1) await delay(delayMs);
+  const url = new URL(`${domain}/${path.replace(/^\//, "")}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      url.searchParams.set(key, String(value));
     }
-  }
-  throw lastError;
+  });
+  return url.toString();
 }
 
-/** Silent fetch — returns empty string instead of throwing */
-export async function fetchIdTokenSilently(options = {}) {
-  try {
-    return await fetchIdToken(options);
-  } catch {
-    return "";
-  }
+function buildApiUrl(path) {
+  const base = normalizeBaseUrl(LIGHTWISE_ENV.API_BASE);
+  if (!base) throw new Error("LightWise is not ready yet. Please try again later.");
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 export function emitAuthRequired(reason = "unauthenticated") {
-  window?.dispatchEvent(new CustomEvent(AUTH_REQUIRED_EVENT, { detail: { reason } }));
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(AUTH_REQUIRED_EVENT, { detail: { reason } }));
 }
 
 export function subscribeToAuthRequired(listener) {
@@ -72,7 +60,51 @@ export function subscribeToAuthRequired(listener) {
   return () => window.removeEventListener(AUTH_REQUIRED_EVENT, handler);
 }
 
-export const redirectToSignIn = () => signInWithRedirect();
+export function redirectToSignIn() {
+  window.location.href = buildHostedUiUrl("/login", {
+    client_id: COGNITO_ENV.CLIENT_ID,
+    response_type: "code",
+    scope: HOSTED_UI_SCOPES,
+    redirect_uri: getRedirectUri(),
+  });
+}
 
-export const redirectToSignOut = () =>
-  signOut({ global: false, oauth: { redirectUrl: getLogoutUrl() } });
+export function redirectToSignOut() {
+  stopTokenRefresh();
+  window.location.href = buildHostedUiUrl("/logout", {
+    client_id: COGNITO_ENV.CLIENT_ID,
+    logout_uri: getLogoutUri(),
+  });
+}
+
+export async function refreshTokens({ emitOnFailure = true } = {}) {
+  const response = await fetch(buildApiUrl("/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (response.status === 401) {
+    if (emitOnFailure) emitAuthRequired("refresh_401");
+    throw Object.assign(new Error("Please sign in again."), { status: 401 });
+  }
+
+  if (!response.ok) {
+    throw Object.assign(new Error("Unable to refresh session."), { status: response.status });
+  }
+
+  return true;
+}
+
+export function startTokenRefresh() {
+  if (typeof window === "undefined" || refreshTimer) return;
+
+  refreshTimer = window.setInterval(() => {
+    refreshTokens().catch(() => {});
+  }, REFRESH_INTERVAL_MS);
+}
+
+export function stopTokenRefresh() {
+  if (typeof window === "undefined" || !refreshTimer) return;
+  window.clearInterval(refreshTimer);
+  refreshTimer = null;
+}
