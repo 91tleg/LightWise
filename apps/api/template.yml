@@ -201,7 +201,6 @@ Resources:
         - openid
         - phone
         - profile
-        - offline_access
 
       CallbackURLs:
         - !Ref CognitoRedirectUri
