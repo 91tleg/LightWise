@@ -50,7 +50,7 @@ jobs:
               InfluxUrl=${{ secrets.INFLUX_URL }} \
               InfluxToken=${{ secrets.INFLUX_TOKEN }} \
               InfluxOrg=${{ secrets.INFLUX_ORG }} \
-              FrontendUrl=https://d1pgoccotes6kv.cloudfront.net/ \
-              CognitoRedirectUri=hhttps://d1pgoccotes6kv.cloudfront.net/callback \
-              CognitoLogoutUri=https://d1pgoccotes6kv.cloudfront.net/ \
-              AllowedOrigin=https://d1pgoccotes6kv.cloudfront.net/
+              FrontendUrl=https://d1pgoccotes6kv.cloudfront.net \
+              CognitoRedirectUri=https://d1pgoccotes6kv.cloudfront.net/callback \
+              CognitoLogoutUri=https://d1pgoccotes6kv.cloudfront.net \
+              AllowedOrigin=https://d1pgoccotes6kv.cloudfront.net
