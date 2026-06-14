@@ -1,11 +1,15 @@
 import json
+import os
 
+
+_ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost:3001")
 
 CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
-    "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,OPTIONS",
-    "Content-Type": "application/json"
+    "Access-Control-Allow-Origin": _ALLOWED_ORIGIN,
+    "Access-Control-Allow-Headers": "Content-Type,Cookie",
+    "Access-Control-Allow-Methods": "GET,PUT,POST,DELETE,PATCH,OPTIONS",
+    "Access-Control-Allow-Credentials": "true",
+    "Content-Type": "application/json",
 }
 
 

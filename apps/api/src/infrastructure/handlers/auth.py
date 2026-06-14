@@ -4,9 +4,8 @@ Operator profile API handler.
 Trigger: API Gateway REST GET /auth/me
 
 Returns the verified operator profile for the calling user.
-The API Gateway Cognito authorizer must be attached - claims are
+The Lambda cookie authorizer must be attached - claims are
 injected into requestContext.authorizer.claims before this handler runs.
-
 Resolves tenant identity from claims, maps Cognito attributes to an
 OperatorProfile
 """

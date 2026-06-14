@@ -23,24 +23,19 @@ class Config:
         # DynamoDB
         self.DYNAMO_ENDPOINT = os.getenv("DYNAMO_ENDPOINT", "")
         self.DDB_TABLE_STREETLIGHTS = os.getenv(
-            "DDB_TABLE_STREETLIGHTS",
-            "Streetlights"
+            "DDB_TABLE_STREETLIGHTS", "Streetlights"
         )
         self.DDB_TABLE_STREETLIGHT_METADATA = os.getenv(
-            "DDB_TABLE_STREETLIGHT_METADATA",
-            "StreetlightMetadata"
+            "DDB_TABLE_STREETLIGHT_METADATA", "StreetlightMetadata"
         )
         self.DDB_TABLE_USERS_AND_TENANTS = os.getenv(
-            "DDB_TABLE_USERS_AND_TENANTS",
-            "UsersAndTenants"
+            "DDB_TABLE_USERS_AND_TENANTS", "UsersAndTenants"
         )
         self.DDB_TABLE_WS_CONNECTIONS = os.getenv(
-            "DDB_TABLE_WS_CONNECTIONS",
-            "WebSocketConnections"
+            "DDB_TABLE_WS_CONNECTIONS", "WebSocketConnections"
         )
         self.DDB_TABLE_DOWNLINK_COMMANDS = os.getenv(
-            "DDB_TABLE_DOWNLINK_COMMANDS",
-            "DownlinkCommands"
+            "DDB_TABLE_DOWNLINK_COMMANDS", "DownlinkCommands"
         )
 
         # WebSocket
@@ -48,12 +43,16 @@ class Config:
         self.WS_MANAGEMENT_URL = os.getenv("WS_MANAGEMENT_URL", "")
 
         # Auth
-        self.COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
+        self.COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "")
         self.COGNITO_CLIENT_ID = (
             os.getenv("COGNITO_CLIENT_ID")
             or os.getenv("COGNITO_APP_CLIENT_ID")
+            or ""
         )
         self.COGNITO_APP_CLIENT_ID = self.COGNITO_CLIENT_ID
+        self.COGNITO_DOMAIN = os.getenv("COGNITO_DOMAIN", "")
+        self.COGNITO_REDIRECT_URI = os.getenv("COGNITO_REDIRECT_URI", "")
+        self.FRONTEND_URL = os.getenv("FRONTEND_URL", "")
         self.AUTH_ENABLED = os.getenv(
             "AUTH_ENABLED", "true"
         ).lower() == "true"
