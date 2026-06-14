@@ -49,4 +49,7 @@ jobs:
               AuthEnabled=true \
               InfluxUrl=${{ secrets.INFLUX_URL }} \
               InfluxToken=${{ secrets.INFLUX_TOKEN }} \
-              InfluxOrg=${{ secrets.INFLUX_ORG }}
+              InfluxOrg=${{ secrets.INFLUX_ORG }} \
+              FrontendUrl=http://localhost:3001 \
+              CognitoRedirectUri=http://localhost:3001/callback \
+              AllowedOrigin="'http://localhost:3001'"

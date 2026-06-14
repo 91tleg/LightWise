@@ -24,21 +24,34 @@ Parameters:
   AllowedOrigin:
     Type: String
     Default: "'*'"
+  FrontendUrl:
+    Type: String
+    Default: "http://localhost:3001"
+  CognitoRedirectUri:
+    Type: String
+    Default: "http://localhost:3001/callback"
+  CognitoLogoutUri:
+    Type: String
+    Default: "http://localhost:3001"
 
 Globals:
   Api:
     Cors:
       AllowMethods: "'GET,PUT,POST,DELETE,PATCH,OPTIONS'"
-      AllowHeaders: "'Content-Type,Authorization'"
+      AllowHeaders: "'Content-Type,Cookie'"
       AllowOrigin: !Ref AllowedOrigin
+      AllowCredentials: true
     Auth:
-      DefaultAuthorizer: CognitoAuthorizer
+      DefaultAuthorizer: CookieAuthorizer
       AddDefaultAuthorizerToCorsPreflight: false
       Authorizers:
-        CognitoAuthorizer:
-          UserPoolArn: !GetAtt CognitoUserPool.Arn
+        CookieAuthorizer:
+          FunctionArn: !GetAtt CookieAuthorizerFunction.Arn
+          FunctionPayloadType: REQUEST
           Identity:
-            Header: Authorization
+            Headers:
+              - Cookie
+            ReauthorizeEvery: 300
   Function:
     Runtime: python3.11
     Timeout: 15
@@ -46,23 +59,26 @@ Globals:
     CodeUri: src/
     Environment:
       Variables:
-        ENV: !Ref Env
-        AUTH_ENABLED: !Ref AuthEnabled
-        COGNITO_USER_POOL_ID: !Ref CognitoUserPool
-        COGNITO_CLIENT_ID: !Ref CognitoAppClient
-        WS_ENDPOINT: !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}"
-        WS_MANAGEMENT_URL: !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}"
-        DYNAMO_ENDPOINT: !Ref DynamoEndpoint
-        DDB_TABLE_STREETLIGHTS: !Ref Streetlights
-        DDB_TABLE_STREETLIGHT_METADATA: !Ref StreetlightMetadata
-        DDB_TABLE_USERS_AND_TENANTS: !Ref UsersAndTenants
-        DDB_TABLE_WS_CONNECTIONS: !Ref WebSocketConnections
-        TELEMETRY_BACKEND: influxdb
-        INFLUX_URL: !Ref InfluxUrl
-        INFLUX_TOKEN: !Ref InfluxToken
-        INFLUX_ORG: !Ref InfluxOrg
-        INFLUX_BUCKET: streetlight-telemetry
-        DDB_TABLE_DOWNLINK_COMMANDS: !Ref DownlinkCommands
+        ENV:                             !Ref Env
+        AUTH_ENABLED:                    !Ref AuthEnabled
+        COGNITO_USER_POOL_ID:            !Ref CognitoUserPool
+        COGNITO_CLIENT_ID:               !Ref CognitoAppClient
+        COGNITO_DOMAIN:                  !Sub "${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
+        COGNITO_REDIRECT_URI:            !Ref CognitoRedirectUri
+        FRONTEND_URL:                    !Ref FrontendUrl
+        WS_ENDPOINT:                     !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}"
+        WS_MANAGEMENT_URL:               !Sub "https://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${Env}"
+        DYNAMO_ENDPOINT:                 !Ref DynamoEndpoint
+        DDB_TABLE_STREETLIGHTS:          !Ref Streetlights
+        DDB_TABLE_STREETLIGHT_METADATA:  !Ref StreetlightMetadata
+        DDB_TABLE_USERS_AND_TENANTS:     !Ref UsersAndTenants
+        DDB_TABLE_WS_CONNECTIONS:        !Ref WebSocketConnections
+        DDB_TABLE_DOWNLINK_COMMANDS:     !Ref DownlinkCommands
+        TELEMETRY_BACKEND:               influxdb
+        INFLUX_URL:                      !Ref InfluxUrl
+        INFLUX_TOKEN:                    !Ref InfluxToken
+        INFLUX_ORG:                      !Ref InfluxOrg
+        INFLUX_BUCKET:                   streetlight-telemetry
 
 Resources:
   CognitoUserPool:
@@ -162,11 +178,9 @@ Resources:
         - profile
 
       CallbackURLs:
-        - http://localhost:3001/callback
-
+        - !Ref CognitoRedirectUri
       LogoutURLs:
-        - http://localhost:3001/
-
+        - !Ref CognitoLogoutUri
       AccessTokenValidity: 1
       IdTokenValidity: 1
       RefreshTokenValidity: 30
@@ -194,160 +208,44 @@ Resources:
       Domain: !Sub "lightwise-${Env}-${AWS::AccountId}"
       UserPoolId: !Ref CognitoUserPool
 
-  WebSocketApi:
-    Type: AWS::ApiGatewayV2::Api
+  CookieAuthorizerFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      Name: !Sub "lightwise-ws-${Env}"
-      ProtocolType: WEBSOCKET
-      RouteSelectionExpression: "$request.body.action"
+      Handler: infrastructure.handlers.cookie_authorizer.handler
 
-  WebSocketStage:
-    Type: AWS::ApiGatewayV2::Stage
-    Properties:
-      ApiId: !Ref WebSocketApi
-      StageName: !Ref Env
-      AutoDeploy: true
-
-  # Connect
-  WebSocketConnectRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref WebSocketApi
-      RouteKey: $connect
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref WebSocketAuthorizer
-      Target: !Sub "integrations/${WebSocketConnectIntegration}"
-
-  WebSocketConnectIntegration:
-    Type: AWS::ApiGatewayV2::Integration
-    Properties:
-      ApiId: !Ref WebSocketApi
-      IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketConnectFunction.Arn}/invocations"
-
-  WebSocketConnectPermission:
+  CookieAuthorizerPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref WebSocketConnectFunction
+      FunctionName: !Ref CookieAuthorizerFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServerlessRestApi}/*"
 
-  # Disconnect
-  WebSocketDisconnectRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref WebSocketApi
-      RouteKey: $disconnect
-      AuthorizationType: NONE
-      Target: !Sub "integrations/${WebSocketDisconnectIntegration}"
-
-  WebSocketDisconnectIntegration:
-    Type: AWS::ApiGatewayV2::Integration
-    Properties:
-      ApiId: !Ref WebSocketApi
-      IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketDisconnectFunction.Arn}/invocations"
-
-  WebSocketDisconnectPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref WebSocketDisconnectFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
-
-  # Subscribe - AuthorizationType intentionally NONE at API Gateway layer.
-  # Tenant isolation is enforced in the handler by validating the connection_id
-  # exists in WebSocketConnections and belongs to the requesting tenant.
-  WebSocketSubscribeRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref WebSocketApi
-      RouteKey: subscribe
-      AuthorizationType: NONE
-      Target: !Sub "integrations/${WebSocketSubscribeIntegration}"
-
-  WebSocketSubscribeIntegration:
-    Type: AWS::ApiGatewayV2::Integration
-    Properties:
-      ApiId: !Ref WebSocketApi
-      IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketSubscribeFunction.Arn}/invocations"
-
-  WebSocketSubscribePermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref WebSocketSubscribeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
-
-  # IAM permission for IoT Core to invoke this function is managed
-  # in the IoT Core rule action configuration.
-  TelemetryIngestFunction:
+  AuthCallbackFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.telemetry_ingest.handler
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref Streetlights
-        - DynamoDBReadPolicy:
-            TableName: !Ref StreetlightMetadata
-        - DynamoDBReadPolicy:
-            TableName: !Ref WebSocketConnections
-        - DynamoDBCrudPolicy:
-            TableName: !Ref DownlinkCommands
-        - Statement:
-          - Effect: Allow
-            Action: execute-api:ManageConnections
-            Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+      Handler: infrastructure.handlers.auth_callback.handler
+      Events:
+        AuthCallback:
+          Type: Api
+          Properties:
+            Path: /auth/callback
+            Method: get
+            Auth:
+              Authorizer: NONE
 
-  WebSocketAuthorizerFunction:
+  AuthRefreshFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: infrastructure.handlers.websocket_authorizer.handler
-
-  WebSocketAuthorizerPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !Ref WebSocketAuthorizerFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
-
-  WebSocketAuthorizer:
-    Type: AWS::ApiGatewayV2::Authorizer
-    Properties:
-      ApiId: !Ref WebSocketApi
-      AuthorizerType: REQUEST
-      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketAuthorizerFunction.Arn}/invocations"
-      IdentitySource:
-        - route.request.header.Sec-WebSocket-Protocol
-      Name: CognitoWebSocketAuthorizer
-
-  WebSocketConnectFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: infrastructure.handlers.websocket_connect.handler
-
-  WebSocketDisconnectFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: infrastructure.handlers.websocket_disconnect.handler
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref WebSocketConnections
-
-  WebSocketSubscribeFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: infrastructure.handlers.websocket_subscribe.handler
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref WebSocketConnections
-        - DynamoDBReadPolicy:
-            TableName: !Ref UsersAndTenants
+      Handler: infrastructure.handlers.auth_refresh.handler
+      Events:
+        AuthRefresh:
+          Type: Api
+          Properties:
+            Path: /auth/refresh
+            Method: post
+            Auth:
+              Authorizer: NONE
 
   AuthMeFunction:
     Type: AWS::Serverless::Function
@@ -359,8 +257,6 @@ Resources:
           Properties:
             Path: /auth/me
             Method: get
-            Auth:
-              Authorizer: CognitoAuthorizer
 
   ListUsersFunction:
     Type: AWS::Serverless::Function
@@ -495,12 +391,12 @@ Resources:
         - Statement:
             - Effect: Allow
               Action:
-              - iotwireless:SendDataToWirelessDevice
+                - iotwireless:SendDataToWirelessDevice
               Resource: "*"
         - Statement:
             - Effect: Allow
               Action:
-              - dynamodb:GetItem
+                - dynamodb:GetItem
               Resource: "*"
       Events:
         SendCommand:
@@ -522,6 +418,154 @@ Resources:
           Properties:
             Path: /streetlights/{id}/commands
             Method: get
+
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "lightwise-ws-${Env}"
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  WebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebSocketApi
+      StageName: !Ref Env
+      AutoDeploy: true
+
+  WebSocketAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.websocket_authorizer.handler
+
+  WebSocketAuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketAuthorizerFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  WebSocketAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref WebSocketApi
+      AuthorizerType: REQUEST
+      AuthorizerUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketAuthorizerFunction.Arn}/invocations"
+      IdentitySource:
+        - route.request.header.Sec-WebSocket-Protocol
+      Name: CognitoWebSocketAuthorizer
+
+  WebSocketConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $connect
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref WebSocketAuthorizer
+      Target: !Sub "integrations/${WebSocketConnectIntegration}"
+
+  WebSocketConnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketConnectFunction.Arn}/invocations"
+
+  WebSocketConnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketConnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  WebSocketDisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $disconnect
+      AuthorizationType: NONE
+      Target: !Sub "integrations/${WebSocketDisconnectIntegration}"
+
+  WebSocketDisconnectIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketDisconnectFunction.Arn}/invocations"
+
+  WebSocketDisconnectPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketDisconnectFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  WebSocketSubscribeRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: subscribe
+      AuthorizationType: NONE
+      Target: !Sub "integrations/${WebSocketSubscribeIntegration}"
+
+  WebSocketSubscribeIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketSubscribeFunction.Arn}/invocations"
+
+  WebSocketSubscribePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketSubscribeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  WebSocketConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.websocket_connect.handler
+
+  WebSocketDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.websocket_disconnect.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnections
+
+  WebSocketSubscribeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.websocket_subscribe.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnections
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsersAndTenants
+
+  TelemetryIngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: infrastructure.handlers.telemetry_ingest.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Streetlights
+        - DynamoDBReadPolicy:
+            TableName: !Ref StreetlightMetadata
+        - DynamoDBReadPolicy:
+            TableName: !Ref WebSocketConnections
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DownlinkCommands
+        - Statement:
+            - Effect: Allow
+              Action: execute-api:ManageConnections
+              Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
 
   Streetlights:
     Type: AWS::DynamoDB::Table
@@ -667,3 +711,6 @@ Outputs:
   CognitoHostedUiDomain:
     Description: Cognito Hosted UI base URL
     Value: !Sub "https://${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
+  CognitoLoginUrl:
+    Description: Direct login URL for the Hosted UI
+    Value: !Sub "https://${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com/login?client_id=${CognitoAppClient}&response_type=code&scope=email+openid+profile&redirect_uri=${CognitoRedirectUri}"

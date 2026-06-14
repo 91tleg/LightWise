@@ -23,6 +23,8 @@ def cognito_config() -> CognitoConfig:
         region="us-east-1",
         user_pool_id="us-east-1_ABC123",
         client_id="test-client-id",
+        domain="auth.example.com",
+        redirect_uri="http://localhost:3001/callback",
     )
 
 
