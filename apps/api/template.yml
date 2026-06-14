@@ -110,10 +110,6 @@ Resources:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Sub "lightwise-${Env}"
-      LambdaConfig:
-        PreTokenGenerationConfig:
-          LambdaArn: !GetAtt PreTokenGenerationFunction.Arn
-          LambdaVersion: V2_0
 
       UsernameAttributes:
         - email
