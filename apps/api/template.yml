@@ -61,6 +61,7 @@ Globals:
       Variables:
         ENV:                             !Ref Env
         AUTH_ENABLED:                    !Ref AuthEnabled
+        ALLOWED_ORIGIN:                  !Ref AllowedOrigin
         COGNITO_USER_POOL_ID:            !Ref CognitoUserPool
         COGNITO_CLIENT_ID:               !Ref CognitoAppClient
         COGNITO_DOMAIN:                  !Sub "${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
