@@ -2,7 +2,8 @@ from __future__ import annotations
 
 
 def extract_cookie(event: dict, name: str) -> str | None:
-    cookies = (event.get("headers") or {}).get("cookie", "")
+    headers = event.get("headers") or {}
+    cookies = headers.get("cookie") or headers.get("Cookie") or ""
     for part in cookies.split(";"):
         k, _, v = part.strip().partition("=")
         if k.strip() == name:
