@@ -71,11 +71,27 @@ describe("getCombinedSensorHealth", () => {
     });
   });
 
-  test("returns warning when a sensor is degraded", () => {
+  test("trusts overall health when the backend provides it", () => {
     expect(
       getCombinedSensorHealth({
         diagnostics: {
           overall_ok: true,
+          ambient_health: "DEGRADED",
+          mmwave_health: "SYSTEM_OK",
+          th_ok: true,
+          light_ok: true,
+        },
+      })
+    ).toEqual({
+      label: "All sensors OK",
+      tone: "healthy",
+    });
+  });
+
+  test("returns warning when overall health is absent and a sensor is degraded", () => {
+    expect(
+      getCombinedSensorHealth({
+        diagnostics: {
           ambient_health: "DEGRADED",
           mmwave_health: "SYSTEM_OK",
           th_ok: true,
@@ -127,10 +143,8 @@ describe("getSensorHealthDetails", () => {
         },
       })
     ).toEqual([
-      { label: "System", value: "OK", tone: "healthy" },
       { label: "Motion", value: "Degraded", tone: "warning" },
-      { label: "Temperature", value: "OK", tone: "healthy" },
-      { label: "Humidity", value: "OK", tone: "healthy" },
+      { label: "Temperature / Humidity", value: "OK", tone: "healthy" },
       { label: "Lux", value: "Critical", tone: "critical" },
     ]);
   });

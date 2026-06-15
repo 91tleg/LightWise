@@ -18,7 +18,11 @@ function useAuthGuard() {
         if (!active || profile) return;
         await redirectToSignIn();
       } catch (err) {
-        if (active) setError(err);
+        try {
+          await redirectToSignIn();
+        } catch (redirectErr) {
+          if (active) setError(redirectErr || err);
+        }
       }
     })();
 
