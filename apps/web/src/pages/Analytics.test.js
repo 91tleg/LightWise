@@ -1,7 +1,6 @@
 import {
   buildAnalyticsReport,
   buildRawTelemetryCsv,
-  getPresetRange,
   normalizeTelemetryRows,
   resolveTelemetryInterval,
 } from "./analytics.helpers";
@@ -187,18 +186,8 @@ describe("normalizeTelemetryRows", () => {
   });
 });
 
-describe("getPresetRange", () => {
-  test("live preset covers the last minute", () => {
-    const range = getPresetRange("live", new Date("2026-04-21T20:00:00Z"));
-
-    expect(new Date(range.to).getTime() - new Date(range.from).getTime()).toBe(
-      60 * 1000
-    );
-  });
-});
-
 describe("resolveTelemetryInterval", () => {
-  test("keeps seconds buckets for live-sized ranges", () => {
+  test("keeps seconds buckets for short ranges", () => {
     expect(
       resolveTelemetryInterval(
         "30s",
@@ -401,7 +390,7 @@ describe("buildAnalyticsReport", () => {
     expect(report.hourlyMotion.some((bucket) => bucket.samples > 0)).toBe(false);
   });
 
-  test("keeps live second-level energy values above zero", () => {
+  test("keeps second-level energy values above zero", () => {
     const report = buildAnalyticsReport(
       [
         {

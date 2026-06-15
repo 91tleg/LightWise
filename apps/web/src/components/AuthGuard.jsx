@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import AuthScreen from "../components/AuthScreen";
 import { useLightWise } from "../hooks/useLightWise";
+import { hasSignedOutSession } from "../services/auth";
 
-function useAuthGuard() {
+function useAuthGuard({ disabled = false } = {}) {
   const { authStatus, ensureAuthenticated, isAuthenticated, redirectToSignIn } = useLightWise();
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (disabled) return undefined;
     if (isAuthenticated) return;
 
     let active = true;
@@ -27,18 +29,35 @@ function useAuthGuard() {
     })();
 
     return () => { active = false; };
-  }, [ensureAuthenticated, isAuthenticated, redirectToSignIn]);
+  }, [disabled, ensureAuthenticated, isAuthenticated, redirectToSignIn]);
 
   return { authStatus, isAuthenticated, error, setError, redirectToSignIn };
 }
 
 export function HostedUiEntryRoute() {
   const navigate = useNavigate();
-  const { authStatus, isAuthenticated, error, setError, redirectToSignIn } = useAuthGuard();
+  const [signedOut, setSignedOut] = useState(() => hasSignedOutSession());
+  const { authStatus, isAuthenticated, error, setError, redirectToSignIn } = useAuthGuard({
+    disabled: signedOut,
+  });
 
   useEffect(() => {
     if (isAuthenticated) navigate("/overview", { replace: true });
   }, [isAuthenticated, navigate]);
+
+  if (signedOut) {
+    return (
+      <AuthScreen
+        title="Signed out"
+        message="Your LightWise session has ended."
+        actionLabel="Sign in"
+        onAction={() => {
+          setSignedOut(false);
+          void redirectToSignIn();
+        }}
+      />
+    );
+  }
 
   if (isAuthenticated || authStatus === "authenticated") {
     return <Navigate to="/overview" replace />;

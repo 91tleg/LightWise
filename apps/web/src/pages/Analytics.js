@@ -4,7 +4,6 @@ import Card from "../components/Card";
 import UiIcon from "../components/UiIcon";
 import { useOverviewData } from "../hooks/useOverviewData";
 import { useLightWise } from "../hooks/useLightWise";
-import { useWebSocketSync } from "../hooks/useWebSocketSync";
 import { getStreetlightTelemetry } from "../services/api";
 import { formatTableTimestamp } from "../utils/formatters";
 import { toneForHealth } from "../utils/poleState";
@@ -15,7 +14,6 @@ import {
   buildZoneCsv,
   getPresetRange,
   inferTelemetryInterval,
-  normalizeTelemetryRows,
   resolveTelemetryInterval,
 } from "./analytics.helpers";
 import { getOverviewPoleList } from "./overview.helpers";
@@ -43,8 +41,6 @@ const AGGREGATION_OPTIONS = [
   { id: "12h", label: "12 hours" },
   { id: "1d", label: "1 day" },
 ];
-
-const LIVE_AGGREGATION_OPTIONS = [{ id: "auto", label: "Instant" }];
 
 const FAULT_FILTERS = [
   { id: "all", label: "All" },
@@ -101,12 +97,6 @@ const CHART_METRIC_ORDER = [
   "motion",
 ];
 
-const LIVE_RANGE_REFRESH_MS = 30000;
-const LIVE_WINDOW_TICK_MS = 1000;
-const LIVE_WINDOW_MS = 60 * 1000;
-const LIVE_REQUEST_INTERVAL = "5s";
-const LIVE_GRAPH_INTERVAL = "1s";
-const LIVE_MAX_ROWS_PER_POLE = 240;
 const MAX_UNIT_COUNT_TICK = 20;
 
 function readStoredRange() {
@@ -151,116 +141,6 @@ function readStoredRange() {
     to: fallback.to,
     aggregation: "auto",
   };
-}
-
-function toNumberOrNull(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function toBooleanOrNull(value) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "number") return value > 0;
-  if (typeof value === "string") {
-    const lowered = value.trim().toLowerCase();
-    if (lowered === "true") return true;
-    if (lowered === "false") return false;
-    const number = Number(lowered);
-    if (Number.isFinite(number)) return number > 0;
-  }
-  return null;
-}
-
-function compactTelemetryRow(row) {
-  return Object.fromEntries(
-    Object.entries(row || {}).filter(([, value]) => value !== null && value !== undefined)
-  );
-}
-
-function liveRowFromPole(pole, { timestamp } = {}) {
-  const rowTimestamp = timestamp || pole?.last_seen;
-  if (!pole?.streetlight_id || !rowTimestamp) return null;
-
-  const row = compactTelemetryRow({
-    timestamp: rowTimestamp,
-    lux: toNumberOrNull(pole.lux),
-    temp_c: toNumberOrNull(pole.temp_c),
-    humidity: toNumberOrNull(pole.humidity),
-    motion: toBooleanOrNull(pole.motion_detected),
-    motion_detected: toBooleanOrNull(pole.motion_detected),
-    light_level: toNumberOrNull(pole.light_level),
-    health: pole.health || null,
-  });
-
-  return Object.keys(row).length > 2 ? row : null;
-}
-
-function liveRowFromWsMessage(message) {
-  if (!message || typeof message !== "object" || !message.streetlight_id) return null;
-
-  const data = message.data || {};
-  const motion = toBooleanOrNull(data.motion_detected ?? data.motion);
-  const row = compactTelemetryRow({
-    timestamp: message.timestamp || new Date().toISOString(),
-    lux: toNumberOrNull(data.lux),
-    temp_c: toNumberOrNull(data.temp_c ?? data.temperature_c ?? data.temperature),
-    humidity: toNumberOrNull(data.humidity ?? data.humidity_pct ?? data.hum_pct),
-    motion,
-    motion_detected: motion,
-    light_level: toNumberOrNull(data.light_level ?? data.light_level_pct ?? data.light_pct),
-    health: message.health || data.health || null,
-  });
-
-  return Object.keys(row).length > 2 ? row : null;
-}
-
-function mergeTelemetryRows(...groups) {
-  const seen = new Set();
-  const rows = groups
-    .flatMap((group) => normalizeTelemetryRows(group))
-    .filter((row) => {
-      if (!row?.timestamp) return false;
-      const key = `${row.timestamp}:${row.lux ?? ""}:${row.temp_c ?? ""}:${row.humidity ?? ""}:${row.light_level ?? ""}:${row.motion ?? ""}:${row.health ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .sort((left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime());
-
-  return rows.slice(-LIVE_MAX_ROWS_PER_POLE);
-}
-
-function filterRowsForRange(rows, from, to) {
-  const fromMs = new Date(from).getTime();
-  const toMs = new Date(to).getTime();
-  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) return rows;
-
-  return rows.filter((row) => {
-    const time = new Date(row?.timestamp).getTime();
-    return Number.isFinite(time) && time >= fromMs && time <= toMs;
-  });
-}
-
-function buildLiveReportTelemetry(reportPoles, telemetryByPole, liveTelemetryByPole, from, to) {
-  return reportPoles.reduce((nextTelemetry, pole) => {
-    const poleId = pole?.streetlight_id;
-    if (!poleId) return nextTelemetry;
-
-    const snapshotRow = liveRowFromPole(pole);
-    const rows = filterRowsForRange(
-      mergeTelemetryRows(
-        telemetryByPole[poleId],
-        liveTelemetryByPole[poleId] || [],
-        snapshotRow ? [snapshotRow] : []
-      ),
-      from,
-      to
-    );
-
-    nextTelemetry[poleId] = { streetlight_id: poleId, data: rows };
-    return nextTelemetry;
-  }, {});
 }
 
 function persistRange(nextState) {
@@ -402,19 +282,11 @@ function compareValues(left, right, direction = "desc") {
   return String(left || "").localeCompare(String(right || "")) * factor;
 }
 
-function formatChartLabel(timestamp, condensed = false, live = false) {
+function formatChartLabel(timestamp, condensed = false) {
   if (!timestamp) return "";
 
   const date = new Date(timestamp);
   if (!Number.isFinite(date.getTime())) return String(timestamp);
-
-  if (live) {
-    return date.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  }
 
   return date.toLocaleString(
     undefined,
@@ -806,7 +678,7 @@ function AnalyticsPoleList({ poles, selectedId, onSelect, compact = false }) {
   );
 }
 
-function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = false }) {
+function TrendChart({ metricId, energySeries, metricSeries, loading }) {
   const meta = CHART_METRICS[metricId] || CHART_METRICS.energy;
   const width = 1180;
   const height = 360;
@@ -821,7 +693,6 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
 
   if (metricId === "energy") {
     const series = energySeries;
-    const latestPoint = series[series.length - 1] || null;
 
     if (!series.length) {
       return (
@@ -844,8 +715,6 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
     const maxValue =
       Number.isFinite(seriesMax) && seriesMax > 0
         ? seriesMax * 1.18
-        : isLive
-        ? 0.0005
         : 0.1;
 
     const toX = (index) =>
@@ -885,11 +754,6 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
             <span className="analyticsLegendSwatch isBaseline" />
             Baseline
           </span>
-          {isLive && latestPoint ? (
-            <span className="analyticsLiveReadout">
-              Live actual {formatEnergy(latestPoint.actualKwh)}
-            </span>
-          ) : null}
         </div>
 
         <svg viewBox={`0 0 ${width} ${height}`} className="analyticsViz">
@@ -928,7 +792,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
                 textAnchor="middle"
                 className="analyticsVizAxis"
               >
-                {formatChartLabel(series[tick]?.timestamp, series.length > 45, isLive)}
+                {formatChartLabel(series[tick]?.timestamp, series.length > 45)}
               </text>
             </g>
           ))}
@@ -956,7 +820,6 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
   }
 
   const series = metricSeries?.[metricId] || [];
-  const latestPoint = series[series.length - 1] || null;
 
   if (!series.length) {
     return (
@@ -1039,11 +902,6 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
           />
           {meta.label}
         </span>
-        {isLive && latestPoint ? (
-          <span className="analyticsLiveReadout">
-            Live {formatMetricValue(metricId, latestPoint.value)}
-          </span>
-        ) : null}
       </div>
 
       <svg viewBox={`0 0 ${width} ${height}`} className="analyticsViz">
@@ -1082,7 +940,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
               textAnchor="middle"
               className="analyticsVizAxis"
             >
-              {formatChartLabel(series[tick]?.timestamp, series.length > 45, isLive)}
+              {formatChartLabel(series[tick]?.timestamp, series.length > 45)}
             </text>
           </g>
         ))}
@@ -1119,7 +977,7 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
 }
 
 function AnalyticsSurface() {
-  const { streetlights, lastMessage, wsStatus, env } = useLightWise();
+  const { streetlights, env } = useLightWise();
   const storedRange = useMemo(() => readStoredRange(), []);
   const {
     availablePoles,
@@ -1128,8 +986,6 @@ function AnalyticsSurface() {
     streetlights,
     tenantId: env?.TENANT_ID,
   });
-
-  useWebSocketSync(lastMessage);
 
   const analyticsPoles = useMemo(
     () => getOverviewPoleList(availablePoles),
@@ -1142,7 +998,6 @@ function AnalyticsSurface() {
   const [aggregation, setAggregation] = useState(storedRange.aggregation || "auto");
   const [selectedPoleId, setSelectedPoleId] = useState("");
   const [telemetryByPole, setTelemetryByPole] = useState({});
-  const [liveTelemetryByPole, setLiveTelemetryByPole] = useState({});
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [failedPoles, setFailedPoles] = useState([]);
@@ -1155,36 +1010,19 @@ function AnalyticsSurface() {
   const [expandedZones, setExpandedZones] = useState([]);
   const [faultFilter, setFaultFilter] = useState("all");
   const [faultSearch, setFaultSearch] = useState("");
-  const [liveNowMs, setLiveNowMs] = useState(() => Date.now());
 
   const deferredFaultSearch = useDeferredValue(faultSearch);
-  const isLiveRange = preset === "live";
   const interval = useMemo(
-    () => {
-      if (isLiveRange) return LIVE_REQUEST_INTERVAL;
-      return aggregation === "auto"
+    () =>
+      aggregation === "auto"
         ? inferTelemetryInterval(from, to)
-        : resolveTelemetryInterval(aggregation, from, to);
-    },
-    [aggregation, from, isLiveRange, to]
+        : resolveTelemetryInterval(aggregation, from, to),
+    [aggregation, from, to]
   );
-  const graphInterval = isLiveRange ? LIVE_GRAPH_INTERVAL : interval;
-  const intervalLabel = isLiveRange ? "Instant" : interval;
-  const aggregationOptions = isLiveRange ? LIVE_AGGREGATION_OPTIONS : AGGREGATION_OPTIONS;
-  const aggregationValue = isLiveRange ? "auto" : aggregation;
-  const liveWindow = useMemo(
-    () => ({
-      from: new Date(liveNowMs - LIVE_WINDOW_MS).toISOString(),
-      to: new Date(liveNowMs).toISOString(),
-    }),
-    [liveNowMs]
-  );
-  const reportFrom = isLiveRange ? liveWindow.from : from;
-  const reportTo = isLiveRange ? liveWindow.to : to;
-  const rangeLabel = useMemo(
-    () => (isLiveRange ? "Live telemetry" : buildReportDateLabel(from, to)),
-    [from, isLiveRange, to]
-  );
+  const intervalLabel = interval;
+  const aggregationOptions = AGGREGATION_OPTIONS;
+  const aggregationValue = aggregation;
+  const rangeLabel = useMemo(() => buildReportDateLabel(from, to), [from, to]);
   const selectedChartMeta = CHART_METRICS[selectedChartMetric] || CHART_METRICS.energy;
   const selectedPole = useMemo(() => {
     return (
@@ -1225,59 +1063,6 @@ function AnalyticsSurface() {
   }, [selectedReportPoleId, setOverviewSelectedId]);
 
   useEffect(() => {
-    if (!isLiveRange) return undefined;
-
-    setLiveNowMs(Date.now());
-    const timer = window.setInterval(() => setLiveNowMs(Date.now()), LIVE_WINDOW_TICK_MS);
-    return () => window.clearInterval(timer);
-  }, [isLiveRange]);
-
-  useEffect(() => {
-    if (!isLiveRange) return undefined;
-
-    function syncLiveRange() {
-      const nextRange = getPresetRange("live");
-      setFrom(nextRange.from);
-      setTo(nextRange.to);
-    }
-
-    syncLiveRange();
-    const timer = window.setInterval(syncLiveRange, LIVE_RANGE_REFRESH_MS);
-    return () => window.clearInterval(timer);
-  }, [isLiveRange]);
-
-  useEffect(() => {
-    const poleId = String(lastMessage?.streetlight_id || "").trim();
-    if (!poleId) return;
-
-    const row = liveRowFromWsMessage(lastMessage);
-    if (!row) return;
-
-    if (isLiveRange) setLiveNowMs(Date.now());
-
-    setLiveTelemetryByPole((current) => ({
-      ...current,
-      [poleId]: mergeTelemetryRows(current[poleId] || [], [row]),
-    }));
-    setLastLoadedAt(row.timestamp || new Date().toISOString());
-  }, [isLiveRange, lastMessage]);
-
-  useEffect(() => {
-    if (!isLiveRange || !selectedPole) return;
-
-    const row = liveRowFromPole(selectedPole);
-    if (!row) return;
-
-    setLiveTelemetryByPole((current) => ({
-      ...current,
-      [selectedPole.streetlight_id]: mergeTelemetryRows(
-        current[selectedPole.streetlight_id] || [],
-        [row]
-      ),
-    }));
-  }, [isLiveRange, selectedPole]);
-
-  useEffect(() => {
     if (!analyticsPoles.length) {
       if (selectedPoleId) setSelectedPoleId("");
       return;
@@ -1298,14 +1083,6 @@ function AnalyticsSurface() {
 
     if (rangeError) {
       setLoadError(rangeError);
-      setLoading(false);
-      return;
-    }
-
-    if (isLiveRange) {
-      setTelemetryByPole({});
-      setFailedPoles([]);
-      setLoadError("");
       setLoading(false);
       return;
     }
@@ -1350,11 +1127,6 @@ function AnalyticsSurface() {
       setLoading(false);
 
       if (failures.length === poles.length) {
-        if (isLiveRange) {
-          setLoadError("");
-          return;
-        }
-
         setLoadError("Analytics data could not be loaded for the selected date range.");
         return;
       }
@@ -1368,34 +1140,16 @@ function AnalyticsSurface() {
     return () => {
       active = false;
     };
-  }, [from, interval, isLiveRange, rangeError, selectedReportPoleId, to]);
-
-  const reportTelemetryByPole = useMemo(() => {
-    if (!isLiveRange) return telemetryByPole;
-    return buildLiveReportTelemetry(
-      reportPoles,
-      telemetryByPole,
-      liveTelemetryByPole,
-      reportFrom,
-      reportTo
-    );
-  }, [
-    isLiveRange,
-    liveTelemetryByPole,
-    reportFrom,
-    reportPoles,
-    reportTo,
-    telemetryByPole,
-  ]);
+  }, [from, interval, rangeError, selectedReportPoleId, to]);
 
   const report = useMemo(
     () =>
-      buildAnalyticsReport(reportPoles, reportTelemetryByPole, {
-        from: reportFrom,
-        to: reportTo,
-        interval: graphInterval,
+      buildAnalyticsReport(reportPoles, telemetryByPole, {
+        from,
+        to,
+        interval,
       }),
-    [graphInterval, reportFrom, reportPoles, reportTelemetryByPole, reportTo]
+    [from, interval, reportPoles, telemetryByPole, to]
   );
   const hasTelemetryRows = report.summary.telemetryRows > 0;
 
@@ -1539,12 +1293,6 @@ function AnalyticsSurface() {
             <UiIcon name="radio" size={16} />
             <span>{formatPoleCount(report.summary.totalPoles)}</span>
           </div>
-          {isLiveRange ? (
-            <div className="analyticsHeroBadge">
-              <UiIcon name="activity" size={16} />
-              <span>WebSocket {wsStatus || "idle"}</span>
-            </div>
-          ) : null}
           {lastLoadedAt ? (
             <div className="analyticsHeroBadge">
               <UiIcon name="save" size={16} />
@@ -1648,7 +1396,6 @@ function AnalyticsSurface() {
               energySeries={report.energySeries}
               metricSeries={report.metricSeries}
               loading={showInitialSkeleton}
-              isLive={isLiveRange}
             />
           </Card>
 
@@ -1660,7 +1407,7 @@ function AnalyticsSurface() {
               note={
                 hasTelemetryRows
                   ? "Calculated from returned telemetry samples for the selected streetlight."
-                  : "No live energy telemetry loaded for this range."
+                  : "No energy telemetry loaded for this range."
               }
               loading={showInitialSkeleton}
             />
@@ -1671,7 +1418,7 @@ function AnalyticsSurface() {
               note={
                 hasTelemetryRows
                   ? "Share of healthy telemetry intervals for the selected streetlight."
-                  : "No live health telemetry loaded for this range."
+                  : "No health telemetry loaded for this range."
               }
               loading={showInitialSkeleton}
             />
@@ -1684,7 +1431,7 @@ function AnalyticsSurface() {
               note={
                 hasTelemetryRows
                   ? `${formatNumber(report.headline.activeFaults)} active issues remain in telemetry.`
-                  : "No live fault telemetry loaded for this range."
+                  : "No fault telemetry loaded for this range."
               }
               loading={showInitialSkeleton}
             />
@@ -1712,7 +1459,7 @@ function AnalyticsSurface() {
               ) : !sortedZones.length ? (
                 <EmptyState
                   title="No zone totals available"
-                  description="Zone totals will appear once live samples are available for this streetlight."
+                  description="Zone totals will appear once telemetry samples are available for this streetlight."
                 />
               ) : (
                 <div className="analyticsTableWrap">
@@ -1846,7 +1593,7 @@ function AnalyticsSurface() {
                 <SkeletonBlock className="analyticsLogSkeleton" />
               ) : !filteredFaults.length ? (
                 <EmptyState
-                  title="No live fault events"
+                  title="No fault events"
                   description="No returned telemetry health samples produced a fault event for this streetlight and range."
                 />
               ) : (

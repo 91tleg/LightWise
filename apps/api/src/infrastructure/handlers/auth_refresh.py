@@ -44,7 +44,7 @@ def _refresh(refresh_token: str) -> dict | None:
     }).encode()
 
     req = urllib.request.Request(
-        f"https://{_config.token_url}",
+        _config.token_url,
         data=payload,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         method="POST",
