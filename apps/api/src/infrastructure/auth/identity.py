@@ -20,12 +20,14 @@ def resolve_identity(event: dict) -> tuple[str, str]:
     if not settings.AUTH_ENABLED:
         return "public", "anonymous"
 
-    claims = (
+    authorizer = (
         event
         .get("requestContext", {})
         .get("authorizer", {})
-        .get("claims") or {}
     )
+
+    claims = authorizer.get("claims") or authorizer
+
     tenant_id = claims.get("custom:tenant_id")
     sub = claims.get("sub")
 
@@ -104,11 +106,12 @@ def resolve_email(event: dict) -> str:
     if not settings.AUTH_ENABLED:
         return "anonymous"
 
-    claims = (
+    authorizer = (
         event
         .get("requestContext", {})
         .get("authorizer", {})
-        .get("claims") or {}
     )
+
+    claims = authorizer.get("claims") or authorizer
 
     return claims.get("email") or claims.get("sub") or "unknown"
