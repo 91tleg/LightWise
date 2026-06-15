@@ -20,12 +20,12 @@ from libs.logging import logger
 
 
 def handler(event: dict, context: object) -> dict:
-    claims = (
+    authorizer = (
         event
         .get("requestContext", {})
         .get("authorizer", {})
-        .get("claims") or {}
     )
+    claims = authorizer.get("claims") or authorizer
     logger.info("Claims received: %s", claims)
 
     try:
