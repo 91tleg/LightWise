@@ -19,13 +19,16 @@ function getInitials(name = "") {
 }
 
 export function AuthProvider({ children }) {
-  const [operator, setOperator] = useState(null);
+  const [operator, setOperator]   = useState(null);
   const [authStatus, setAuthStatus] = useState("idle");
-  const [authError, setAuthError] = useState(null);
-  const inflightRef = useRef(null);
+  const [authError, setAuthError]  = useState(null);
+
+  const inflightRef  = useRef(null);
+  const operatorRef  = useRef(null);
 
   const clearAuth = useCallback(() => {
     stopTokenRefresh();
+    operatorRef.current = null;
     setOperator(null);
     setAuthStatus("unauthenticated");
     setAuthError(null);
@@ -34,19 +37,21 @@ export function AuthProvider({ children }) {
   useEffect(() => subscribeToAuthRequired(clearAuth), [clearAuth]);
 
   const loadProfile = useCallback(async ({ force = false } = {}) => {
-    if (!force && operator) { setAuthStatus("authenticated"); return operator; }
+    if (!force && operatorRef.current) {
+      setAuthStatus("authenticated");
+      return operatorRef.current;
+    }
     if (!force && inflightRef.current) return inflightRef.current;
 
     const promise = (async () => {
       setAuthStatus("loading");
       setAuthError(null);
-
       try {
         await refreshTokens({ emitOnFailure: false });
       } catch {}
-
       try {
         const profile = await getOperatorProfile();
+        operatorRef.current = profile;
         setOperator(profile);
         setAuthStatus("authenticated");
         startTokenRefresh();
@@ -63,7 +68,7 @@ export function AuthProvider({ children }) {
 
     inflightRef.current = promise;
     return promise;
-  }, [clearAuth, operator]);
+  }, [clearAuth]);
 
   const completeAuthentication = useCallback(async () => {
     return loadProfile({ force: true });
