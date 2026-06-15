@@ -1,24 +1,17 @@
 from __future__ import annotations
 from functools import lru_cache
 
-from infrastructure.auth.cognito_config import CognitoConfig
+from infrastructure.auth.cognito_config import get_cognito_config
 from infrastructure.auth.cognito_verifier import CognitoVerifier
 from domain.errors import AuthError
 from infrastructure.auth.iam import allow_policy
 from infrastructure.auth.token import extract_websocket_auth
-from libs.config import settings
 from libs.logging import logger
 
 
 @lru_cache(maxsize=1)
 def _verifier() -> CognitoVerifier:
-    return CognitoVerifier(
-        CognitoConfig(
-            region=settings.AWS_REGION,
-            user_pool_id=settings.COGNITO_USER_POOL_ID,
-            client_id=settings.COGNITO_CLIENT_ID,
-        )
-    )
+    return CognitoVerifier(get_cognito_config())
 
 
 def handler(event: dict, context: object) -> dict:
