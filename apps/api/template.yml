@@ -452,6 +452,17 @@ Resources:
         Variables:
           ENV: !Ref Env
 
+  AuthTokenFunction:
+  Type: AWS::Serverless::Function
+  Properties:
+    Handler: infrastructure.handlers.auth_token.handler
+    Events:
+      AuthToken:
+        Type: Api
+        Properties:
+          Path: /auth/token
+          Method: get
+
   PreTokenGenerationPermission:
     Type: AWS::Lambda::Permission
     Properties:
