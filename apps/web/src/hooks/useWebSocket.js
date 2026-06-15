@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const DEFAULT_OPTIONS = {
   autoReconnect:    true,
   reconnectDelayMs: 1500,
+  maxReconnectMs:   30000,
+  backoffFactor:    2,
   maxMessages:      50,
   debug:            false,
   getToken:         null,
@@ -12,6 +14,8 @@ export function useWebSocket(wsBaseUrl, options = {}) {
   const {
     autoReconnect,
     reconnectDelayMs,
+    maxReconnectMs,
+    backoffFactor,
     maxMessages,
     debug,
     getToken,
@@ -24,6 +28,7 @@ export function useWebSocket(wsBaseUrl, options = {}) {
   const manualCloseRef    = useRef(false);
   const subscribedIdsRef  = useRef(new Set());
   const connectAttemptRef = useRef(0);
+  const reconnectCountRef = useRef(0);
 
   const [status,      setStatus]      = useState(wsUrl ? "connecting" : "idle");
   const [error,       setError]       = useState(null);
@@ -41,9 +46,17 @@ export function useWebSocket(wsBaseUrl, options = {}) {
     }
   }, []);
 
+  const getReconnectDelay = useCallback(() => {
+    const delay = reconnectDelayMs * Math.pow(backoffFactor, reconnectCountRef.current);
+    // add jitter ±20% to avoid thundering herd
+    const jitter = delay * 0.2 * (Math.random() * 2 - 1);
+    return Math.min(delay + jitter, maxReconnectMs);
+  }, [reconnectDelayMs, backoffFactor, maxReconnectMs]);
+
   const disconnect = useCallback(() => {
     manualCloseRef.current = true;
     connectAttemptRef.current += 1;
+    reconnectCountRef.current = 0;
     clearReconnectTimer();
     const ws = wsRef.current;
     wsRef.current = null;
@@ -89,14 +102,19 @@ export function useWebSocket(wsBaseUrl, options = {}) {
     try {
       const token = getToken ? String((await getToken()) || "").trim() : "";
       if (manualCloseRef.current || connectAttemptRef.current !== attemptId) return;
-      socket = token ? new WebSocket(wsUrl, ["Bearer", token]) : new WebSocket(wsUrl);
+      socket = token
+        ? new WebSocket(wsUrl, ["Bearer", token])
+        : new WebSocket(wsUrl);
     } catch (e) {
       if (manualCloseRef.current || connectAttemptRef.current !== attemptId) return;
       setError(e);
       setStatus("error");
       if (autoReconnect) {
+        const delay = getReconnectDelay();
+        reconnectCountRef.current += 1;
+        log(`reconnecting in ${Math.round(delay)}ms (attempt ${reconnectCountRef.current})`);
         clearReconnectTimer();
-        reconnectTimerRef.current = setTimeout(connect, reconnectDelayMs);
+        reconnectTimerRef.current = setTimeout(connect, delay);
       }
       return;
     }
@@ -105,9 +123,9 @@ export function useWebSocket(wsBaseUrl, options = {}) {
 
     socket.onopen = () => {
       log("connected");
+      reconnectCountRef.current = 0;
       setStatus("connected");
       setError(null);
-      // Re-subscribe to all tracked ids after reconnect
       subscribedIdsRef.current.forEach((id) => {
         try {
           socket.send(JSON.stringify({ action: "subscribe", streetlight_id: id }));
@@ -135,11 +153,14 @@ export function useWebSocket(wsBaseUrl, options = {}) {
       if (wsRef.current === socket) wsRef.current = null;
       setStatus("disconnected");
       if (!manualCloseRef.current && autoReconnect) {
+        const delay = getReconnectDelay();
+        reconnectCountRef.current += 1;
+        log(`reconnecting in ${Math.round(delay)}ms (attempt ${reconnectCountRef.current})`);
         clearReconnectTimer();
-        reconnectTimerRef.current = setTimeout(connect, reconnectDelayMs);
+        reconnectTimerRef.current = setTimeout(connect, delay);
       }
     };
-  }, [wsUrl, autoReconnect, reconnectDelayMs, maxMessages, getToken, log, clearReconnectTimer]);
+  }, [wsUrl, autoReconnect, getReconnectDelay, maxMessages, getToken, log, clearReconnectTimer]);
 
   useEffect(() => {
     if (!wsUrl) { disconnect(); setStatus("idle"); return; }
