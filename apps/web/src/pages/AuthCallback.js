@@ -4,6 +4,12 @@ import AuthScreen from "../components/AuthScreen";
 import { LIGHTWISE_ENV } from "../config/env";
 import { useLightWise } from "../hooks/useLightWise";
 
+const PROFILE_RETRY_DELAYS_MS = [0, 250, 750, 1500];
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 export default function AuthCallback() {
   const navigate = useNavigate();
   const { completeAuthentication } = useLightWise();
@@ -29,11 +35,24 @@ export default function AuthCallback() {
           throw Object.assign(new Error("Token exchange failed."), { status: response.status });
         }
 
-        const profile = await completeAuthentication();
+        let profile = null;
+        let profileError = null;
+
+        for (const delay of PROFILE_RETRY_DELAYS_MS) {
+          if (delay) await wait(delay);
+          try {
+            profile = await completeAuthentication();
+            profileError = null;
+            if (profile) break;
+          } catch (err) {
+            profileError = err;
+          }
+        }
+
         if (!active) return;
 
         if (!profile) {
-          throw new Error("Session cookies were not accepted by the browser.");
+          throw profileError || new Error("Session cookies were not accepted by the browser.");
         }
 
         navigate("/overview", { replace: true });
@@ -53,7 +72,7 @@ export default function AuthCallback() {
     return (
       <AuthScreen
         title="Unable to finish sign-in"
-        message="The login completed, but LightWise could not start your session."
+        message={`The login completed, but LightWise could not start your session. ${error.message || ""}`.trim()}
         actionLabel="Try again"
         onAction={() => {
           setError(null);
