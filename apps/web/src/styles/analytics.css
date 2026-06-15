@@ -102,10 +102,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding: 14px 16px;
-  border-radius: 22px;
+  padding: 10px 14px;
+  border-radius: 18px;
   backdrop-filter: blur(18px);
   background: rgba(248, 251, 255, 0.88);
 }
@@ -113,16 +113,16 @@
 .analyticsPresetGroup {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .analyticsPresetButton {
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 999px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   background: rgba(255, 255, 255, 0.9);
   color: #2b4663;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
   cursor: pointer;
   transition:
@@ -140,8 +140,8 @@
 
 .analyticsStickyFields {
   display: flex;
-  align-items: stretch;
-  gap: 12px;
+  align-items: flex-end;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -150,7 +150,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -158,17 +158,21 @@
 .analyticsField {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 190px;
+  gap: 4px;
+  min-width: 148px;
 }
 
 .analyticsDateField {
   position: relative;
 }
 
+.analyticsDateField input {
+  width: 210px;
+}
+
 .analyticsField span,
 .analyticsRangeMetaLabel {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -178,19 +182,19 @@
 .analyticsField input,
 .analyticsField select {
   width: 100%;
-  min-height: 44px;
-  border-radius: 14px;
+  min-height: 36px;
+  border-radius: 12px;
   border: 1px solid rgba(15, 23, 42, 0.1);
   background: rgba(255, 255, 255, 0.95);
   color: #18324b;
-  padding: 0 52px 0 14px;
-  font-size: 14px;
+  padding: 0 42px 0 12px;
+  font-size: 13px;
   font-weight: 800;
   box-sizing: border-box;
 }
 
 .analyticsSelectField {
-  min-width: 150px;
+  min-width: 132px;
 }
 
 .analyticsField select {
@@ -200,8 +204,8 @@
     linear-gradient(45deg, transparent 50%, #2b4663 50%),
     linear-gradient(135deg, #2b4663 50%, transparent 50%);
   background-position:
-    calc(100% - 18px) 20px,
-    calc(100% - 12px) 20px;
+    calc(100% - 18px) 15px,
+    calc(100% - 12px) 15px;
   background-size: 6px 6px, 6px 6px;
   background-repeat: no-repeat;
   cursor: pointer;
@@ -215,15 +219,15 @@
 .analyticsDateTrigger {
   position: absolute;
   top: 50%;
-  right: 8px;
-  width: 34px;
-  height: 34px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transform: translateY(-50%);
   border: 0;
-  border-radius: 10px;
+  border-radius: 9px;
   background: transparent;
   color: #12212a;
   cursor: pointer;
@@ -250,8 +254,10 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  min-width: 128px;
-  border-radius: 16px;
+  min-width: 92px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
 }
 
 .analyticsBanner {
@@ -329,8 +335,8 @@
 }
 
 .analyticsPoleListCard.isCompact {
-  flex: 0 1 390px;
-  min-width: 300px;
+  flex: 0 1 340px;
+  min-width: 280px;
   padding: 0;
   margin: 0;
   border-bottom: 0;
@@ -342,13 +348,13 @@
 
 .analyticsPoleSelectField {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   margin: 0;
   min-width: 0;
 }
 
 .analyticsPoleSelectEyebrow {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -376,9 +382,9 @@
 }
 
 .analyticsPoleListCard.isCompact .analyticsPolePicker {
-  min-height: 58px;
-  padding: 9px 12px;
-  border-radius: 16px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: 14px;
 }
 
 .analyticsPolePicker:hover {
@@ -416,21 +422,21 @@
 }
 
 .analyticsPoleListCard.isCompact .analyticsPolePickerIcon {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
 }
 
 .analyticsPolePickerCopy {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
   pointer-events: none;
 }
 
 .analyticsPolePickerCopy strong {
   color: #153049;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 1000;
   line-height: 1.1;
   overflow: hidden;
@@ -440,7 +446,7 @@
 
 .analyticsPolePickerCopy small {
   color: #657b91;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1.25;
   overflow: hidden;
@@ -453,8 +459,8 @@
   align-items: center;
   justify-content: center;
   max-width: 132px;
-  min-height: 30px;
-  padding: 5px 10px;
+  min-height: 26px;
+  padding: 4px 9px;
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.14);
   color: #475569;
