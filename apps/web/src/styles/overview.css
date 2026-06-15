@@ -243,6 +243,10 @@
   cursor: pointer;
 }
 
+.lwSensorHealthTrigger > span:first-child {
+  font-weight: 950;
+}
+
 .lwSensorHealthPanel {
   display: none;
   gap: 6px;
