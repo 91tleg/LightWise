@@ -146,6 +146,16 @@
   flex-wrap: wrap;
 }
 
+.analyticsStickyControls {
+  flex: 1 1 720px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .analyticsField {
   display: flex;
   flex-direction: column;
@@ -319,6 +329,14 @@
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.analyticsPoleListCard.isCompact {
+  flex: 0 1 390px;
+  min-width: 300px;
+  padding: 0;
+  margin: 0;
+  border-bottom: 0;
+}
+
 .analyticsPoleListCard .analyticsSectionHeading {
   margin-bottom: 10px;
 }
@@ -358,6 +376,12 @@
     transform 0.18s ease;
 }
 
+.analyticsPoleListCard.isCompact .analyticsPolePicker {
+  min-height: 58px;
+  padding: 9px 12px;
+  border-radius: 16px;
+}
+
 .analyticsPolePicker:hover {
   border-color: rgba(13, 115, 168, 0.32);
   transform: translateY(-1px);
@@ -390,6 +414,12 @@
   background: rgba(13, 115, 168, 0.1);
   color: #0d73a8;
   pointer-events: none;
+}
+
+.analyticsPoleListCard.isCompact .analyticsPolePickerIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
 }
 
 .analyticsPolePickerCopy {
@@ -1097,8 +1127,15 @@
     padding: 16px;
   }
 
-  .analyticsStickyFields {
+  .analyticsStickyControls,
+  .analyticsStickyFields,
+  .analyticsPoleListCard.isCompact {
     width: 100%;
+  }
+
+  .analyticsStickyControls,
+  .analyticsPoleListCard.isCompact {
+    flex-basis: 100%;
   }
 
   .analyticsField {
@@ -1118,6 +1155,7 @@
     width: 100%;
   }
 
+  .analyticsStickyControls,
   .analyticsStickyFields {
     flex-direction: column;
     align-items: stretch;

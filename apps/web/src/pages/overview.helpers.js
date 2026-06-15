@@ -172,7 +172,6 @@ export function getOverviewConnectionSummary(
 
 export function getSensorHealthDetails(pole) {
   const {
-    overallOk,
     ambientHealth,
     mmwaveHealth,
     thOk,
@@ -181,26 +180,15 @@ export function getSensorHealthDetails(pole) {
   const ambientStatus = sensorHealthFromText(ambientHealth);
   const temperatureHumidityStatus = sensorHealthFromBool(thOk);
   const lightStatus = sensorHealthFromBool(lightOk);
-  const rows = [];
-  const systemStatus =
-    sensorHealthFromBool(overallOk) || sensorHealthFromText(pole?.health);
-
-  if (systemStatus) {
-    rows.push(sensorHealthDetail("System", systemStatus));
-  }
-
-  rows.push(
+  return [
     sensorHealthDetail(
       "Motion",
       sensorHealthFromText(mmwaveHealth),
       sensorHealthFromPair(pole?.motion_primary_ok, pole?.motion_secondary_ok)
     ),
-    sensorHealthDetail("Temperature", temperatureHumidityStatus, ambientStatus),
-    sensorHealthDetail("Humidity", temperatureHumidityStatus, ambientStatus),
-    sensorHealthDetail("Lux", lightStatus, ambientStatus)
-  );
-
-  return rows;
+    sensorHealthDetail("Temperature / Humidity", temperatureHumidityStatus, ambientStatus),
+    sensorHealthDetail("Lux", lightStatus, ambientStatus),
+  ];
 }
 
 export function getCombinedSensorHealth(pole) {
@@ -229,8 +217,13 @@ export function getCombinedSensorHealth(pole) {
     return { label: "Waiting for data", tone: "neutral" };
   }
 
+  if (overallOk !== null) {
+    return overallOk
+      ? { label: "All sensors OK", tone: "healthy" }
+      : { label: "Fault detected", tone: "critical" };
+  }
+
   if (
-    overallOk === false ||
     thOk === false ||
     lightOk === false ||
     isSensorFault(ambientHealth) ||

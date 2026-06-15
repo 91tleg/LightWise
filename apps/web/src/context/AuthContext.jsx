@@ -1,6 +1,7 @@
 import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { getOperatorProfile } from "../services/api";
 import {
+  hasSignedOutSession,
   subscribeToAuthRequired,
   redirectToSignIn,
   redirectToSignOut,
@@ -46,9 +47,20 @@ export function AuthProvider({ children }) {
     const promise = (async () => {
       setAuthStatus("loading");
       setAuthError(null);
+      if (hasSignedOutSession()) {
+        clearAuth();
+        return null;
+      }
+
       try {
         await refreshTokens({ emitOnFailure: false });
-      } catch {}
+      } catch (err) {
+        if (err?.status === 401 || err?.status === 403) {
+          clearAuth();
+          return null;
+        }
+      }
+
       try {
         const profile = await getOperatorProfile();
         operatorRef.current = profile;
@@ -57,7 +69,7 @@ export function AuthProvider({ children }) {
         startTokenRefresh();
         return profile;
       } catch (err) {
-        if (err?.status === 401) { clearAuth(); return null; }
+        if (err?.status === 401 || err?.status === 403) { clearAuth(); return null; }
         setAuthStatus("error");
         setAuthError(err);
         throw err;

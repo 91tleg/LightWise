@@ -25,7 +25,6 @@ import "../styles/analytics.css";
 const RANGE_STORAGE_KEY = "lightwise.analytics.range.v2";
 
 const RANGE_PRESETS = [
-  { id: "live", label: "Live" },
   { id: "7d", label: "7 days" },
   { id: "30d", label: "30 days" },
   { id: "quarter", label: "Quarter" },
@@ -124,6 +123,15 @@ function readStoredRange() {
       typeof parsed.to === "string" &&
       typeof parsed.preset === "string"
     ) {
+      if (!RANGE_PRESETS.some((option) => option.id === parsed.preset)) {
+        return {
+          preset: "30d",
+          from: fallback.from,
+          to: fallback.to,
+          aggregation: "auto",
+        };
+      }
+
       const aggregation = AGGREGATION_OPTIONS.some(
         (option) => option.id === parsed.aggregation
       )
@@ -414,65 +422,6 @@ function formatChartLabel(timestamp, condensed = false, live = false) {
       ? { month: "short", day: "numeric" }
       : { month: "short", day: "numeric", hour: "numeric" }
   );
-}
-
-function clampPercent(value, min, max) {
-  return Math.min(max, Math.max(min, Number(value || 0))).toFixed(2);
-}
-
-function getMapBounds(points, center) {
-  const coords = [...points, center].filter(
-    (point) =>
-      Number.isFinite(Number(point?.lat)) &&
-      Number.isFinite(Number(point?.lng))
-  );
-
-  const minLat = Math.min(...coords.map((point) => Number(point.lat)));
-  const maxLat = Math.max(...coords.map((point) => Number(point.lat)));
-  const minLng = Math.min(...coords.map((point) => Number(point.lng)));
-  const maxLng = Math.max(...coords.map((point) => Number(point.lng)));
-
-  const latPad = Math.max((maxLat - minLat) * 0.2, 0.0035);
-  const lngPad = Math.max((maxLng - minLng) * 0.2, 0.0035);
-
-  return {
-    minLat: minLat - latPad,
-    maxLat: maxLat + latPad,
-    minLng: minLng - lngPad,
-    maxLng: maxLng + lngPad,
-  };
-}
-
-function getMapPosition(point, bounds) {
-  const lat = Number(point?.lat);
-  const lng = Number(point?.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return { left: "50%", top: "50%" };
-  }
-
-  const latSpan = Math.max(bounds.maxLat - bounds.minLat, 0.0001);
-  const lngSpan = Math.max(bounds.maxLng - bounds.minLng, 0.0001);
-
-  return {
-    left: `${clampPercent(((lng - bounds.minLng) / lngSpan) * 100, 7, 93)}%`,
-    top: `${clampPercent((1 - (lat - bounds.minLat) / latSpan) * 100, 10, 90)}%`,
-  };
-}
-
-function getHeatColor(activityPct) {
-  const value = Math.max(0, Math.min(100, Number(activityPct || 0)));
-  if (value < 25) return "#45a7dd";
-  if (value < 50) return "#3ac47d";
-  if (value < 75) return "#f0b43a";
-  return "#e25c38";
-}
-
-function getHeatLabel(activityPct) {
-  const value = Number(activityPct || 0);
-  if (value < 25) return "Low";
-  if (value < 50) return "Moderate";
-  if (value < 75) return "Elevated";
-  return "High";
 }
 
 function downloadTextFile(filename, content, mimeType) {
@@ -805,17 +754,19 @@ function MetricCard({ icon, label, value, note, loading }) {
   );
 }
 
-function AnalyticsPoleList({ poles, selectedId, onSelect }) {
+function AnalyticsPoleList({ poles, selectedId, onSelect, compact = false }) {
   const selectedPole =
     poles.find((pole) => pole.streetlight_id === selectedId) || poles[0] || null;
   const selectedHealth = selectedPole?.health || "Waiting";
 
   return (
-    <section className="analyticsPoleListCard">
-      <SectionHeading
-        title="Streetlight List"
-        description="Analytics is scoped to the selected reporting streetlight."
-      />
+    <section className={`analyticsPoleListCard${compact ? " isCompact" : ""}`}>
+      {!compact ? (
+        <SectionHeading
+          title="Streetlight List"
+          description="Analytics is scoped to the selected reporting streetlight."
+        />
+      ) : null}
 
       <label className="analyticsPoleSelectField">
         <span className="analyticsPoleSelectEyebrow">Reporting streetlight</span>
@@ -1163,84 +1114,6 @@ function TrendChart({ metricId, energySeries, metricSeries, loading, isLive = fa
           </g>
         ))}
       </svg>
-    </div>
-  );
-}
-
-function MotionHeatmap({ poles, center, loading }) {
-  const bounds = useMemo(() => {
-    return getMapBounds(poles, center);
-  }, [center, poles]);
-
-  if (loading) {
-    return <SkeletonBlock className="analyticsVizSkeleton analyticsMapSkeleton" />;
-  }
-
-  if (!poles.length) {
-    return (
-      <EmptyState
-        title="No mapped motion activity yet"
-        description="No returned telemetry rows include motion samples and saved coordinates for this streetlight."
-      />
-    );
-  }
-
-  const zoomLevel = poles.length > 5 ? 14 : poles.length > 1 ? 15 : 17;
-  const src = `https://maps.google.com/maps?ll=${encodeURIComponent(
-    `${center.lat},${center.lng}`
-  )}&z=${zoomLevel}&output=embed`;
-
-  return (
-    <div className="analyticsHeatmap">
-      <div className="analyticsHeatmapCanvas">
-        <iframe
-          title="Motion activity heatmap"
-          className="analyticsHeatmapFrame"
-          src={src}
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          allowFullScreen
-        />
-
-        <div className="analyticsHeatmapLayer">
-          {poles.map((pole) => {
-            const position = getMapPosition(pole, bounds);
-            const size = 32 + Number(pole.motionRatePct || 0) * 0.5;
-            const color = getHeatColor(pole.motionRatePct);
-
-            return (
-              <div
-                key={pole.streetlight_id}
-                className="analyticsHeatDot"
-                style={{
-                  ...position,
-                  width: size,
-                  height: size,
-                  "--analytics-heat-color": color,
-                }}
-                title={`${pole.name} (${pole.streetlight_id}) • ${Math.round(
-                  pole.motionRatePct || 0
-                )}% activity`}
-              >
-                <span className="analyticsHeatDotCore" />
-                <span className="analyticsHeatDotLabel">{pole.streetlight_id}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="analyticsHeatLegend">
-        {[10, 35, 60, 85].map((value) => (
-          <div key={value} className="analyticsHeatLegendItem">
-            <span
-              className="analyticsHeatLegendSwatch"
-              style={{ background: getHeatColor(value) }}
-            />
-            <span>{getHeatLabel(value)}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -1695,27 +1568,38 @@ function AnalyticsSurface() {
           ))}
         </div>
 
-        <div className="analyticsStickyFields">
-          <DateTimeField
-            label="From"
-            value={from}
-            onChange={(event) => handleCustomDateChange("from", event.target.value)}
-          />
-          <DateTimeField
-            label="To"
-            value={to}
-            onChange={(event) => handleCustomDateChange("to", event.target.value)}
-          />
-          <SelectField
-            label="Aggregation"
-            value={aggregationValue}
-            options={aggregationOptions}
-            onChange={(event) => setAggregation(event.target.value)}
-          />
-          <div className="analyticsRangeMeta">
-            <span className="analyticsRangeMetaLabel">Using</span>
-            <strong>{intervalLabel}</strong>
+        <div className="analyticsStickyControls">
+          <div className="analyticsStickyFields">
+            <DateTimeField
+              label="From"
+              value={from}
+              onChange={(event) => handleCustomDateChange("from", event.target.value)}
+            />
+            <DateTimeField
+              label="To"
+              value={to}
+              onChange={(event) => handleCustomDateChange("to", event.target.value)}
+            />
+            <SelectField
+              label="Aggregation"
+              value={aggregationValue}
+              options={aggregationOptions}
+              onChange={(event) => setAggregation(event.target.value)}
+            />
+            <div className="analyticsRangeMeta">
+              <span className="analyticsRangeMetaLabel">Using</span>
+              <strong>{intervalLabel}</strong>
+            </div>
           </div>
+
+          {analyticsPoles.length ? (
+            <AnalyticsPoleList
+              compact
+              poles={analyticsPoles}
+              selectedId={selectedPole?.streetlight_id || ""}
+              onSelect={setSelectedPoleId}
+            />
+          ) : null}
         </div>
       </section>
 
@@ -1757,12 +1641,6 @@ function AnalyticsSurface() {
                   ))}
                 </div>
               }
-            />
-
-            <AnalyticsPoleList
-              poles={analyticsPoles}
-              selectedId={selectedPole?.streetlight_id || ""}
-              onSelect={setSelectedPoleId}
             />
 
             <TrendChart
@@ -2006,19 +1884,6 @@ function AnalyticsSurface() {
               )}
             </Card>
           </div>
-
-          <Card className="analyticsSectionCard">
-            <SectionHeading
-              title="Motion Heatmap"
-              description="Activity intensity mapped only from live motion telemetry."
-            />
-
-            <MotionHeatmap
-              poles={report.motionMap}
-              center={report.center}
-              loading={showInitialSkeleton}
-            />
-          </Card>
 
           <Card className="analyticsSectionCard">
             <SectionHeading

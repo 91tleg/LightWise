@@ -274,7 +274,7 @@ export default function MapEmbed({
       mapRef.current = null;
       map.remove();
     };
-  }, [interactive]);
+  }, [interactive, normalizedPreviewPoint, validPoles.length]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;

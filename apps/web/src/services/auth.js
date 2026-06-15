@@ -3,6 +3,7 @@ import { COGNITO_ENV, LIGHTWISE_ENV } from "../config/env";
 const AUTH_REQUIRED_EVENT = "lightwise:auth-required";
 const REFRESH_INTERVAL_MS = 50 * 60 * 1000;
 const HOSTED_UI_SCOPES = "email openid profile";
+const SIGNED_OUT_STORAGE_KEY = "lightwise.auth.signedOut";
 
 let refreshTimer = null;
 
@@ -48,6 +49,26 @@ function buildApiUrl(path) {
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+function setSignedOutSession(value) {
+  if (typeof window === "undefined") return;
+  try {
+    if (value) {
+      window.sessionStorage.setItem(SIGNED_OUT_STORAGE_KEY, "1");
+    } else {
+      window.sessionStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
+    }
+  } catch {}
+}
+
+export function hasSignedOutSession() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(SIGNED_OUT_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function emitAuthRequired(reason = "unauthenticated") {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(AUTH_REQUIRED_EVENT, { detail: { reason } }));
@@ -61,6 +82,7 @@ export function subscribeToAuthRequired(listener) {
 }
 
 export function redirectToSignIn() {
+  setSignedOutSession(false);
   window.location.href = buildHostedUiUrl("/login", {
     client_id: COGNITO_ENV.CLIENT_ID,
     response_type: "code",
@@ -71,6 +93,7 @@ export function redirectToSignIn() {
 
 export function redirectToSignOut() {
   stopTokenRefresh();
+  setSignedOutSession(true);
   window.location.href = buildHostedUiUrl("/logout", {
     client_id: COGNITO_ENV.CLIENT_ID,
     logout_uri: getLogoutUri(),
