@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
     const promise = (async () => {
       setAuthStatus("loading");
       setAuthError(null);
-      if (hasSignedOutSession()) {
+      if (!force && hasSignedOutSession()) {
         clearAuth();
         return null;
       }

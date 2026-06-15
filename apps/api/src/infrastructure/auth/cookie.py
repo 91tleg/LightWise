@@ -12,7 +12,7 @@ def extract_cookie(event: dict, name: str) -> str | None:
 
 
 def build_auth_cookies(tokens: dict) -> list[str]:
-    secure = "HttpOnly; Secure; SameSite=None"
+    secure = "HttpOnly; Secure; SameSite=None; Partitioned"
 
     access_cookie = (
         f"access_token={tokens['access_token']}; "
