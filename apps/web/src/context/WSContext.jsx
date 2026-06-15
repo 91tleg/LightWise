@@ -10,13 +10,21 @@ export function WSProvider({ children }) {
   const [wsToken, setWsToken] = useState(null);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setWsToken(null);
+      return;
+    }
+
+    let cancelled = false;
+
     fetch(`${process.env.REACT_APP_API_BASE}/auth/token`, {
       credentials: "include",
     })
-      .then(r => r.json())
-      .then(data => setWsToken(data.token))
-      .catch(() => {});
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(data => { if (!cancelled) setWsToken(data.token); })
+      .catch(() => { if (!cancelled) setWsToken(null); });
+
+    return () => { cancelled = true; };
   }, [isAuthenticated]);
 
   const { status: wsStatus, error: wsError, lastMessage, send, subscribe } =
