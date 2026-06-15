@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => subscribeToAuthRequired(clearAuth), [clearAuth]);
 
-  const loadProfile = useCallback(async ({ force = false } = {}) => {
+  const loadProfile = useCallback(async ({ force = false, skipRefresh = false } = {}) => {
     if (!force && operatorRef.current) {
       setAuthStatus("authenticated");
       return operatorRef.current;
@@ -52,12 +52,14 @@ export function AuthProvider({ children }) {
         return null;
       }
 
-      try {
-        await refreshTokens({ emitOnFailure: false });
-      } catch (err) {
-        if (err?.status === 401 || err?.status === 403) {
-          clearAuth();
-          return null;
+      if (!skipRefresh) {
+        try {
+          await refreshTokens({ emitOnFailure: false });
+        } catch (err) {
+          if (!force && (err?.status === 401 || err?.status === 403)) {
+            clearAuth();
+            return null;
+          }
         }
       }
 
@@ -83,7 +85,7 @@ export function AuthProvider({ children }) {
   }, [clearAuth]);
 
   const completeAuthentication = useCallback(async () => {
-    return loadProfile({ force: true });
+    return loadProfile({ force: true, skipRefresh: true });
   }, [loadProfile]);
 
   const signOut = useCallback(async () => {

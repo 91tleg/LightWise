@@ -32,11 +32,11 @@ export default function AuthCallback() {
         const profile = await completeAuthentication();
         if (!active) return;
 
-        if (profile) {
-          navigate("/overview", { replace: true });
-        } else {
-          navigate("/", { replace: true });
+        if (!profile) {
+          throw new Error("Session cookies were not accepted by the browser.");
         }
+
+        navigate("/overview", { replace: true });
       } catch (err) {
         if (active) setError(err);
       }
