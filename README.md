@@ -10,9 +10,13 @@ LightWise is a fault-tolerant telemetry platform designed to manage distributed,
 
 ---
 
-## The Problem: "Truck Rolls"
+![Lightwise Poster](docs/assets/poster.png)
 
-Traditional streetlight management is reactive and costly. Municipalities have **no visibility** into infrastructure health until a bulb burns out, a sensor fails, or a citizen complains. When problems occur, technicians must physically drive to each location to diagnose and repair—creating expensive, inefficient "truck rolls."
+---
+
+## The Problem
+
+Traditional streetlight management is reactive and costly. Municipalities have **no visibility** into infrastructure health until a bulb burns out, a sensor fails, or a citizen complains. When problems occur, technicians must physically drive to each location to diagnose and repair.
 
 LightWise eliminates truck rolls through:
 
@@ -167,5 +171,5 @@ pio device monitor # Monitor logs
 
 ---
 
-**Version:** 1.4  
-**Last Updated:** May 6, 2026
+**Version:** 1.5  
+**Last Updated:** Aug 8, 2026
