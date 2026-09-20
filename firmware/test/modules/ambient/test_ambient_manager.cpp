@@ -3,123 +3,217 @@
 #include "ambient_manager.hpp"
 #include "lib/mock_ambient_sensor.hpp"
 #include "types/ambient_data.hpp"
-#include "utils/math/ema.hpp"
+#include "utils/math/kalman1d.hpp"
 
 using ::testing::_;
 using ::testing::Return;
 using ::testing::DoAll;
 using ::testing::SetArgReferee;
 
+using ambient::Data;
+using ambient::Manager;
+
 class AmbientManagerTest : public ::testing::Test
 {
 protected:
     MockAmbientSensor mockPrimary;
     MockAmbientSensor mockSecondary;
-
-    filter::EMA< float > filterPrimary   { 1.0f };
-    filter::EMA< float > filterSecondary { 1.0f };
+    filter::Kalman1D  kf { 4.0f };
+    Manager           mgr { mockPrimary, mockSecondary, kf };
+    Data              data {};
 
     void ExpectRead( MockAmbientSensor & mock, float value, bool success = true )
     {
         EXPECT_CALL( mock, read( _ ) )
-            .WillOnce( DoAll( SetArgReferee< 0 >( value ), Return( success ) ) );
+            .WillOnce( DoAll( SetArgReferee< 0 >( value ), Return( success ) ) )
+            .RetiresOnSaturation();
+    }
+
+    /* One full update cycle with scripted sensor readings */
+    bool Step( float zP, bool pOk, float zS, bool sOk )
+    {
+        ExpectRead( mockPrimary, zP, pOk );
+        ExpectRead( mockSecondary, zS, sOk );
+        return mgr.update( data );
+    }
+
+    /* Both sensors healthy at the same value, n cycles */
+    void Warm( float value, int n )
+    {
+        for( int i { 0 }; i < n; ++i )
+        {
+            static_cast< void >( Step( value, true, value, true ) );
+        }
     }
 };
 
+/* Basic behavior. */
+
 TEST_F( AmbientManagerTest, HandlesHealthySystem )
 {
-    Manager mgr { mockPrimary, mockSecondary, filterPrimary, filterSecondary };
-    Data data { .lux = 0.0f, .health = SensorHealth::TOTAL_FAILURE };
+    data = Data { .lux = 0.0f, .health = SensorHealth::TOTAL_FAILURE };
 
-    ExpectRead( mockPrimary, 100.0f );
-    ExpectRead( mockSecondary, 100.0f );
-
-    EXPECT_TRUE( mgr.update( data ) );
+    EXPECT_TRUE( Step( 100.0f, true, 100.0f, true ) );
     EXPECT_EQ( data.health, SensorHealth::SYSTEM_OK );
     EXPECT_FLOAT_EQ( data.lux, 100.0f );
 }
 
-TEST_F( AmbientManagerTest, ReturnsDegradedWhenDifferenceExceedsThreshold )
+TEST_F( AmbientManagerTest, HandlesZeroLuxCorrectly )
 {
-    Manager mgr { mockPrimary, mockSecondary, filterPrimary, filterSecondary };
-    Data data {};
-
-    ExpectRead( mockPrimary, 100.0f );
-    ExpectRead( mockSecondary, 151.0f ); 
-
-    EXPECT_TRUE( mgr.update( data ) );
-    EXPECT_EQ( data.health, SensorHealth::DEGRADED );
-    EXPECT_FLOAT_EQ( data.lux, 125.5f );
-}
-
-TEST_F( AmbientManagerTest, HandlesSecondaryFailure )
-{
-    Manager mgr { mockPrimary, mockSecondary, filterPrimary, filterSecondary };
-    Data data { .lux = 50.0f };
-
-    ExpectRead( mockPrimary, 200.0f, true );
-    ExpectRead( mockSecondary, 0.0f, false );
-
-    EXPECT_TRUE( mgr.update( data ) );
-    EXPECT_EQ( data.health, SensorHealth::SECONDARY_FAIL );
-    EXPECT_FLOAT_EQ( data.lux, 200.0f );
-}
-
-TEST_F( AmbientManagerTest, HandlesPrimaryFailure )
-{
-    Manager mgr { mockPrimary, mockSecondary, filterPrimary, filterSecondary };
-    Data data {};
-
-    ExpectRead( mockPrimary, 0.0f, false );
-    ExpectRead( mockSecondary, 300.0f, true );
-
-    EXPECT_TRUE( mgr.update( data ) );
-    EXPECT_EQ( data.health, SensorHealth::PRIMARY_FAIL );
-    EXPECT_FLOAT_EQ( data.lux, 300.0f );
+    EXPECT_TRUE( Step( 0.0f, true, 0.0f, true ) );
+    EXPECT_EQ( data.health, SensorHealth::SYSTEM_OK );
+    EXPECT_FLOAT_EQ( data.lux, 0.0f );
 }
 
 TEST_F( AmbientManagerTest, PreservesLastKnownLuxOnTotalFailure )
 {
-    Manager mgr { mockPrimary, mockSecondary, filterPrimary, filterSecondary };
-    Data data { .lux = 123.4f, .health = SensorHealth::SYSTEM_OK };
+    data = Data { .lux = 123.4f, .health = SensorHealth::SYSTEM_OK };
 
-    ExpectRead( mockPrimary, 0.0f, false );
-    ExpectRead( mockSecondary, 0.0f, false );
-
-    EXPECT_FALSE( mgr.update( data ) );
+    EXPECT_FALSE( Step( 0.0f, false, 0.0f, false ) );
     EXPECT_EQ( data.health, SensorHealth::TOTAL_FAILURE );
-    /* Should remain unchanged if both failed */
-    EXPECT_FLOAT_EQ( data.lux, 123.4f ); 
+    EXPECT_FLOAT_EQ( data.lux, 123.4f );
 }
 
-TEST_F( AmbientManagerTest, VerifiesEMAFilteringEffect )
+TEST_F( AmbientManagerTest, PreservesLuxOnTotalFailureAfterWarmup )
 {
-    filter::EMA< float > filterP { 0.5f };
-    filter::EMA< float > filterS { 0.5f };
-    Manager mgr { mockPrimary, mockSecondary, filterP, filterS };
-    Data data {};
-
-    ExpectRead( mockPrimary, 100.0f );
-    ExpectRead( mockSecondary, 100.0f );
-    static_cast< void > ( mgr.update( data ) );
-
-    /* Filtered value = (Curr * 0.5) + (Prev * 0.5) = 150.0f */
-    ExpectRead( mockPrimary, 200.0f );
-    ExpectRead( mockSecondary, 200.0f );
-
-    EXPECT_TRUE( mgr.update( data ) );
-    EXPECT_FLOAT_EQ( data.lux, 150.0f );
+    Warm( 100.0f, 10 );
+    EXPECT_FALSE( Step( 0.0f, false, 0.0f, false ) );
+    EXPECT_EQ( data.health, SensorHealth::TOTAL_FAILURE );
+    EXPECT_NEAR( data.lux, 100.0f, 0.5f );
 }
 
-TEST_F( AmbientManagerTest, HandlesZeroLuxCorrectly )
+/* Read failures (debounced). */
+
+TEST_F( AmbientManagerTest, SingleSensorColdStartStillProducesLux )
 {
-    Manager mgr { mockPrimary, mockSecondary, filterPrimary, filterSecondary };
-    Data data {};
+    EXPECT_TRUE( Step( 200.0f, true, 0.0f, false ) );
+    EXPECT_FLOAT_EQ( data.lux, 200.0f );
+}
 
-    ExpectRead( mockPrimary, 0.0f );
-    ExpectRead( mockSecondary, 0.0f );
+TEST_F( AmbientManagerTest, SecondaryReadFailureDeclaredAfterDebounce )
+{
+    Warm( 200.0f, 10 );
 
-    EXPECT_TRUE( mgr.update( data) ) ;
+    for( int i { 0 }; i < 4; ++i )
+    {
+        EXPECT_TRUE( Step( 200.0f, true, 0.0f, false ) );
+        EXPECT_EQ( data.health, SensorHealth::SYSTEM_OK ) << "cycle " << i;
+    }
+
+    EXPECT_TRUE( Step( 200.0f, true, 0.0f, false ) );
+    EXPECT_EQ( data.health, SensorHealth::SECONDARY_FAIL );
+    EXPECT_NEAR( data.lux, 200.0f, 0.5f );
+}
+
+TEST_F( AmbientManagerTest, PrimaryReadFailureDeclaredAfterDebounce )
+{
+    Warm( 300.0f, 10 );
+
+    for( int i { 0 }; i < 5; ++i )
+    {
+        EXPECT_TRUE( Step( 0.0f, false, 300.0f, true ) );
+    }
+
+    EXPECT_EQ( data.health, SensorHealth::PRIMARY_FAIL );
+    EXPECT_NEAR( data.lux, 300.0f, 0.5f );
+}
+
+/* Fault isolation. */
+
+TEST_F( AmbientManagerTest, IsolatesSecondaryWhenItDisagreesWithPrediction )
+{
+    Warm( 100.0f, 10 );
+
+    for( int i { 0 }; i < 5; ++i )
+    {
+        EXPECT_TRUE( Step( 100.0f, true, 300.0f, true ) );
+    }
+
+    EXPECT_EQ( data.health, SensorHealth::SECONDARY_FAIL );
+    EXPECT_NEAR( data.lux, 100.0f, 1.0f );   /* bad sensor ignored */
+}
+
+TEST_F( AmbientManagerTest, IsolatesPrimaryWhenItDisagreesWithPrediction )
+{
+    Warm( 100.0f, 10 );
+
+    for( int i { 0 }; i < 5; ++i )
+    {
+        EXPECT_TRUE( Step( 0.0f, true, 100.0f, true ) );   /* stuck at 0 */
+    }
+
+    EXPECT_EQ( data.health, SensorHealth::PRIMARY_FAIL );
+    EXPECT_NEAR( data.lux, 100.0f, 1.0f );
+}
+
+TEST_F( AmbientManagerTest, SingleSpikeDoesNotChangeHealth )
+{
+    Warm( 100.0f, 10 );
+
+    EXPECT_TRUE( Step( 100.0f, true, 1000.0f, true ) );
     EXPECT_EQ( data.health, SensorHealth::SYSTEM_OK );
-    EXPECT_FLOAT_EQ( data.lux, 0.0f );
+
+    Warm( 100.0f, 3 );
+    EXPECT_EQ( data.health, SensorHealth::SYSTEM_OK );
+    EXPECT_NEAR( data.lux, 100.0f, 1.0f );
+}
+
+TEST_F( AmbientManagerTest, FaultRecoveryHasHysteresis )
+{
+    Warm( 100.0f, 10 );
+
+    for( int i { 0 }; i < 10; ++i )   /* saturate counter at kFaultMax */
+    {
+        static_cast< void >( Step( 100.0f, true, 300.0f, true ) );
+    }
+    EXPECT_EQ( data.health, SensorHealth::SECONDARY_FAIL );
+
+    /* 10 -> 5 after five good cycles: still tripped */
+    for( int i { 0 }; i < 5; ++i )
+    {
+        static_cast< void >( Step( 100.0f, true, 100.0f, true ) );
+    }
+    EXPECT_EQ( data.health, SensorHealth::SECONDARY_FAIL );
+
+    /* One more good cycle drops below the limit */
+    static_cast< void >( Step( 100.0f, true, 100.0f, true ) );
+    EXPECT_EQ( data.health, SensorHealth::SYSTEM_OK );
+}
+
+/* Ambiguity. */
+
+TEST_F( AmbientManagerTest, ReportsDegradedWhenSensorsDisagreeAndPredictionCannotArbitrate )
+{
+    /* Cold start: the filter is seeded from the midpoint, so both sensors
+       pass the gate against it, yet they disagree with each other. */
+    EXPECT_TRUE( Step( 100.0f, true, 151.0f, true ) );
+    EXPECT_EQ( data.health, SensorHealth::DEGRADED );
+    EXPECT_GT( data.lux, 100.0f );
+    EXPECT_LT( data.lux, 151.0f );
+}
+
+TEST_F( AmbientManagerTest, AmbiguousCyclesDoNotAccumulateFaults )
+{
+    for( int i { 0 }; i < 20; ++i )
+    {
+        static_cast< void >( Step( 100.0f, true, 151.0f, true ) );
+        EXPECT_EQ( data.health, SensorHealth::DEGRADED ) << "cycle " << i;
+    }
+    EXPECT_GT( data.lux, 100.0f );
+    EXPECT_LT( data.lux, 151.0f );
+}
+
+/* Real changes must not be mistaken for faults. */
+
+TEST_F( AmbientManagerTest, AcceptsRealStepWhenBothSensorsAgree )
+{
+    Warm( 100.0f, 10 );
+
+    EXPECT_TRUE( Step( 500.0f, true, 500.0f, true ) );
+    EXPECT_EQ( data.health, SensorHealth::SYSTEM_OK );
+    EXPECT_GT( data.lux, 400.0f );   /* jumped toward 500 in one cycle */
+
+    Warm( 500.0f, 3 );
+    EXPECT_NEAR( data.lux, 500.0f, 5.0f );
+    EXPECT_EQ( data.health, SensorHealth::SYSTEM_OK );
 }
