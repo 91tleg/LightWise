@@ -18,6 +18,7 @@
 #include "config/nvs_config_store.hpp"
 #include "utils/time/timer.h"
 #include "utils/security/secure_zero.hpp"
+#include "utils/math/kalman1d.hpp"
 #include "utils/log/log.h"
 
 namespace mgr
@@ -27,8 +28,8 @@ namespace mgr
 
         constexpr char kTag[] { "ManagerInit" };
 
-        constinit filter::EMA< float > sAmbientFilterA { 0.1f };
-        constinit filter::EMA< float > sAmbientFilterB { 0.1f };
+        constinit filter::Kalman1D sAmbientKf { 4.0f };
+
         constinit filter::EMA< int8_t  > sTempFilter   { 0.1f };
         constinit filter::EMA< uint8_t > sHumFilter    { 0.1f };
 
@@ -36,8 +37,7 @@ namespace mgr
 
         ambient::Manager sAmbientManager { device::alsPt19Primary,
                                            device::alsPt19Secondary,
-                                           sAmbientFilterA,
-                                           sAmbientFilterB };
+                                           sAmbientKf };
 
         th::Manager sThManager { device::aht20Primary,
                                  sTempFilter,
@@ -78,6 +78,10 @@ namespace mgr
         {
             const uint32_t nowMs { static_cast< uint32_t >( timer_get_time_us() / 1000UL ) };
             static_cast< void >( sLorawanManager.setup( keys, nowMs ) );
+        }
+        else
+        {
+            LOGE(kTag, "LoRaWAN keys not found in NVS");
         }
         security::secureZero( keys );
     }

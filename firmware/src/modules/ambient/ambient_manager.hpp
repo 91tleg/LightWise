@@ -1,66 +1,71 @@
 #ifndef SRC_MODULES_AMBIENT_AMBIENT_MANAGER_HPP
 #define SRC_MODULES_AMBIENT_AMBIENT_MANAGER_HPP
 
+#include <cstdint>
+#include "utils/math/fault_counter.hpp"
+
 namespace filter
 {
-    template< typename T >
-    class EMA;
+class Kalman1D;
 }
+
+enum class SensorHealth : uint8_t;
 
 namespace ambient
 {
 
-    struct Data;
-    class AmbientSensor;
+struct Data;
+class AmbientSensor;
+
+/**
+ * @brief  Reads two redundant ambient sensors, fuses them with a shared
+ *         Kalman filter, and isolates the faulty sensor using innovation
+ *         gating against the filter's prediction.
+ *
+ * All dependencies are injected. Their lifetimes must exceed the Manager's.
+ */
+class Manager
+{
+public:
+    /**
+     * @param  primary    Primary ambient sensor.
+     * @param  secondary  Secondary ambient sensor.
+     * @param  filter     Shared scalar Kalman filter (owned by caller).
+     */
+    explicit Manager( AmbientSensor & primary,
+                      AmbientSensor & secondary,
+                      filter::Kalman1D & filter ) noexcept;
+
+    ~Manager()                             = default;
+    Manager( const Manager & )             = delete;
+    Manager & operator=( const Manager & ) = delete;
+    Manager( Manager && )                  = delete;
+    Manager & operator=( Manager && )      = delete;
 
     /**
-     * @brief  Reads two ambient sensors, applies per-sensor EMA filtering,
-     *         and reports fused lux and sensor health.
+     * @brief  Read both sensors, update the filter, classify health.
      *
-     * All four dependencies are injected at construction time. 
-     * Lifetimes of all injected objects must exceed that of Manager.
+     * data.health is always written. data.lux is only written when the
+     * result is true; otherwise the last known value is preserved.
+     *
+     * @return true  if the fused estimate is usable.
+     * @return false on total failure.
      */
-    class Manager
-    {
-    public:
-        /**
-         * @param  primary         Primary ambient sensor.
-         * @param  secondary       Secondary ambient sensor.
-         * @param  primaryFilter   EMA filter for primary channel.
-         * @param  secondaryFilter EMA filter for secondary channel.
-         */
-        explicit Manager( AmbientSensor & primary,
-                          AmbientSensor & secondary,
-                          filter::EMA< float > & primaryFilter,
-                          filter::EMA< float > & secondaryFilter ) noexcept;
+    [[nodiscard]] bool update( Data & data ) noexcept;
 
-        ~Manager()                             = default;
-        Manager( const Manager & )             = delete;
-        Manager & operator=( const Manager & ) = delete;
-        Manager( Manager && )                  = delete;
-        Manager & operator=( Manager && )      = delete;
+private:
+    /* Filter, gating, and fault bookkeeping for one cycle where at least
+       one sensor produced a reading. */
+    SensorHealth process( float zP, bool pRead, float zS, bool sRead ) noexcept;
 
-        /**
-         * @brief  Read both sensors, update EMA filters, fuse results.
-         *
-         * The output structure is always written.
-         *
-         * @param  data  Filled with fused lux and health status.
-         * @return true  if at least one sensor read succeeded.
-         * @return false if both sensors failed (data.lux = last known average).
-         */
-        [[nodiscard]] bool update( Data & data ) noexcept;
+    AmbientSensor & primary_;
+    AmbientSensor & secondary_;
+    filter::Kalman1D & kf_;
 
-    private:
-        AmbientSensor & primary_;
-        AmbientSensor & secondary_;
-        filter::EMA< float > & primaryFilter_;
-        filter::EMA< float > & secondaryFilter_;
-        float filteredPrimary_   { 0.0f };
-        float filteredSecondary_ { 0.0f };
-
-        static constexpr float kDegradedThreshold { 50.0f };
-    };
+    filter::FaultCounter primaryFaults_;
+    filter::FaultCounter secondaryFaults_;
+    uint8_t              rejectStreak_ { 0U };
+};
 
 } /* namespace ambient */
 
