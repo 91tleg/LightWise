@@ -19,6 +19,8 @@ constexpr float   kAbsNoise    { 1.0f };    /* lux floor */
 constexpr uint8_t kFaultLimit  { 5U };
 constexpr uint8_t kFaultMax    { 10U };
 constexpr uint8_t kReseedLimit { 10U };
+constexpr uint8_t kAmbiguousLimit { 5U };   /* cycles before forcing a verdict */
+constexpr float   kArbitrateMargin { 0.25f }; /* of |zP - zS|, nearer must win by this */
 
 float measVar( float z ) noexcept
 {
@@ -64,6 +66,7 @@ SensorHealth Manager::process( float zP, bool pRead, float zS, bool sRead ) noex
     bool pGood { pRead && ( kf_.nis( zP, rP ) <= kGate ) };
     bool sGood { sRead && ( kf_.nis( zS, rS ) <= kGate ) };
     bool ambiguous { false };
+    const bool crossChecked { pRead && sRead };
 
     if( pRead && sRead )
     {
@@ -86,6 +89,29 @@ SensorHealth Manager::process( float zP, bool pRead, float zS, bool sRead ) noex
         {
             /* exactly one matches the prediction: the other is the culprit */
         }
+    }
+
+    if( ambiguous )
+    {
+        ++ambiguousStreak_;
+
+        if( ambiguousStreak_ >= kAmbiguousLimit )
+        {
+            /* Sustained disagreement: the model can't arbitrate by gating,
+               so blame whichever sensor sits farther from the estimate. */
+            const float dP { ( zP > kf_.x() ) ? ( zP - kf_.x() ) : ( kf_.x() - zP ) };
+            const float dS { ( zS > kf_.x() ) ? ( zS - kf_.x() ) : ( kf_.x() - zS ) };
+            const float gap { ( zP > zS ) ? ( zP - zS ) : ( zS - zP ) };
+            const float margin { kArbitrateMargin * gap };
+
+            if( ( dS - dP ) > margin )      { pGood = true;  sGood = false; ambiguous = false; }
+            else if( ( dP - dS ) > margin ) { pGood = false; sGood = true;  ambiguous = false; }
+            /* else: equidistant, stay ambiguous */
+        }
+    }
+    else
+    {
+        ambiguousStreak_ = 0U;
     }
 
     if( ambiguous )
@@ -118,11 +144,14 @@ SensorHealth Manager::process( float zP, bool pRead, float zS, bool sRead ) noex
         }
     }
 
-    /* Ambiguous cycles blame nobody; read failures and outliers do */
+    /* Ambiguous cycles blame nobody; read failures and cross-checked
+       outliers do. With only one sensor reading, a gate rejection has no
+       corroboration (it may be a real step), so it isn't held against
+       the sensor: the reseed path handles it instead. */
     if( !ambiguous )
     {
-        primaryFaults_.record( !pGood );
-        secondaryFaults_.record( !sGood );
+        primaryFaults_.record( !pRead || ( crossChecked && !pGood ) );
+        secondaryFaults_.record( !sRead || ( crossChecked && !sGood ) );
     }
 
     const bool pBad { primaryFaults_.tripped() };
