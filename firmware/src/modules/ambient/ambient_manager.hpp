@@ -65,6 +65,7 @@ private:
     filter::FaultCounter primaryFaults_;
     filter::FaultCounter secondaryFaults_;
     uint8_t              rejectStreak_ { 0U };
+    uint8_t              ambiguousStreak_ { 0U };
 };
 
 } /* namespace ambient */

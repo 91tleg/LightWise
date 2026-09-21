@@ -217,3 +217,38 @@ TEST_F( AmbientManagerTest, AcceptsRealStepWhenBothSensorsAgree )
     EXPECT_NEAR( data.lux, 500.0f, 5.0f );
     EXPECT_EQ( data.health, SensorHealth::SYSTEM_OK );
 }
+
+/* Sustained ambiguity is resolved by distance from the estimate. */
+
+TEST_F( AmbientManagerTest, SustainedDisagreementBlamesSensorFartherFromEstimate )
+{
+    Warm( 100.0f, 10 );
+
+    /* Secondary drifts by an amount the widened P keeps letting through. */
+    SensorHealth last { SensorHealth::SYSTEM_OK };
+    for( int i { 0 }; i < 40; ++i )
+    {
+        static_cast< void >( Step( 100.0f, true, 100.0f + 3.0f * static_cast< float >( i ), true ) );
+        last = data.health;
+        if( last == SensorHealth::SECONDARY_FAIL ) { break; }
+    }
+
+    EXPECT_EQ( last, SensorHealth::SECONDARY_FAIL );
+    EXPECT_NEAR( data.lux, 100.0f, 15.0f );
+}
+
+/* One sensor unreadable: a real step must not fault the survivor. */
+
+TEST_F( AmbientManagerTest, SingleSensorStepDoesNotFaultTheSurvivor )
+{
+    Warm( 100.0f, 10 );
+
+    for( int i { 0 }; i < 12; ++i )
+    {
+        EXPECT_TRUE( Step( 800.0f, true, 0.0f, false ) );
+        EXPECT_NE( data.health, SensorHealth::PRIMARY_FAIL ) << "cycle " << i;
+        EXPECT_NE( data.health, SensorHealth::TOTAL_FAILURE ) << "cycle " << i;
+    }
+
+    EXPECT_NEAR( data.lux, 800.0f, 10.0f );   /* reseeded onto the new level */
+}
