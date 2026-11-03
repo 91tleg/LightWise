@@ -1,6 +1,6 @@
 boto3==1.42.54
 botocore==1.42.54
-certifi==2026.2.25
+certifi==2026.10.18
 cffi==2.0.0
 cryptography==48.0.1
 flake8==7.3.0
